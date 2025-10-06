@@ -45,7 +45,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
   const [isMobile, setIsMobile] = useState(false);
   const [lastQuestionNumber, setLastQuestionNumber] = useState<string | null>(null); // 🔹 NEW: Track last question
-  const [imageCache, setImageCache] = useState<Map<string, { exam: string[], marking: string[] }>>(new Map()); // 🔹 NEW: Cache images
+  const [imageCache, setImageCache] = useState<Map<string, { exam: string[], markingSchemeText: string, questionText: string }>>(new Map()); // 🔹 NEW: Cache images
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -309,14 +309,14 @@ This helps me give you the most accurate and focused help! 😊`;
   };
 
   // 🔹 NEW: Fetch and cache question images
-  const fetchQuestionImages = async (questionNumber: string) => {
+  const fetchQuestionData = async (questionNumber: string) => {
     // Check cache first
     if (imageCache.has(questionNumber)) {
-      console.log(`📦 Using cached images for Question ${questionNumber}`);
+      console.log(`📦 Using cached data for Question ${questionNumber}`);
       return imageCache.get(questionNumber)!;
     }
 
-    console.log(`🔍 Fetching images for Question ${questionNumber}`);
+    console.log(`🔍 Fetching data for Question ${questionNumber}`);
 
     const { data: questionData, error: questionError } = await supabase
       .from('exam_questions')
@@ -329,23 +329,23 @@ This helps me give you the most accurate and focused help! 😊`;
       return null;
     }
 
-    const imageUrls = questionData.image_urls && questionData.image_urls.length > 0 
-      ? questionData.image_urls 
+    const imageUrls = questionData.image_urls && questionData.image_urls.length > 0
+      ? questionData.image_urls
       : [questionData.image_url];
-    
+
     const base64Images: string[] = [];
-    
+
     for (let i = 0; i < imageUrls.length; i++) {
       const imageUrl = imageUrls[i];
       if (!imageUrl) continue;
-      
+
       try {
         const imageResponse = await fetch(imageUrl);
         if (!imageResponse.ok) continue;
-        
+
         const imageBlob = await imageResponse.blob();
         const reader = new FileReader();
-        
+
         const base64Image = await new Promise<string>((resolve, reject) => {
           reader.onloadend = () => {
             const result = reader.result as string;
@@ -355,62 +355,24 @@ This helps me give you the most accurate and focused help! 😊`;
           reader.onerror = reject;
           reader.readAsDataURL(imageBlob);
         });
-        
+
         base64Images.push(base64Image);
       } catch (error) {
         console.error(`Failed to load image ${i + 1}:`, error);
       }
     }
 
-    // Fetch marking scheme images
-    const schemeBase64Images: string[] = [];
-    if (examPaper?.marking_schemes) {
-      const { data: schemeQuestionData } = await supabase
-        .from('marking_scheme_questions')
-        .select('image_url, image_urls')
-        .eq('exam_paper_id', examPaper.id)
-        .eq('question_number', questionNumber)
-        .maybeSingle();
+    const result = {
+      exam: base64Images,
+      markingSchemeText: questionData.marking_scheme_text || '',
+      questionText: questionData.ocr_text || ''
+    };
 
-      if (schemeQuestionData) {
-        const schemeImageUrls = schemeQuestionData.image_urls && schemeQuestionData.image_urls.length > 0
-          ? schemeQuestionData.image_urls
-          : [schemeQuestionData.image_url];
-
-        for (const imageUrl of schemeImageUrls) {
-          if (!imageUrl) continue;
-          
-          try {
-            const imageResponse = await fetch(imageUrl);
-            if (!imageResponse.ok) continue;
-            
-            const imageBlob = await imageResponse.blob();
-            const reader = new FileReader();
-            
-            const base64Image = await new Promise<string>((resolve, reject) => {
-              reader.onloadend = () => {
-                const result = reader.result as string;
-                const base64 = result.split(',')[1];
-                resolve(base64);
-              };
-              reader.onerror = reject;
-              reader.readAsDataURL(imageBlob);
-            });
-            
-            schemeBase64Images.push(base64Image);
-          } catch (error) {
-            console.error('Failed to load marking scheme image:', error);
-          }
-        }
-      }
-    }
-
-    const result = { exam: base64Images, marking: schemeBase64Images };
-    
-    // Cache the images
+    // Cache the data
     setImageCache(prev => new Map(prev).set(questionNumber, result));
-    console.log(`💾 Cached images for Question ${questionNumber}`);
-    
+    console.log(`💾 Cached data for Question ${questionNumber}`);
+    console.log(`📝 Marking scheme text available: ${!!result.markingSchemeText}`);
+
     return result;
   };
 
@@ -451,16 +413,21 @@ This helps me give you the most accurate and focused help! 😊`;
         requestBody.examPaperImages = []; // Empty - backend will use history
         requestBody.markingSchemeImages = [];
       } else if (questionNumber) {
-        // 🔹 NEW QUESTION: Fetch images (from cache if available)
-        const images = await fetchQuestionImages(questionNumber);
-        
-        if (images && images.exam.length > 0) {
-          console.log(`✅ Question ${questionNumber} found - sending ${images.exam.length + images.marking.length} images`);
+        // 🔹 NEW QUESTION: Fetch data (from cache if available)
+        const questionData = await fetchQuestionData(questionNumber);
+
+        if (questionData && questionData.exam.length > 0) {
+          console.log(`✅ Question ${questionNumber} found`);
+          console.log(`   - Exam images: ${questionData.exam.length}`);
+          console.log(`   - Marking scheme: TEXT (not images)`);
+          console.log(`💰 Cost optimization: Using text instead of marking scheme images`);
+
           requestBody.optimizedMode = true;
           requestBody.questionNumber = questionNumber;
-          requestBody.examPaperImages = images.exam;
-          requestBody.markingSchemeImages = images.marking;
-          
+          requestBody.examPaperImages = questionData.exam;
+          requestBody.markingSchemeText = questionData.markingSchemeText;
+          requestBody.questionText = questionData.questionText;
+
           // Update last question number
           setLastQuestionNumber(questionNumber);
         } else {
@@ -549,12 +516,19 @@ This helps me give you the most accurate and focused help! 😊`;
         console.log(`💰 FOLLOW-UP: Saved 100% of image costs (0 images sent, used conversation history)`);
       } else if (requestBody.optimizedMode) {
         const totalPossible = examPaperImages.length + markingSchemeImages.length;
-        const actualSent = requestBody.examPaperImages?.length + requestBody.markingSchemeImages?.length || 0;
-        const savings = Math.round(((totalPossible - actualSent) / totalPossible) * 100);
-        console.log(`✅ Used optimized mode: sent ${actualSent} image(s) instead of ${totalPossible}`);
+        const examImagesSent = requestBody.examPaperImages?.length || 0;
+        const markingSchemeImagesSaved = markingSchemeImages.length;
+        const usedText = requestBody.markingSchemeText ? true : false;
+
+        console.log(`✅ OPTIMIZED MODE:`);
+        console.log(`   - Exam images sent: ${examImagesSent} (only for this question)`);
+        console.log(`   - Marking scheme: ${usedText ? 'TEXT (0 images)' : 'No marking scheme'}`);
+        console.log(`   - Total images saved: ${totalPossible - examImagesSent} out of ${totalPossible}`);
+
+        const savings = Math.round(((totalPossible - examImagesSent) / totalPossible) * 100);
         console.log(`💰 Cost savings: approximately ${savings}%`);
       } else {
-        console.log(`Used full PDF fallback mode (${examPaperImages.length + markingSchemeImages.length} images)`);
+        console.log(`⚠️ Used full PDF fallback mode (${examPaperImages.length + markingSchemeImages.length} images)`);
       }
 
       setMessages((prev) => {

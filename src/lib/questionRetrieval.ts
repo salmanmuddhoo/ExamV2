@@ -3,7 +3,8 @@ import { supabase } from './supabase';
 export interface QuestionData {
   questionNumber: string;
   examImages: string[];
-  markingSchemeImages: string[];
+  markingSchemeText: string;
+  questionText: string;
 }
 
 export function parseQuestionNumber(query: string): string | null {
@@ -79,40 +80,11 @@ export async function getQuestionImages(
       examImages.push(base64);
     }
 
-    let markingSchemeImages: string[] = [];
-
-    if (markingSchemeId) {
-      const { data: schemeQuestion, error: schemeError } = await supabase
-        .from('marking_scheme_questions')
-        .select('*')
-        .eq('marking_scheme_id', markingSchemeId)
-        .eq('question_number', normalizedQuestionNumber)
-        .maybeSingle();
-
-      if (schemeError) {
-        console.error('Error fetching marking scheme question:', schemeError);
-      } else if (schemeQuestion) {
-        for (const imagePath of schemeQuestion.image_paths) {
-          const { data, error } = await supabase.storage
-            .from('marking-schemes')
-            .download(imagePath);
-
-          if (error) {
-            console.error('Error downloading marking scheme image:', error);
-            continue;
-          }
-
-          const arrayBuffer = await data.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-          markingSchemeImages.push(base64);
-        }
-      }
-    }
-
     return {
       questionNumber: normalizedQuestionNumber,
       examImages,
-      markingSchemeImages,
+      markingSchemeText: examQuestion.marking_scheme_text || '',
+      questionText: examQuestion.ocr_text || '',
     };
   } catch (error) {
     console.error('Error in getQuestionImages:', error);
