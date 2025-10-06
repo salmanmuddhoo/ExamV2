@@ -172,8 +172,6 @@ USING image_url[1];
 ALTER TABLE exam_questions 
 DROP COLUMN IF EXISTS image_paths;
 
-ALTER TABLE marking_scheme_questions
-RENAME COLUMN image_urls TO image_url;
 
 ALTER TABLE marking_scheme_questions
 ALTER COLUMN image_url TYPE TEXT 
