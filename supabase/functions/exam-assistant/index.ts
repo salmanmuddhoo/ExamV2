@@ -73,9 +73,10 @@ async function loadConversationHistory(
   supabaseClient: any,
   conversationId: string | null,
   examPaperId: string,
-  userId: string
+  userId: string,
+  questionNumber: string | null
 ): Promise<{ role: string; parts: any[] }[]> {
-  if (!conversationId) {
+  if (!conversationId || !questionNumber) {
     return [];
   }
 
@@ -84,6 +85,7 @@ async function loadConversationHistory(
       .from('conversation_messages')
       .select('role, content, question_number, has_images')
       .eq('conversation_id', conversationId)
+      .eq('question_number', questionNumber)
       .order('created_at', { ascending: true })
       .limit(10);
 
@@ -93,6 +95,8 @@ async function loadConversationHistory(
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
+
+    console.log(`Loaded ${history.length} messages for Question ${questionNumber}`);
 
     return history;
   } catch (error) {
@@ -367,14 +371,22 @@ Deno.serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const conversationHistory = await loadConversationHistory(
-      supabase,
-      conversationId,
-      examPaperId,
-      userId
-    );
+    let conversationHistory = [];
 
-    console.log(`Loaded ${conversationHistory.length} previous messages for context`);
+    if (isFollowUp) {
+      conversationHistory = await loadConversationHistory(
+        supabase,
+        conversationId,
+        examPaperId,
+        userId,
+        detectedQuestionNumber
+      );
+      console.log(`📚 FOLLOW-UP: Loaded ${conversationHistory.length} previous messages for Question ${detectedQuestionNumber}`);
+      console.log(`💰 COST OPTIMIZATION: Reusing ${conversationHistory.length} cached messages instead of re-sending images`);
+    } else {
+      console.log(`🆕 NEW QUESTION: Starting fresh context for Question ${detectedQuestionNumber}`);
+      console.log(`💰 COST OPTIMIZATION: No history loaded (fresh question = no unnecessary context)`);
+    }
 
     const contents = [];
     contents.push(...conversationHistory);
