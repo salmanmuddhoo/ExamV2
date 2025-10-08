@@ -234,11 +234,30 @@ This helps me give you the most accurate and focused help! 😊`;
         content: msg.content,
         questionNumber: msg.question_number
       }));
-      
-      setMessages(loadedMessages);
+
+      // Check if conversation is from a previous day
+      if (loadedMessages.length > 0) {
+        const lastMessageTime = new Date(data[data.length - 1].created_at);
+        const today = new Date();
+        const isNewDay = lastMessageTime.toDateString() !== today.toDateString();
+
+        if (isNewDay) {
+          const welcomeBackMessage = {
+            role: 'assistant' as const,
+            content: `Welcome back! 👋\n\nI see you're continuing your work on this exam paper. Feel free to ask about any question you'd like to work on today!\n\nJust say something like:\n- "Question 3"\n- "Help with Q7"\n- "Let's do question 5"\n\nReady when you are!`,
+            questionNumber: null
+          };
+          setMessages([...loadedMessages, welcomeBackMessage]);
+        } else {
+          setMessages(loadedMessages);
+        }
+      } else {
+        setMessages(loadedMessages);
+      }
+
       setCurrentConversationId(convId);
-      
-      // 🔹 NEW: Set last question from loaded conversation
+
+      // Set last question from loaded conversation
       const lastMsg = loadedMessages.reverse().find(m => m.questionNumber);
       if (lastMsg?.questionNumber) {
         setLastQuestionNumber(lastMsg.questionNumber);
@@ -437,36 +456,63 @@ This helps me give you the most accurate and focused help! 😊`;
           requestBody.markingSchemeImages = markingSchemeImages;
         }
       } else {
-        // 🔹 NO QUESTION NUMBER: Ask student to clarify instead of using full PDF
-        console.log('⚠️ No question number detected - asking student for clarification');
-        
-        const clarificationMessage = `Hey! I'd love to help you with that. Could you please specify which question you're asking about? 
+        // 🔹 NO QUESTION NUMBER: Use last question if available, otherwise ask for clarification
+        console.log('⚠️ No question number detected');
 
-For example, you can say:
-- "Question 2"
-- "Q3b"
-- "Can you help with question 5?"
+        if (lastQuestionNumber) {
+          // User is continuing with the same question
+          console.log(`✅ Assuming continuation of Question ${lastQuestionNumber}`);
 
-This helps me give you the most accurate and focused help! 😊`;
+          const questionData = await fetchQuestionData(lastQuestionNumber);
 
-        setMessages((prev) => {
-          const newMessages = [...prev, { 
-            role: 'assistant', 
-            content: clarificationMessage,
-            questionNumber: null 
-          }];
-          return newMessages;
-        });
-        
-        setSending(false);
-        return;
-        
-        /* 🔹 COMMENTED OUT: Full PDF fallback mode
-        console.log('No question number detected, using full PDF');
-        requestBody.optimizedMode = false;
-        requestBody.examPaperImages = examPaperImages;
-        requestBody.markingSchemeImages = markingSchemeImages;
-        */
+          if (questionData && questionData.exam.length > 0) {
+            requestBody.optimizedMode = true;
+            requestBody.questionNumber = lastQuestionNumber;
+            requestBody.examPaperImages = questionData.exam;
+            requestBody.markingSchemeText = questionData.markingSchemeText;
+            requestBody.questionText = questionData.questionText;
+            console.log(`💬 Continuing conversation for Question ${lastQuestionNumber}`);
+          } else {
+            console.log(`❌ Question ${lastQuestionNumber} data not found`);
+            requestBody.optimizedMode = false;
+            requestBody.examPaperImages = examPaperImages;
+            requestBody.markingSchemeImages = markingSchemeImages;
+          }
+        } else if (messages.length === 1) {
+          // First message in a brand new conversation - ask if they mean Question 1
+          console.log('🆕 First message in new conversation - asking if they mean Question 1');
+
+          const firstQuestionConfirm = `Hey there! 👋\n\nI'd love to help you with that! Since this is your first question, are you asking about **Question 1**?\n\nIf yes, just type "yes" or "Question 1".\nIf you meant a different question, just tell me the question number like:\n- "Question 2"\n- "Q5"\n- "No, question 3"\n\nLet me know! 😊`;
+
+          setMessages((prev) => {
+            const newMessages = [...prev, {
+              role: 'assistant',
+              content: firstQuestionConfirm,
+              questionNumber: null
+            }];
+            return newMessages;
+          });
+
+          setSending(false);
+          return;
+        } else {
+          // Not the first message but no lastQuestionNumber - ask for clarification
+          console.log('❓ Asking student for clarification');
+
+          const clarificationMessage = generateClarificationMessage(userMessage);
+
+          setMessages((prev) => {
+            const newMessages = [...prev, {
+              role: 'assistant',
+              content: clarificationMessage,
+              questionNumber: null
+            }];
+            return newMessages;
+          });
+
+          setSending(false);
+          return;
+        }
       }
 
       /* 🔹 COMMENTED OUT: Full PDF validation check
@@ -710,10 +756,22 @@ This helps me give you the most accurate and focused help! 😊`;
               </div>
             ) : messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center max-w-sm">
-                  <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">
-                    Start a conversation with the AI tutor to get help with your exam questions
+                <div className="text-center max-w-sm px-6">
+                  <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Welcome to Your AI Study Assistant!</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    I'm here to help you understand and solve questions from this exam paper.
+                  </p>
+                  <div className="bg-gray-50 rounded-lg p-4 text-left">
+                    <p className="text-xs font-medium text-gray-700 mb-2">To get started, tell me which question you'd like help with:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• "Question 2"</li>
+                      <li>• "Help with Q5"</li>
+                      <li>• "Explain question 3b"</li>
+                    </ul>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-4">
+                    I'll guide you through step-by-step solutions and exam tips!
                   </p>
                 </div>
               </div>
