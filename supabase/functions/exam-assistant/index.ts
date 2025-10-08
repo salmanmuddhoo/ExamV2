@@ -69,11 +69,109 @@ function generateQuestionNotFoundResponse(
 Could you double-check the question number? Feel free to ask about any question from 1 to ${maxQuestion}, and I'll be happy to help!`;
 }
 
+// Store and retrieve cache information from Supabase
+async function getOrCreateCache(
+  supabaseClient: any,
+  examPaperId: string,
+  questionNumber: string,
+  examPaperImages: string[],
+  markingSchemeText: string | undefined,
+  questionText: string | undefined,
+  geminiApiKey: string
+): Promise<{ cacheName: string; isNewCache: boolean }> {
+  try {
+    // Check if cache exists in Supabase
+    const { data: existingCache, error: fetchError } = await supabaseClient
+      .from('gemini_caches')
+      .select('cache_name, created_at, expire_time')
+      .eq('exam_paper_id', examPaperId)
+      .eq('question_number', questionNumber)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Check if cache is still valid (Gemini caches expire after 1 hour by default)
+    if (existingCache && !fetchError) {
+      const expireTime = new Date(existingCache.expire_time);
+      const now = new Date();
+      
+      if (expireTime > now) {
+        console.log(`✅ Using existing Gemini cache: ${existingCache.cache_name}`);
+        return { cacheName: existingCache.cache_name, isNewCache: false };
+      } else {
+        console.log(`⏰ Cache expired, creating new one`);
+      }
+    }
+
+    // Create new cache
+    console.log(`🆕 Creating new Gemini cache for Question ${questionNumber}`);
+    
+    const cacheContents = [
+      {
+        role: "user",
+        parts: [
+          { text: SYSTEM_PROMPT },
+          { text: buildQuestionFocusPrompt(
+            `Question ${questionNumber}`,
+            questionNumber,
+            questionText,
+            markingSchemeText,
+            false
+          )},
+          ...examPaperImages.map((img) => ({
+            inline_data: { mime_type: "image/jpeg", data: img }
+          }))
+        ]
+      }
+    ];
+
+    const cacheResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "models/gemini-2.0-flash-exp",
+          contents: cacheContents,
+          ttl: "3600s" // 1 hour cache
+        })
+      }
+    );
+
+    if (!cacheResponse.ok) {
+      const errorText = await cacheResponse.text();
+      console.error("Gemini cache creation error:", errorText);
+      throw new Error(`Failed to create cache: ${cacheResponse.status}`);
+    }
+
+    const cacheData = await cacheResponse.json();
+    const cacheName = cacheData.name;
+    const expireTime = cacheData.expireTime;
+
+    console.log(`✨ Created cache: ${cacheName}, expires: ${expireTime}`);
+
+    // Store cache info in Supabase
+    await supabaseClient
+      .from('gemini_caches')
+      .insert({
+        cache_name: cacheName,
+        exam_paper_id: examPaperId,
+        question_number: questionNumber,
+        expire_time: expireTime,
+        created_at: new Date().toISOString()
+      });
+
+    return { cacheName, isNewCache: true };
+  } catch (error) {
+    console.error('Error managing cache:', error);
+    throw error;
+  }
+}
+
+// Load conversation history for follow-up questions
 async function loadConversationHistory(
   supabaseClient: any,
   conversationId: string | null,
-  examPaperId: string,
-  userId: string,
   questionNumber: string | null
 ): Promise<{ role: string; parts: any[] }[]> {
   if (!conversationId || !questionNumber) {
@@ -83,11 +181,11 @@ async function loadConversationHistory(
   try {
     const { data, error } = await supabaseClient
       .from('conversation_messages')
-      .select('role, content, question_number, has_images')
+      .select('role, content, question_number')
       .eq('conversation_id', conversationId)
       .eq('question_number', questionNumber)
       .order('created_at', { ascending: true })
-      .limit(4);
+      .limit(10); // Increased limit since we're not sending images repeatedly
 
     if (error) throw error;
 
@@ -96,8 +194,7 @@ async function loadConversationHistory(
       parts: [{ text: msg.content }]
     }));
 
-    console.log(`Loaded ${history.length} messages for Question ${questionNumber}`);
-
+    console.log(`📚 Loaded ${history.length} messages for Question ${questionNumber}`);
     return history;
   } catch (error) {
     console.error('Error loading conversation history:', error);
@@ -183,7 +280,7 @@ function buildQuestionFocusPrompt(
     prompt += `FOLLOW-UP QUESTION - USE CONVERSATION CONTEXT
 
 The student is asking a follow-up question about the same topic we've been discussing.
-You already have the exam paper images in context from the previous message.
+You already have the exam paper images in context from the cached content.
 
 DO NOT ask the student to repeat information. Instead:
 1. Reference the previous discussion naturally
@@ -229,7 +326,6 @@ Answer ONLY that question, ignore others.
 `;
   }
   
-  // Add marking scheme text if available
   if (markingSchemeText && markingSchemeText.trim().length > 0) {
     prompt += `MARKING SCHEME FOR THIS QUESTION (INTERNAL REFERENCE ONLY):
 ${markingSchemeText}
@@ -291,24 +387,24 @@ Deno.serve(async (req) => {
     console.log(`Original question: "${question}"`);
     console.log(`Extracted question number: "${extractedQuestionNumber}"`);
     console.log(`Last question number: "${lastQuestionNumber}"`);
-    console.log(`Has marking scheme text: ${!!markingSchemeText}`);
     
     const isFollowUp = extractedQuestionNumber && lastQuestionNumber && 
                        extractedQuestionNumber === lastQuestionNumber;
     
     console.log(`Is follow-up question: ${isFollowUp}`);
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase credentials not configured');
+    }
+
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Validate question exists
     if (extractedQuestionNumber && !isFollowUp) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-      
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase credentials not configured');
-      }
-
-      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
       const validation = await validateQuestionExists(
         supabase,
         examPaperId,
@@ -337,21 +433,7 @@ Deno.serve(async (req) => {
       console.log(`Question ${extractedQuestionNumber} validated successfully`);
     }
 
-    let finalExamImages = [];
-    let usedOptimizedMode = false;
-    let detectedQuestionNumber = extractedQuestionNumber;
-
-    if (isFollowUp) {
-      console.log(`Follow-up question detected - using conversation context without re-sending images`);
-      finalExamImages = [];
-      usedOptimizedMode = true;
-    } else if (optimizedMode && examPaperImages && examPaperImages.length > 0) {
-      console.log(`Using OPTIMIZED mode for question ${detectedQuestionNumber}`);
-      console.log(`Received ${examPaperImages.length} pre-fetched image(s)`);
-      console.log(`Using marking scheme TEXT instead of images`);
-      finalExamImages = examPaperImages;
-      usedOptimizedMode = true;
-    } else {
+    if (!optimizedMode || !examPaperImages || examPaperImages.length === 0) {
       console.log('No images provided - frontend should handle this with clarification');
       return new Response(
         JSON.stringify({
@@ -361,57 +443,53 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
-
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiApiKey) throw new Error("GEMINI_API_KEY not configured");
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    let cacheName: string;
+    let isNewCache: boolean;
 
-    let conversationHistory = [];
+    // Get or create Gemini cache for this specific question
+    // Each question number gets its own cache because they have different images and marking schemes
+    const cacheResult = await getOrCreateCache(
+      supabase,
+      examPaperId,
+      extractedQuestionNumber!,
+      examPaperImages,
+      markingSchemeText,
+      questionText,
+      geminiApiKey
+    );
+    cacheName = cacheResult.cacheName;
+    isNewCache = cacheResult.isNewCache;
+    
+    if (isNewCache) {
+      console.log(`🆕 NEW QUESTION: Created cache for Q${extractedQuestionNumber} (one-time cost)`);
+    } else {
+      console.log(`♻️ REUSING CACHE: Q${extractedQuestionNumber} cache exists (FREE!)`);
+    }
 
+    // Load conversation history for follow-up questions
+    let conversationHistory: any[] = [];
     if (isFollowUp) {
       conversationHistory = await loadConversationHistory(
         supabase,
         conversationId,
-        examPaperId,
-        userId,
-        detectedQuestionNumber
+        extractedQuestionNumber
       );
-      console.log(`📚 FOLLOW-UP: Loaded ${conversationHistory.length} previous messages for Question ${detectedQuestionNumber}`);
-      console.log(`💰 COST OPTIMIZATION: Reusing ${conversationHistory.length} cached messages instead of re-sending images`);
-    } else {
-      console.log(`🆕 NEW QUESTION: Starting fresh context for Question ${detectedQuestionNumber}`);
-      console.log(`💰 COST OPTIMIZATION: No history loaded (fresh question = no unnecessary context)`);
+      console.log(`📚 Loaded ${conversationHistory.length} previous messages`);
     }
 
-    const contents = [];
-    contents.push(...conversationHistory);
-
-    const currentMessageParts: any[] = [
-      { text: SYSTEM_PROMPT },
-      { text: buildQuestionFocusPrompt(
-        normalizedQuestion, 
-        detectedQuestionNumber, 
-        questionText,
-        markingSchemeText,
-        isFollowUp
-      )}
-    ];
-
-    if (!isFollowUp) {
-      const imageParts = finalExamImages.map((img) => ({
-        inline_data: { mime_type: "image/jpeg", data: img }
-      }));
-      currentMessageParts.push(...imageParts);
-    }
-
+    // Build the request using cached content
+    const contents = [...conversationHistory];
+    
+    // Add current question
     contents.push({
       role: "user",
-      parts: currentMessageParts
+      parts: [{ text: isFollowUp 
+        ? `Follow-up: ${normalizedQuestion}` 
+        : normalizedQuestion 
+      }]
     });
 
     const response = await fetch(
@@ -420,6 +498,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          cachedContent: cacheName,
           contents: contents,
           generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
         })
@@ -435,15 +514,23 @@ Deno.serve(async (req) => {
     const data = await response.json();
     const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated";
 
+    // Log usage metadata
+    if (data?.usageMetadata) {
+      console.log(`📊 Token usage - Cached: ${data.usageMetadata.cachedContentTokenCount || 0}, New: ${data.usageMetadata.promptTokenCount || 0}`);
+    }
+
     return new Response(
       JSON.stringify({
         answer: aiResponse,
         model: "gemini-2.0-flash-exp",
         provider: "gemini",
-        optimized: usedOptimizedMode,
-        questionNumber: detectedQuestionNumber,
-        imagesUsed: finalExamImages.length,
+        optimized: true,
+        questionNumber: extractedQuestionNumber,
+        imagesUsed: examPaperImages.length,
         isFollowUp: isFollowUp,
+        usedGeminiCache: true,
+        cacheWasNew: isNewCache,
+        cacheName: cacheName,
         conversationHistoryUsed: conversationHistory.length,
         usedMarkingSchemeText: !!markingSchemeText
       }),
