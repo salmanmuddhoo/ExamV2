@@ -87,7 +87,7 @@ async function loadConversationHistory(
       .eq('conversation_id', conversationId)
       .eq('question_number', questionNumber)
       .order('created_at', { ascending: true })
-      .limit(10);
+      .limit(4);
 
     if (error) throw error;
 
