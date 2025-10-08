@@ -691,11 +691,7 @@ This helps me give you the most accurate and focused help! 😊`;
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600">Loading PDF...</p>
-            {pdfLoadAttempts > 0 && (
-              <p className="text-xs text-gray-500 mt-2">
-                Trying alternative viewer (attempt {pdfLoadAttempts + 1}/4)
-              </p>
-            )}
+            
           </div>
         </div>
       );
