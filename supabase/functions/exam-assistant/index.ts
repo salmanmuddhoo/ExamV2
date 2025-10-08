@@ -131,7 +131,7 @@ async function getOrCreateCache(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "models/gemini-2.0-flash-exp",
+          model: "models/gemini-2.0-flash-001",
           contents: cacheContents,
           ttl: "3600s" // 1 hour cache
         })
