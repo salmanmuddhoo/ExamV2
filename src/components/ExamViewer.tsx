@@ -121,22 +121,25 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
       clearTimeout(loadTimeoutRef.current);
     }
 
-    console.log(`Attempting to load PDF with method: ${currentViewerMethod} (attempt ${pdfLoadAttempts + 1})`);
+    console.log(`📄 Attempting to load PDF with method: ${currentViewerMethod} (attempt ${pdfLoadAttempts + 1})`);
 
     // Set a timeout to try next method if this one fails
     loadTimeoutRef.current = setTimeout(() => {
       if (pdfLoading && pdfLoadAttempts < 3) {
-        console.warn(`PDF load timeout with method: ${currentViewerMethod}, trying next method...`);
+        console.warn(`⏱️ PDF load timeout with method: ${currentViewerMethod}, trying next method...`);
         tryNextViewerMethod();
+      } else if (pdfLoading && pdfLoadAttempts >= 3) {
+        console.error('❌ All PDF loading methods failed');
+        setPdfLoading(false);
       }
-    }, 10000); // 10 second timeout per method
+    }, 15000); // 15 second timeout per method
 
     return () => {
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, [pdfBlobUrl, currentViewerMethod, pdfLoadAttempts, isMobile]);
+  }, [pdfBlobUrl, currentViewerMethod, pdfLoadAttempts, isMobile, pdfLoading]);
 
   const tryNextViewerMethod = () => {
     const methods: PDFViewerMethod[] = ['pdfjs', 'google', 'office', 'direct'];
@@ -862,27 +865,29 @@ This helps me give you the most accurate and focused help! 😊`;
                   </p>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <>
+                {messages.map((message, index) => (
+                  <ChatMessage
+                    key={index}
+                    role={message.role}
+                    content={message.content}
+                    isStreaming={index === streamingMessageIndex}
+                    onStreamUpdate={scrollToBottom}
+                  />
+                ))}
 
-            {messages.map((message, index) => (
-              <ChatMessage
-                key={index}
-                role={message.role}
-                content={message.content}
-                isStreaming={index === streamingMessageIndex}
-                onStreamUpdate={scrollToBottom}
-              />
-            ))}
+                {sending && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-2.5">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  </div>
+                )}
 
-            {sending && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-2.5">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                </div>
-              </div>
+                <div ref={messagesEndRef} />
+              </>
             )}
-
-            <div ref={messagesEndRef} />
           </div>
 
           {user && (
