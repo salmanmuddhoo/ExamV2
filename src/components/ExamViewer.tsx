@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
@@ -28,15 +28,11 @@ interface Props {
   onLoginRequired: () => void;
 }
 
-type PDFViewerMethod = 'pdfjs' | 'google' | 'direct' | 'office';
-
 export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }: Props) {
   const { user } = useAuth();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
   const [pdfLoading, setPdfLoading] = useState(true);
-  const [pdfLoadAttempts, setPdfLoadAttempts] = useState(0);
-  const [currentViewerMethod, setCurrentViewerMethod] = useState<PDFViewerMethod>('pdfjs');
   const [examPaperImages, setExamPaperImages] = useState<string[]>([]);
   const [markingSchemeImages, setMarkingSchemeImages] = useState<string[]>([]);
   const [processingPdfs, setProcessingPdfs] = useState(false);
@@ -48,11 +44,9 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
   const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
   const [isMobile, setIsMobile] = useState(false);
-  const [lastQuestionNumber, setLastQuestionNumber] = useState<string | null>(null);
-  const [imageCache, setImageCache] = useState<Map<string, { exam: string[], markingSchemeText: string, questionText: string }>>(new Map());
+  const [lastQuestionNumber, setLastQuestionNumber] = useState<string | null>(null); // 🔹 NEW: Track last question
+  const [imageCache, setImageCache] = useState<Map<string, { exam: string[], markingSchemeText: string, questionText: string }>>(new Map()); // 🔹 NEW: Cache images
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchExamPaper();
@@ -112,65 +106,11 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
     }
   }, [examPaper, isMobile]);
 
-  // Handle PDF load attempts with automatic fallback
-  useEffect(() => {
-    if (!pdfBlobUrl || !isMobile) return;
-
-    // Clear any existing timeout
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-    }
-
-    console.log(`📄 Attempting to load PDF with method: ${currentViewerMethod} (attempt ${pdfLoadAttempts + 1})`);
-
-    // Set a timeout to try next method if this one fails
-    loadTimeoutRef.current = setTimeout(() => {
-      if (pdfLoading && pdfLoadAttempts < 3) {
-        console.warn(`⏱️ PDF load timeout with method: ${currentViewerMethod}, trying next method...`);
-        tryNextViewerMethod();
-      } else if (pdfLoading && pdfLoadAttempts >= 3) {
-        console.error('❌ All PDF loading methods failed');
-        setPdfLoading(false);
-      }
-    }, 15000); // 15 second timeout per method
-
-    return () => {
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-      }
-    };
-  }, [pdfBlobUrl, currentViewerMethod, pdfLoadAttempts, isMobile, pdfLoading]);
-
-  const tryNextViewerMethod = () => {
-    const methods: PDFViewerMethod[] = ['pdfjs', 'google', 'office', 'direct'];
-    const currentIndex = methods.indexOf(currentViewerMethod);
-    const nextIndex = (currentIndex + 1) % methods.length;
-    
-    setPdfLoadAttempts(prev => prev + 1);
-    setCurrentViewerMethod(methods[nextIndex]);
-    setPdfLoading(true);
-  };
-
-  const handleIframeLoad = () => {
-    console.log(`✅ PDF loaded successfully with method: ${currentViewerMethod}`);
-    setPdfLoading(false);
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-    }
-  };
-
-  const handleIframeError = () => {
-    console.error(`❌ PDF failed to load with method: ${currentViewerMethod}`);
-    if (pdfLoadAttempts < 3) {
-      tryNextViewerMethod();
-    } else {
-      setPdfLoading(false);
-    }
-  };
-
+  // 🔹 NEW: Generate contextual clarification message
   const generateClarificationMessage = (userInput: string) => {
     const lowerInput = userInput.toLowerCase();
     
+    // Check if student is asking vague questions
     if (lowerInput.includes('help') || lowerInput.includes('stuck') || lowerInput.includes('don\'t understand')) {
       return `Hey! I can see you need help. To give you the best explanation, could you tell me which specific question you're working on?
 
@@ -204,6 +144,7 @@ Just tell me like:
 Let me know and I'll guide you through it! ✨`;
     }
     
+    // Default clarification
     return `Hey! I'd love to help you with that. Could you please specify which question you're asking about? 
 
 For example, you can say:
@@ -228,86 +169,49 @@ This helps me give you the most accurate and focused help! 😊`;
     return null;
   };
 
-  const getPdfViewerUrl = (publicUrl: string, method: PDFViewerMethod): string => {
-    const encodedUrl = encodeURIComponent(publicUrl);
-    
-    switch (method) {
-      case 'pdfjs':
-        // Use PDF.js with proper CORS settings
-        return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodedUrl}`;
-      case 'google':
-        return `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
-      case 'office':
-        return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`;
-      case 'direct':
-      default:
-        // For direct, return the URL with explicit PDF mime type hint
-        return `${publicUrl}#toolbar=0&navpanes=0&scrollbar=1`;
-    }
-  };
-
   const loadPdfBlob = async () => {
     if (!examPaper) return;
 
     try {
       setPdfLoading(true);
       setProcessingPdfs(true);
-      setPdfLoadAttempts(0);
 
-      // Get public URL first for mobile
-      const { data: { publicUrl } } = supabase.storage
-        .from('exam-papers')
-        .getPublicUrl(examPaper.pdf_path);
-      
-      console.log('PDF public URL:', publicUrl);
-      console.log('Is mobile:', isMobile);
-
-      if (isMobile) {
-        // For mobile, use public URL directly with the viewer methods
-        setPdfBlobUrl(publicUrl);
-      } else {
-        // For desktop, download and create blob URL
-        const { data, error } = await supabase.storage
-          .from('exam-papers')
-          .download(examPaper.pdf_path);
-
-        if (error) {
-          console.error('Error downloading PDF for desktop:', error);
-          // Fallback to public URL for desktop too
-          setPdfBlobUrl(publicUrl);
-        } else {
-          const pdfBlob = new Blob([data], { type: 'application/pdf' });
-          const url = URL.createObjectURL(pdfBlob);
-          setPdfBlobUrl(url);
-        }
-      }
-
-      // Process images for AI (only download once)
-      const { data: pdfData, error: downloadError } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from('exam-papers')
         .download(examPaper.pdf_path);
 
-      if (!downloadError && pdfData) {
-        const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
-        const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
-        const examImages = await convertPdfToBase64Images(examFile);
-        setExamPaperImages(examImages.map(img => img.inlineData.data));
+      if (error) throw error;
 
-        if (examPaper.marking_schemes?.pdf_path) {
-          try {
-            const { data: schemeData } = await supabase.storage
-              .from('marking-schemes')
-              .download(examPaper.marking_schemes.pdf_path);
+      const pdfBlob = new Blob([data], { type: 'application/pdf' });
 
-            if (schemeData) {
-              const schemeBlob = new Blob([schemeData], { type: 'application/pdf' });
-              const schemeFile = new File([schemeBlob], 'scheme.pdf', { type: 'application/pdf' });
-              const schemeImages = await convertPdfToBase64Images(schemeFile);
-              setMarkingSchemeImages(schemeImages.map(img => img.inlineData.data));
-            }
-          } catch (schemeError) {
-            console.error('Error loading marking scheme:', schemeError);
+      if (isMobile) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('exam-papers')
+          .getPublicUrl(examPaper.pdf_path);
+        setPdfBlobUrl(publicUrl);
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        setPdfBlobUrl(url);
+      }
+
+      const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
+      const examImages = await convertPdfToBase64Images(examFile);
+      setExamPaperImages(examImages.map(img => img.inlineData.data));
+
+      if (examPaper.marking_schemes?.pdf_path) {
+        try {
+          const { data: schemeData } = await supabase.storage
+            .from('marking-schemes')
+            .download(examPaper.marking_schemes.pdf_path);
+
+          if (schemeData) {
+            const schemeBlob = new Blob([schemeData], { type: 'application/pdf' });
+            const schemeFile = new File([schemeBlob], 'scheme.pdf', { type: 'application/pdf' });
+            const schemeImages = await convertPdfToBase64Images(schemeFile);
+            setMarkingSchemeImages(schemeImages.map(img => img.inlineData.data));
           }
+        } catch (schemeError) {
+          console.error('Error loading marking scheme:', schemeError);
         }
       }
     } catch (error) {
@@ -317,10 +221,8 @@ This helps me give you the most accurate and focused help! 😊`;
         .getPublicUrl(examPaper.pdf_path);
       setPdfBlobUrl(publicUrl || examPaper.pdf_url);
     } finally {
+      setPdfLoading(false);
       setProcessingPdfs(false);
-      if (!isMobile) {
-        setPdfLoading(false);
-      }
     }
   };
 
@@ -362,6 +264,7 @@ This helps me give you the most accurate and focused help! 😊`;
         questionNumber: msg.question_number
       }));
 
+      // Check if conversation is from a previous day
       if (loadedMessages.length > 0) {
         const lastMessageTime = new Date(data[data.length - 1].created_at);
         const today = new Date();
@@ -383,15 +286,11 @@ This helps me give you the most accurate and focused help! 😊`;
 
       setCurrentConversationId(convId);
 
+      // Set last question from loaded conversation
       const lastMsg = loadedMessages.reverse().find(m => m.questionNumber);
       if (lastMsg?.questionNumber) {
         setLastQuestionNumber(lastMsg.questionNumber);
       }
-
-      // Scroll to bottom after messages are loaded
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
     } catch (error) {
       console.error('Error loading conversation:', error);
     }
@@ -408,6 +307,7 @@ This helps me give you the most accurate and focused help! 😊`;
       let convId = currentConversationId;
 
       if (!convId) {
+        // Check for existing conversation first
         const { data: existingConv } = await supabase
           .from('conversations')
           .select('id')
@@ -419,6 +319,7 @@ This helps me give you the most accurate and focused help! 😊`;
           convId = existingConv.id;
           setCurrentConversationId(convId);
         } else {
+          // Create new conversation only if none exists
           const title = examPaper?.title || userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : '');
 
           const { data: newConv, error: convError } = await supabase
@@ -437,6 +338,7 @@ This helps me give you the most accurate and focused help! 😊`;
         }
       }
 
+      // 🔹 NEW: Save with question_number and has_images metadata
       const { error: msgError } = await supabase
         .from('conversation_messages')
         .insert([
@@ -464,11 +366,13 @@ This helps me give you the most accurate and focused help! 😊`;
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
     }
   };
 
+  // 🔹 NEW: Fetch and cache question images
   const fetchQuestionData = async (questionNumber: string) => {
+    // Check cache first
     if (imageCache.has(questionNumber)) {
       console.log(`📦 Using cached data for Question ${questionNumber}`);
       return imageCache.get(questionNumber)!;
@@ -526,8 +430,10 @@ This helps me give you the most accurate and focused help! 😊`;
       questionText: questionData.ocr_text || ''
     };
 
+    // Cache the data
     setImageCache(prev => new Map(prev).set(questionNumber, result));
     console.log(`💾 Cached data for Question ${questionNumber}`);
+    console.log(`📝 Marking scheme text available: ${!!result.markingSchemeText}`);
 
     return result;
   };
@@ -545,6 +451,11 @@ This helps me give you the most accurate and focused help! 😊`;
     try {
       const questionNumber = extractQuestionNumber(userMessage);
       
+      console.log('Original input:', userMessage);
+      console.log('Extracted question number:', questionNumber);
+      console.log('Last question number:', lastQuestionNumber);
+      
+      // 🔹 NEW: Check if this is a follow-up on the same question
       const isFollowUp = questionNumber && lastQuestionNumber && questionNumber === lastQuestionNumber;
       
       let requestBody: any = {
@@ -553,34 +464,48 @@ This helps me give you the most accurate and focused help! 😊`;
         examPaperId: examPaper.id,
         conversationId: currentConversationId,
         userId: user?.id,
-        lastQuestionNumber: lastQuestionNumber,
+        lastQuestionNumber: lastQuestionNumber, // Send last question for context
       };
 
       if (isFollowUp) {
-        console.log(`💬 Follow-up question detected`);
+        // 🔹 FOLLOW-UP: Don't send images, use conversation history
+        console.log(`💬 Follow-up question detected - using conversation context (no images sent)`);
         requestBody.optimizedMode = true;
         requestBody.questionNumber = questionNumber;
-        requestBody.examPaperImages = [];
+        requestBody.examPaperImages = []; // Empty - backend will use history
         requestBody.markingSchemeImages = [];
       } else if (questionNumber) {
+        // 🔹 NEW QUESTION: Fetch data (from cache if available)
         const questionData = await fetchQuestionData(questionNumber);
 
         if (questionData && questionData.exam.length > 0) {
           console.log(`✅ Question ${questionNumber} found`);
+          console.log(`   - Exam images: ${questionData.exam.length}`);
+          console.log(`   - Marking scheme: TEXT (not images)`);
+          console.log(`💰 Cost optimization: Using text instead of marking scheme images`);
+
           requestBody.optimizedMode = true;
           requestBody.questionNumber = questionNumber;
           requestBody.examPaperImages = questionData.exam;
           requestBody.markingSchemeText = questionData.markingSchemeText;
           requestBody.questionText = questionData.questionText;
+
+          // Update last question number
           setLastQuestionNumber(questionNumber);
         } else {
-          console.log(`❌ Question ${questionNumber} not found`);
+          console.log(`❌ Question ${questionNumber} not found in database, using fallback mode`);
           requestBody.optimizedMode = false;
           requestBody.examPaperImages = examPaperImages;
           requestBody.markingSchemeImages = markingSchemeImages;
         }
       } else {
+        // 🔹 NO QUESTION NUMBER: Use last question if available, otherwise ask for clarification
+        console.log('⚠️ No question number detected');
+
         if (lastQuestionNumber) {
+          // User is continuing with the same question
+          console.log(`✅ Assuming continuation of Question ${lastQuestionNumber}`);
+
           const questionData = await fetchQuestionData(lastQuestionNumber);
 
           if (questionData && questionData.exam.length > 0) {
@@ -589,35 +514,57 @@ This helps me give you the most accurate and focused help! 😊`;
             requestBody.examPaperImages = questionData.exam;
             requestBody.markingSchemeText = questionData.markingSchemeText;
             requestBody.questionText = questionData.questionText;
+            console.log(`💬 Continuing conversation for Question ${lastQuestionNumber}`);
           } else {
+            console.log(`❌ Question ${lastQuestionNumber} data not found`);
             requestBody.optimizedMode = false;
             requestBody.examPaperImages = examPaperImages;
             requestBody.markingSchemeImages = markingSchemeImages;
           }
         } else if (messages.length === 1) {
+          // First message in a brand new conversation - ask if they mean Question 1
+          console.log('🆕 First message in new conversation - asking if they mean Question 1');
+
           const firstQuestionConfirm = `Hey there! 👋\n\nI'd love to help you with that! Since this is your first question, are you asking about **Question 1**?\n\nIf yes, just type "yes" or "Question 1".\nIf you meant a different question, just tell me the question number like:\n- "Question 2"\n- "Q5"\n- "No, question 3"\n\nLet me know! 😊`;
 
-          setMessages((prev) => [...prev, {
-            role: 'assistant',
-            content: firstQuestionConfirm,
-            questionNumber: null
-          }]);
+          setMessages((prev) => {
+            const newMessages = [...prev, {
+              role: 'assistant',
+              content: firstQuestionConfirm,
+              questionNumber: null
+            }];
+            return newMessages;
+          });
 
           setSending(false);
           return;
         } else {
+          // Not the first message but no lastQuestionNumber - ask for clarification
+          console.log('❓ Asking student for clarification');
+
           const clarificationMessage = generateClarificationMessage(userMessage);
 
-          setMessages((prev) => [...prev, {
-            role: 'assistant',
-            content: clarificationMessage,
-            questionNumber: null
-          }]);
+          setMessages((prev) => {
+            const newMessages = [...prev, {
+              role: 'assistant',
+              content: clarificationMessage,
+              questionNumber: null
+            }];
+            return newMessages;
+          });
 
           setSending(false);
           return;
         }
       }
+
+      /* 🔹 COMMENTED OUT: Full PDF validation check
+      if (!requestBody.optimizedMode && examPaperImages.length === 0) {
+        alert('Please wait for the exam paper to finish processing.');
+        setSending(false);
+        return;
+      }
+      */
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/exam-assistant`,
@@ -638,16 +585,40 @@ This helps me give you the most accurate and focused help! 😊`;
       const data = await response.json();
       
       if (data.questionNotFound) {
-        setMessages((prev) => [...prev, { 
-          role: 'assistant', 
-          content: data.answer,
-          questionNumber: questionNumber 
-        }]);
+        console.log('⚠️ Question does not exist in exam paper');
+        setMessages((prev) => {
+          const newMessages = [...prev, { 
+            role: 'assistant', 
+            content: data.answer,
+            questionNumber: questionNumber 
+          }];
+          return newMessages;
+        });
         setSending(false);
         return;
       }
 
       const assistantMessage = data.answer;
+
+      // 🔹 Log savings
+      if (data.isFollowUp) {
+        console.log(`💰 FOLLOW-UP: Saved 100% of image costs (0 images sent, used conversation history)`);
+      } else if (requestBody.optimizedMode) {
+        const totalPossible = examPaperImages.length + markingSchemeImages.length;
+        const examImagesSent = requestBody.examPaperImages?.length || 0;
+        const markingSchemeImagesSaved = markingSchemeImages.length;
+        const usedText = requestBody.markingSchemeText ? true : false;
+
+        console.log(`✅ OPTIMIZED MODE:`);
+        console.log(`   - Exam images sent: ${examImagesSent} (only for this question)`);
+        console.log(`   - Marking scheme: ${usedText ? 'TEXT (0 images)' : 'No marking scheme'}`);
+        console.log(`   - Total images saved: ${totalPossible - examImagesSent} out of ${totalPossible}`);
+
+        const savings = Math.round(((totalPossible - examImagesSent) / totalPossible) * 100);
+        console.log(`💰 Cost savings: approximately ${savings}%`);
+      } else {
+        console.log(`⚠️ Used full PDF fallback mode (${examPaperImages.length + markingSchemeImages.length} images)`);
+      }
 
       setMessages((prev) => {
         const newMessages = [...prev, { 
@@ -678,12 +649,6 @@ This helps me give you the most accurate and focused help! 😊`;
     }
   };
 
-  const handleRetryPdfLoad = () => {
-    setPdfLoadAttempts(0);
-    setCurrentViewerMethod('pdfjs');
-    setPdfLoading(true);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -707,56 +672,6 @@ This helps me give you the most accurate and focused help! 😊`;
       </div>
     );
   }
-
-  const renderPdfViewer = () => {
-    if (pdfLoading) {
-      return (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">Loading PDF...</p>
-            {pdfLoadAttempts > 0 && (
-              <p className="text-xs text-gray-500 mt-2">
-                Trying alternative viewer (attempt {pdfLoadAttempts + 1}/4)
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    if (!pdfBlobUrl) {
-      return (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center max-w-md">
-            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">Unable to load PDF.</p>
-            <button
-              onClick={handleRetryPdfLoad}
-              className="inline-flex items-center px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry Loading
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    const viewerUrl = isMobile ? getPdfViewerUrl(pdfBlobUrl, currentViewerMethod) : pdfBlobUrl;
-
-    return (
-      <iframe
-        ref={iframeRef}
-        src={viewerUrl}
-        className="w-full h-full border-0"
-        title="Exam Paper"
-        allow="fullscreen"
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-      />
-    );
-  };
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
@@ -805,7 +720,45 @@ This helps me give you the most accurate and focused help! 😊`;
 
       <div className="flex-1 flex overflow-hidden">
         <div className={`${mobileView === 'pdf' ? 'flex' : 'hidden md:flex'} flex-1 bg-gray-100 relative`}>
-          {renderPdfViewer()}
+          {pdfLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">Loading PDF...</p>
+              </div>
+            </div>
+          ) : pdfBlobUrl ? (
+            isMobile ? (
+              <iframe
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
+                className="w-full h-full border-0"
+                title="Exam Paper"
+                allow="fullscreen"
+              />
+            ) : (
+              <iframe
+                src={pdfBlobUrl}
+                className="w-full h-full border-0"
+                title="Exam Paper"
+                allow="fullscreen"
+              />
+            )
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center max-w-md p-6">
+                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">Unable to load PDF viewer.</p>
+                <a
+                  href={examPaper.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+                >
+                  Open PDF in New Tab
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={`${mobileView === 'chat' ? 'flex' : 'hidden md:flex'} w-full md:w-[500px] lg:w-[600px] flex-col bg-white border-l border-gray-200 h-full pb-safe`}>
@@ -865,29 +818,27 @@ This helps me give you the most accurate and focused help! 😊`;
                   </p>
                 </div>
               </div>
-            ) : (
-              <>
-                {messages.map((message, index) => (
-                  <ChatMessage
-                    key={index}
-                    role={message.role}
-                    content={message.content}
-                    isStreaming={index === streamingMessageIndex}
-                    onStreamUpdate={scrollToBottom}
-                  />
-                ))}
+            ) : null}
 
-                {sending && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-2.5">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    </div>
-                  </div>
-                )}
+            {messages.map((message, index) => (
+              <ChatMessage
+                key={index}
+                role={message.role}
+                content={message.content}
+                isStreaming={index === streamingMessageIndex}
+                onStreamUpdate={scrollToBottom}
+              />
+            ))}
 
-                <div ref={messagesEndRef} />
-              </>
+            {sending && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-2.5">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </div>
+              </div>
             )}
+
+            <div ref={messagesEndRef} />
           </div>
 
           {user && (
