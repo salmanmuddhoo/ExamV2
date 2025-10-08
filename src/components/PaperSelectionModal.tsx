@@ -24,7 +24,7 @@ interface ExamPaper {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSelectPaper: (paperId: string, hasExistingConv: boolean) => void;
+  onSelectPaper: (paperId: string) => void;
 }
 
 type Step = 'grade' | 'subject' | 'paper';
@@ -115,8 +115,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
   };
 
   const handlePaperClick = (paper: ExamPaper) => {
-    const hasExisting = existingConvs[paper.id] || false;
-    onSelectPaper(paper.id, hasExisting);
+    onSelectPaper(paper.id);
     handleClose();
   };
 

@@ -18,9 +18,7 @@ interface ConversationWithPaper {
 }
 
 interface GroupedConversations {
-  [subjectName: string]: {
-    [paperTitle: string]: ConversationWithPaper[];
-  };
+  [subjectName: string]: ConversationWithPaper[];
 }
 
 interface Props {
@@ -97,22 +95,17 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
     }
   };
 
-  const groupConversationsBySubjectAndPaper = (): GroupedConversations => {
+  const groupConversationsBySubject = (): GroupedConversations => {
     const grouped: GroupedConversations = {};
 
     conversations.forEach((conv) => {
       const subjectName = conv.exam_papers.subjects.name;
-      const paperTitle = conv.exam_papers.title;
 
       if (!grouped[subjectName]) {
-        grouped[subjectName] = {};
+        grouped[subjectName] = [];
       }
 
-      if (!grouped[subjectName][paperTitle]) {
-        grouped[subjectName][paperTitle] = [];
-      }
-
-      grouped[subjectName][paperTitle].push(conv);
+      grouped[subjectName].push(conv);
     });
 
     return grouped;
@@ -146,46 +139,12 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
     setShowPaperModal(true);
   };
 
-  // Updated handler to reuse existing conversations
-  const handlePaperSelected = async (paperId: string, hasExistingConv: boolean) => {
-    if (!user) return;
-
-    try {
-      if (hasExistingConv) {
-        // Fetch the existing conversation
-        const { data: existingConv, error } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('exam_paper_id', paperId)
-          .single();
-
-        if (error) throw error;
-
-        setSelectedConversation(existingConv.id);
-        onSelectConversation(existingConv.id, paperId);
-      } else {
-        // Create a new conversation
-        const { data: newConv, error } = await supabase
-          .from('conversations')
-          .insert([{ user_id: user.id, exam_paper_id: paperId, title: 'New Conversation' }])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setSelectedConversation(newConv.id);
-        onSelectConversation(newConv.id, paperId);
-        await fetchConversations();
-      }
-    } catch (err) {
-      console.error('Error handling paper selection:', err);
-    } finally {
-      setShowPaperModal(false);
-    }
+  const handlePaperSelected = (paperId: string) => {
+    setShowPaperModal(false);
+    onSelectPaper(paperId); // ExamViewer will auto-load existing conversation
   };
 
-  const groupedConversations = groupConversationsBySubjectAndPaper();
+  const groupedConversations = groupConversationsBySubject();
 
   return (
     <>
@@ -250,7 +209,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
               </div>
             ) : (
               <div className="p-3">
-                {Object.entries(groupedConversations).map(([subjectName, papers]) => (
+                {Object.entries(groupedConversations).map(([subjectName, convs]) => (
                   <div key={subjectName} className="mb-4">
                     {/* Subject Header */}
                     <div className="flex items-center space-x-2 px-2 py-1.5 mb-2">
@@ -260,48 +219,38 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
                       </h3>
                     </div>
 
-                    {/* Papers under this subject */}
-                    {Object.entries(papers).map(([paperTitle, convs]) => (
-                      <div key={paperTitle} className="mb-3">
-                        {/* Paper Title */}
-                        <div className="flex items-center space-x-2 px-2 py-1 mb-1">
-                          <FileText className="w-3.5 h-3.5 text-gray-400" />
-                          <h4 className="text-xs font-medium text-gray-600 truncate">
-                            {paperTitle}
-                          </h4>
-                        </div>
-
-                        {/* Conversations for this paper */}
-                        {convs.map((conv) => (
-                          <div
-                            key={conv.id}
-                            onClick={() => {
-                              setSelectedConversation(conv.id);
-                              onSelectConversation(conv.id, conv.exam_paper_id);
-                            }}
-                            className={`group px-3 py-2.5 mb-1 rounded-lg cursor-pointer transition-colors ${
-                              selectedConversation === conv.id ? 'bg-gray-100' : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1 min-w-0 pr-2">
-                                <p className="text-sm text-gray-900 truncate font-medium">
-                                  {conv.title}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  {formatDate(conv.updated_at)}
-                                </p>
-                              </div>
-                              <button
-                                onClick={(e) => deleteConversation(conv.id, e)}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all flex-shrink-0"
-                                title="Delete conversation"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                              </button>
+                    {/* Exam papers under this subject */}
+                    {convs.map((conv) => (
+                      <div
+                        key={conv.id}
+                        onClick={() => {
+                          setSelectedConversation(conv.id);
+                          onSelectConversation(conv.id, conv.exam_paper_id);
+                        }}
+                        className={`group px-3 py-2.5 mb-1 rounded-lg cursor-pointer transition-colors ${
+                          selectedConversation === conv.id ? 'bg-gray-100' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <div className="flex items-center space-x-1.5 mb-1">
+                              <FileText className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+                              <p className="text-sm text-gray-900 truncate font-medium">
+                                {conv.exam_papers.title}
+                              </p>
                             </div>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(conv.updated_at)}
+                            </p>
                           </div>
-                        ))}
+                          <button
+                            onClick={(e) => deleteConversation(conv.id, e)}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all flex-shrink-0"
+                            title="Delete conversation"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

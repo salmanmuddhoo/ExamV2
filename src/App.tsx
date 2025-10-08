@@ -55,7 +55,7 @@ function App() {
 
   const handleSelectPaper = (paperId: string) => {
     setSelectedPaperId(paperId);
-    setSelectedConversationId(null);
+    setSelectedConversationId(null); // ExamViewer will auto-detect existing conversation
     setView('exam-viewer');
   };
 

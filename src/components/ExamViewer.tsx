@@ -62,10 +62,39 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
   }, [paperId]);
 
   useEffect(() => {
-    if (conversationId && user) {
-      loadConversation(conversationId);
+    if (user && paperId) {
+      if (conversationId) {
+        loadConversation(conversationId);
+      } else {
+        checkForExistingConversation();
+      }
     }
-  }, [conversationId, user]);
+  }, [conversationId, user, paperId]);
+
+  const checkForExistingConversation = async () => {
+    if (!user || !paperId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('exam_paper_id', paperId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        console.log('Existing conversation found, loading...');
+        setCurrentConversationId(data.id);
+        loadConversation(data.id);
+      } else {
+        console.log('No existing conversation for this paper');
+      }
+    } catch (error) {
+      console.error('Error checking for existing conversation:', error);
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -268,8 +297,8 @@ This helps me give you the most accurate and focused help! 😊`;
   };
 
   const saveMessageToConversation = async (
-    userMessage: string, 
-    assistantMessage: string, 
+    userMessage: string,
+    assistantMessage: string,
     questionNumber: string | null
   ) => {
     if (!user) return;
@@ -278,21 +307,35 @@ This helps me give you the most accurate and focused help! 😊`;
       let convId = currentConversationId;
 
       if (!convId) {
-        const title = userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : '');
-
-        const { data: newConv, error: convError } = await supabase
+        // Check for existing conversation first
+        const { data: existingConv } = await supabase
           .from('conversations')
-          .insert({
-            user_id: user.id,
-            exam_paper_id: paperId,
-            title: title
-          })
-          .select()
-          .single();
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('exam_paper_id', paperId)
+          .maybeSingle();
 
-        if (convError) throw convError;
-        convId = newConv.id;
-        setCurrentConversationId(convId);
+        if (existingConv) {
+          convId = existingConv.id;
+          setCurrentConversationId(convId);
+        } else {
+          // Create new conversation only if none exists
+          const title = examPaper?.title || userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : '');
+
+          const { data: newConv, error: convError } = await supabase
+            .from('conversations')
+            .insert({
+              user_id: user.id,
+              exam_paper_id: paperId,
+              title: title
+            })
+            .select()
+            .single();
+
+          if (convError) throw convError;
+          convId = newConv.id;
+          setCurrentConversationId(convId);
+        }
       }
 
       // 🔹 NEW: Save with question_number and has_images metadata
