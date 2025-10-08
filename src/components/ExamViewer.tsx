@@ -230,6 +230,7 @@ This helps me give you the most accurate and focused help! 😊`;
     
     switch (method) {
       case 'pdfjs':
+        // Use PDF.js with proper CORS settings
         return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodedUrl}`;
       case 'google':
         return `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
@@ -237,7 +238,8 @@ This helps me give you the most accurate and focused help! 😊`;
         return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`;
       case 'direct':
       default:
-        return publicUrl;
+        // For direct, return the URL with explicit PDF mime type hint
+        return `${publicUrl}#toolbar=0&navpanes=0&scrollbar=1`;
     }
   };
 
@@ -249,46 +251,60 @@ This helps me give you the most accurate and focused help! 😊`;
       setProcessingPdfs(true);
       setPdfLoadAttempts(0);
 
-      const { data, error } = await supabase.storage
-        .from('exam-papers')
-        .download(examPaper.pdf_path);
-
-      if (error) throw error;
-
-      const pdfBlob = new Blob([data], { type: 'application/pdf' });
-
-      // Get public URL for all cases
+      // Get public URL first for mobile
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')
         .getPublicUrl(examPaper.pdf_path);
       
+      console.log('PDF public URL:', publicUrl);
+      console.log('Is mobile:', isMobile);
+
       if (isMobile) {
+        // For mobile, use public URL directly with the viewer methods
         setPdfBlobUrl(publicUrl);
-        console.log('Mobile PDF public URL:', publicUrl);
       } else {
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfBlobUrl(url);
+        // For desktop, download and create blob URL
+        const { data, error } = await supabase.storage
+          .from('exam-papers')
+          .download(examPaper.pdf_path);
+
+        if (error) {
+          console.error('Error downloading PDF for desktop:', error);
+          // Fallback to public URL for desktop too
+          setPdfBlobUrl(publicUrl);
+        } else {
+          const pdfBlob = new Blob([data], { type: 'application/pdf' });
+          const url = URL.createObjectURL(pdfBlob);
+          setPdfBlobUrl(url);
+        }
       }
 
-      // Process images for AI
-      const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
-      const examImages = await convertPdfToBase64Images(examFile);
-      setExamPaperImages(examImages.map(img => img.inlineData.data));
+      // Process images for AI (only download once)
+      const { data: pdfData, error: downloadError } = await supabase.storage
+        .from('exam-papers')
+        .download(examPaper.pdf_path);
 
-      if (examPaper.marking_schemes?.pdf_path) {
-        try {
-          const { data: schemeData } = await supabase.storage
-            .from('marking-schemes')
-            .download(examPaper.marking_schemes.pdf_path);
+      if (!downloadError && pdfData) {
+        const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+        const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
+        const examImages = await convertPdfToBase64Images(examFile);
+        setExamPaperImages(examImages.map(img => img.inlineData.data));
 
-          if (schemeData) {
-            const schemeBlob = new Blob([schemeData], { type: 'application/pdf' });
-            const schemeFile = new File([schemeBlob], 'scheme.pdf', { type: 'application/pdf' });
-            const schemeImages = await convertPdfToBase64Images(schemeFile);
-            setMarkingSchemeImages(schemeImages.map(img => img.inlineData.data));
+        if (examPaper.marking_schemes?.pdf_path) {
+          try {
+            const { data: schemeData } = await supabase.storage
+              .from('marking-schemes')
+              .download(examPaper.marking_schemes.pdf_path);
+
+            if (schemeData) {
+              const schemeBlob = new Blob([schemeData], { type: 'application/pdf' });
+              const schemeFile = new File([schemeBlob], 'scheme.pdf', { type: 'application/pdf' });
+              const schemeImages = await convertPdfToBase64Images(schemeFile);
+              setMarkingSchemeImages(schemeImages.map(img => img.inlineData.data));
+            }
+          } catch (schemeError) {
+            console.error('Error loading marking scheme:', schemeError);
           }
-        } catch (schemeError) {
-          console.error('Error loading marking scheme:', schemeError);
         }
       }
     } catch (error) {
@@ -368,6 +384,11 @@ This helps me give you the most accurate and focused help! 😊`;
       if (lastMsg?.questionNumber) {
         setLastQuestionNumber(lastMsg.questionNumber);
       }
+
+      // Scroll to bottom after messages are loaded
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
     } catch (error) {
       console.error('Error loading conversation:', error);
     }
@@ -440,7 +461,7 @@ This helps me give you the most accurate and focused help! 😊`;
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   };
 
@@ -691,7 +712,11 @@ This helps me give you the most accurate and focused help! 😊`;
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
             <p className="text-gray-600">Loading PDF...</p>
-            
+            {pdfLoadAttempts > 0 && (
+              <p className="text-xs text-gray-500 mt-2">
+                Trying alternative viewer (attempt {pdfLoadAttempts + 1}/4)
+              </p>
+            )}
           </div>
         </div>
       );
