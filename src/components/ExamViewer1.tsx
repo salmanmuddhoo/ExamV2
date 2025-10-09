@@ -176,6 +176,7 @@ This helps me give you the most accurate and focused help! 😊`;
     try {
       setPdfLoading(true);
       setProcessingPdfs(true);
+      setPdfLoadError(false); // Reset error state
 
       if (isMobile) {
         // For mobile, use signed URL (works with private buckets)
