@@ -176,6 +176,34 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoading(true);
       setProcessingPdfs(true);
 
+      if (isMobile) {
+        // For mobile, use signed URL (works with private buckets)
+        const { data: signedData, error: signedUrlError } = await supabase.storage
+          .from('exam-papers')
+          .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
+        
+        if (signedUrlError || !signedData?.signedUrl) {
+          console.error('Failed to get signed URL:', signedUrlError);
+          throw new Error('Failed to get signed URL');
+        }
+        
+        // Add a small delay to ensure URL is ready before setting it
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setPdfBlobUrl(signedData.signedUrl);
+      } else {
+        // For desktop, download and create blob URL
+        const { data, error } = await supabase.storage
+          .from('exam-papers')
+          .download(examPaper.pdf_path);
+
+        if (error) throw error;
+
+        const pdfBlob = new Blob([data], { type: 'application/pdf' });
+        const url = URL.createObjectURL(pdfBlob);
+        setPdfBlobUrl(url);
+      }
+
+      // Process PDFs for AI after setting the blob URL
       const { data, error } = await supabase.storage
         .from('exam-papers')
         .download(examPaper.pdf_path);
@@ -183,16 +211,6 @@ This helps me give you the most accurate and focused help! 😊`;
       if (error) throw error;
 
       const pdfBlob = new Blob([data], { type: 'application/pdf' });
-
-      if (isMobile) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('exam-papers')
-          .getPublicUrl(examPaper.pdf_path);
-        setPdfBlobUrl(publicUrl);
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfBlobUrl(url);
-      }
 
       const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
       const examImages = await convertPdfToBase64Images(examFile);
@@ -727,22 +745,36 @@ This helps me give you the most accurate and focused help! 😊`;
                 <p className="text-gray-600">Loading PDF...</p>
               </div>
             </div>
-          ) : pdfBlobUrl ? (
-            isMobile ? (
-              <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
-                className="w-full h-full border-0"
-                title="Exam Paper"
-                allow="fullscreen"
-              />
-            ) : (
-              <iframe
-                src={pdfBlobUrl}
-                className="w-full h-full border-0"
-                title="Exam Paper"
-                allow="fullscreen"
-              />
-            )
+         ) : pdfBlobUrl ? (
+            <>
+              {isMobile ? (
+                <iframe
+                  key={pdfBlobUrl}
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
+                  className="w-full h-full border-0"
+                  title="Exam Paper"
+                  allow="fullscreen"
+                />
+              ) : (
+                <iframe
+                  src={pdfBlobUrl}
+                  className="w-full h-full border-0"
+                  title="Exam Paper"
+                  allow="fullscreen"
+                />
+              )}
+              {isMobile && (
+                <button
+                  onClick={() => {
+                    setPdfBlobUrl('');
+                    setTimeout(() => loadPdfBlob(), 1000);
+                  }}
+                  className="absolute top-4 right-4 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                >
+                  Reload PDF
+                </button>
+              )}
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md p-6">
