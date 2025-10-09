@@ -142,7 +142,7 @@ async function extractAndSplitQuestions(
     }
   }));
 
-  const AI_PROMPT= `You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
+  const AI_PROMPT=`You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
 
 Your task: Extract and split all questions from this exam paper, returning both text and approximate image crop coordinates.
 
@@ -176,7 +176,7 @@ Your task: Extract and split all questions from this exam paper, returning both 
 - Estimate visual crop boundaries where question text starts and ends on each page.
 
 **VISUAL CROP INSTRUCTIONS:**
-- \\`cropBox\\` gives the approximate rectangular area for each question.
+- The field called 'cropBox' gives the approximate rectangular area for each question.
 - Use normalized values (0 to 1) relative to the full page size.
   Example:
   - top=0 means top of page, top=1 means bottom of page
@@ -207,7 +207,9 @@ Page 3: "Question 2: Explain..."
   }
 ]
 
-**Return ONLY the JSON array.**`;
+**Return ONLY the JSON array.**
+`;
+
 
 
   try {
