@@ -176,6 +176,31 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoading(true);
       setProcessingPdfs(true);
 
+      if (isMobile) {
+        // For mobile, use public URL directly without downloading
+        const { data: { publicUrl } } = supabase.storage
+          .from('exam-papers')
+          .getPublicUrl(examPaper.pdf_path);
+        
+        if (publicUrl) {
+          setPdfBlobUrl(publicUrl);
+        } else {
+          throw new Error('Failed to get public URL');
+        }
+      } else {
+        // For desktop, download and create blob URL
+        const { data, error } = await supabase.storage
+          .from('exam-papers')
+          .download(examPaper.pdf_path);
+
+        if (error) throw error;
+
+        const pdfBlob = new Blob([data], { type: 'application/pdf' });
+        const url = URL.createObjectURL(pdfBlob);
+        setPdfBlobUrl(url);
+      }
+
+      // Process PDFs for AI after setting the blob URL
       const { data, error } = await supabase.storage
         .from('exam-papers')
         .download(examPaper.pdf_path);
@@ -183,16 +208,6 @@ This helps me give you the most accurate and focused help! 😊`;
       if (error) throw error;
 
       const pdfBlob = new Blob([data], { type: 'application/pdf' });
-
-      if (isMobile) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('exam-papers')
-          .getPublicUrl(examPaper.pdf_path);
-        setPdfBlobUrl(publicUrl);
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfBlobUrl(url);
-      }
 
       const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
       const examImages = await convertPdfToBase64Images(examFile);
