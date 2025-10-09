@@ -183,7 +183,7 @@ This helps me give you the most accurate and focused help! 😊`;
           .getPublicUrl(examPaper.pdf_path);
         
         // Add a small delay to ensure URL is ready before setting it
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         setPdfBlobUrl(publicUrl);
       } else {
         // For desktop, download and create blob URL
