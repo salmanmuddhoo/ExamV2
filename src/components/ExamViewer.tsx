@@ -745,7 +745,7 @@ This helps me give you the most accurate and focused help! 😊`;
           ) : pdfBlobUrl ? (
             isMobile ? (
               <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
+                src={pdfBlobUrl}
                 className="w-full h-full border-0"
                 title="Exam Paper"
                 allow="fullscreen"
