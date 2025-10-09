@@ -72,6 +72,18 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
     }
   };
 
+  const toggleSubject = (subjectName: string) => {
+    setCollapsedSubjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(subjectName)) {
+        newSet.delete(subjectName);
+      } else {
+        newSet.add(subjectName);
+      }
+      return newSet;
+    });
+  };
+
   const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
 
