@@ -750,13 +750,38 @@ This helps me give you the most accurate and focused help! 😊`;
          ) : pdfBlobUrl ? (
             <>
               {isMobile ? (
-                <iframe
-                  key={pdfBlobUrl}
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
-                  className="w-full h-full border-0"
-                  title="Exam Paper"
-                  allow="fullscreen"
-                />
+                <>
+                  <iframe
+                    key={pdfBlobUrl}
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
+                    className="w-full h-full border-0"
+                    title="Exam Paper"
+                    allow="fullscreen"
+                    onLoad={() => {
+                      // Set a timeout to check if PDF loaded successfully
+                      setTimeout(() => setPdfLoadError(false), 2000);
+                    }}
+                    onError={() => setPdfLoadError(true)}
+                  />
+                  {pdfLoadError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+                      <div className="text-center">
+                        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600 mb-4">PDF failed to load</p>
+                        <button
+                          onClick={() => {
+                            setPdfBlobUrl('');
+                            setPdfLoadError(false);
+                            setTimeout(() => loadPdfBlob(), 100);
+                          }}
+                          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                          Reload PDF
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <iframe
                   src={pdfBlobUrl}
@@ -764,17 +789,6 @@ This helps me give you the most accurate and focused help! 😊`;
                   title="Exam Paper"
                   allow="fullscreen"
                 />
-              )}
-              {isMobile && (
-                <button
-                  onClick={() => {
-                    setPdfBlobUrl('');
-                    setTimeout(() => loadPdfBlob(), 1000);
-                  }}
-                  className="absolute top-4 right-4 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
-                >
-                  Reload PDF
-                </button>
               )}
             </>
           ) : (
