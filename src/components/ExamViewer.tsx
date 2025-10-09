@@ -177,14 +177,19 @@ This helps me give you the most accurate and focused help! 😊`;
       setProcessingPdfs(true);
 
       if (isMobile) {
-        // For mobile, use public URL with Google Docs Viewer
-        const { data: { publicUrl } } = supabase.storage
+        // For mobile, use signed URL (works with private buckets)
+        const { data: signedData, error: signedUrlError } = await supabase.storage
           .from('exam-papers')
-          .getPublicUrl(examPaper.pdf_path);
+          .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
+        
+        if (signedUrlError || !signedData?.signedUrl) {
+          console.error('Failed to get signed URL:', signedUrlError);
+          throw new Error('Failed to get signed URL');
+        }
         
         // Add a small delay to ensure URL is ready before setting it
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setPdfBlobUrl(publicUrl);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setPdfBlobUrl(signedData.signedUrl);
       } else {
         // For desktop, download and create blob URL
         const { data, error } = await supabase.storage
