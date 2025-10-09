@@ -221,53 +221,91 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
                 </button>
               </div>
             ) : (
-              <div className="p-3">
-                {Object.entries(groupedConversations).map(([subjectName, convs]) => (
-                  <div key={subjectName} className="mb-4">
-                    {/* Subject Header */}
-                    <div className="flex items-center space-x-2 px-2 py-1.5 mb-2">
-                      <BookOpen className="w-4 h-4 text-gray-500" />
-                      <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                        {subjectName}
-                      </h3>
-                    </div>
-
-                    {/* Exam papers under this subject */}
-                    {convs.map((conv) => (
-                      <div
-                        key={conv.id}
-                        onClick={() => {
-                          setSelectedConversation(conv.id);
-                          onSelectConversation(conv.id, conv.exam_paper_id);
-                        }}
-                        className={`group px-3 py-2.5 mb-1 rounded-lg cursor-pointer transition-colors ${
-                          selectedConversation === conv.id ? 'bg-gray-100' : 'hover:bg-gray-50'
-                        }`}
+              <div className="p-3 space-y-2">
+                {Object.entries(groupedConversations).map(([subjectName, convs]) => {
+                  const isCollapsed = collapsedSubjects.has(subjectName);
+                  
+                  return (
+                    <div key={subjectName} className="mb-2">
+                      {/* Subject Header - Clickable */}
+                      <button
+                        onClick={() => toggleSubject(subjectName)}
+                        className="w-full flex items-center justify-between px-3 py-2.5 bg-gradient-to-r from-gray-100 to-gray-50 hover:from-gray-200 hover:to-gray-100 rounded-lg transition-all group"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0 pr-2">
-                            <div className="flex items-center space-x-1.5 mb-1">
-                              <FileText className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
-                              <p className="text-sm text-gray-900 truncate font-medium">
-                                {conv.exam_papers.title}
-                              </p>
-                            </div>
+                        <div className="flex items-center space-x-2.5">
+                          <div className="p-1.5 bg-white rounded-md shadow-sm">
+                            <BookOpen className="w-4 h-4 text-gray-700" />
+                          </div>
+                          <div className="text-left">
+                            <h3 className="text-sm font-bold text-gray-900">
+                              {subjectName}
+                            </h3>
                             <p className="text-xs text-gray-500">
-                              {formatDate(conv.updated_at)}
+                              {convs.length} conversation{convs.length !== 1 ? 's' : ''}
                             </p>
                           </div>
-                          <button
-                            onClick={(e) => deleteConversation(conv.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all flex-shrink-0"
-                            title="Delete conversation"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                          </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                        <svg
+                          className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                            isCollapsed ? '' : 'rotate-180'
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Exam papers under this subject - Collapsible */}
+                      {!isCollapsed && (
+                        <div className="mt-1 ml-2 pl-3 border-l-2 border-gray-200 space-y-1">
+                          {convs.map((conv) => (
+                            <div
+                              key={conv.id}
+                              onClick={() => {
+                                setSelectedConversation(conv.id);
+                                onSelectConversation(conv.id, conv.exam_paper_id);
+                              }}
+                              className={`group px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
+                                selectedConversation === conv.id 
+                                  ? 'bg-blue-50 border border-blue-200 shadow-sm' 
+                                  : 'hover:bg-gray-50 border border-transparent'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                      selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
+                                    }`} />
+                                    <p className={`text-sm truncate font-medium ${
+                                      selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
+                                    }`}>
+                                      {conv.exam_papers.title}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                    <span>{conv.exam_papers.grade_levels.name}</span>
+                                    <span>•</span>
+                                    <span>{formatDate(conv.updated_at)}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => deleteConversation(conv.id, e)}
+                                  className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 rounded transition-all flex-shrink-0"
+                                  title="Delete conversation"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
