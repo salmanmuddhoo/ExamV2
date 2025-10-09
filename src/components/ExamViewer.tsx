@@ -740,22 +740,36 @@ This helps me give you the most accurate and focused help! 😊`;
                 <p className="text-gray-600">Loading PDF...</p>
               </div>
             </div>
-          ) : pdfBlobUrl ? (
-            isMobile ? (
-              <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
-                className="w-full h-full border-0"
-                title="Exam Paper"
-                allow="fullscreen"
-              />
-            ) : (
-              <iframe
-                src={pdfBlobUrl}
-                className="w-full h-full border-0"
-                title="Exam Paper"
-                allow="fullscreen"
-              />
-            )
+         ) : pdfBlobUrl ? (
+            <>
+              {isMobile ? (
+                <iframe
+                  key={pdfBlobUrl}
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
+                  className="w-full h-full border-0"
+                  title="Exam Paper"
+                  allow="fullscreen"
+                />
+              ) : (
+                <iframe
+                  src={pdfBlobUrl}
+                  className="w-full h-full border-0"
+                  title="Exam Paper"
+                  allow="fullscreen"
+                />
+              )}
+              {isMobile && (
+                <button
+                  onClick={() => {
+                    setPdfBlobUrl('');
+                    setTimeout(() => loadPdfBlob(), 100);
+                  }}
+                  className="absolute top-4 right-4 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                >
+                  Reload PDF
+                </button>
+              )}
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md p-6">
