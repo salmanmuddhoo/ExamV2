@@ -33,6 +33,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [showPaperModal, setShowPaperModal] = useState(false);
+  const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
