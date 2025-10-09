@@ -142,7 +142,7 @@ async function extractAndSplitQuestions(
     }
   }));
 
-  const AI_PROMPT=`You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
+  const AI_PROMPT = `You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
 
 Your task: Extract and split all questions from this exam paper, returning both text and approximate image crop coordinates.
 
