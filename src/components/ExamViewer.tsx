@@ -762,7 +762,7 @@ This helps me give you the most accurate and focused help! 😊`;
                 <button
                   onClick={() => {
                     setPdfBlobUrl('');
-                    setTimeout(() => loadPdfBlob(), 100);
+                    setTimeout(() => loadPdfBlob(), 1000);
                   }}
                   className="absolute top-4 right-4 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
                 >
