@@ -177,16 +177,16 @@ This helps me give you the most accurate and focused help! 😊`;
       setProcessingPdfs(true);
 
       if (isMobile) {
-        // For mobile, use public URL directly without downloading
-        const { data: { publicUrl } } = supabase.storage
+        // For mobile, use signed URL (works with private buckets)
+        const { data, error: signedUrlError } = await supabase.storage
           .from('exam-papers')
-          .getPublicUrl(examPaper.pdf_path);
+          .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
         
-        if (publicUrl) {
-          setPdfBlobUrl(publicUrl);
-        } else {
-          throw new Error('Failed to get public URL');
+        if (signedUrlError || !data?.signedUrl) {
+          throw new Error('Failed to get signed URL');
         }
+        
+        setPdfBlobUrl(data.signedUrl);
       } else {
         // For desktop, download and create blob URL
         const { data, error } = await supabase.storage
