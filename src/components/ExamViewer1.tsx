@@ -44,6 +44,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
   const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
   const [isMobile, setIsMobile] = useState(false);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
   const [lastQuestionNumber, setLastQuestionNumber] = useState<string | null>(null); // 🔹 NEW: Track last question
   const [imageCache, setImageCache] = useState<Map<string, { exam: string[], markingSchemeText: string, questionText: string }>>(new Map()); // 🔹 NEW: Cache images
   const messagesEndRef = useRef<HTMLDivElement>(null);
