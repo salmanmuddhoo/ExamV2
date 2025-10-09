@@ -142,38 +142,72 @@ async function extractAndSplitQuestions(
     }
   }));
 
-  const AI_PROMPT = `Extract and split all questions from this exam paper.
+  const AI_PROMPT = `You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
+
+Your task: Extract and split all questions from this exam paper, returning both text and approximate image crop coordinates.
 
 **CRITICAL INSTRUCTIONS:**
-1. Return ONLY a JSON array - no other text
-2. Keep "fullText" SHORT - just the first 100 characters of each question
-3. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Question 1: ...","hasSubParts":false}]
-
-**IMPORTANT FOR MULTI-PAGE QUESTIONS:**
-- Look CAREFULLY at where each question ENDS
-- A question continues to the NEXT page if you don't see a new question number
-- If page 2 starts "Question 2" but page 3 doesn't start "Question 3", then Question 2 spans BOTH pages 2 AND 3
-- Set startPage = first page of question, endPage = last page of question
-- Questions often span 2-3 pages - DON'T assume each question is only 1 page
-
-**What to look for:**
-- "Question 1", "Q1", "1.", "1)" patterns mark the START of a question
-- A new question number marks the END of the previous question
-- If no new question number appears, the question continues
-
-**Example:**
-- Page 1: "Question 1: Calculate..."
-- Page 2: "...continued from Q1, then answer part (c)" 
-- Page 3: "Question 2: Explain..."
-Result: Q1 spans pages 1-2, Q2 starts page 3
-
-**Example output:**
+1. Return ONLY a JSON array — no other text.
+2. Each item must represent ONE question.
+3. Keep "fullText" SHORT — only the first 100 characters.
+4. Include estimated "cropBox" coordinates in percentages (not pixels), to mark where the question appears on the page image.
+5. Format:
 [
-  {"questionNumber":"1","startPage":1,"endPage":2,"fullText":"Question 1: Calculate the derivative...","hasSubParts":false},
-  {"questionNumber":"2","startPage":3,"endPage":3,"fullText":"Question 2: Explain the process...","hasSubParts":true}
+  {
+    "questionNumber": "1",
+    "startPage": 1,
+    "endPage": 2,
+    "fullText": "Question 1: ...",
+    "hasSubParts": false,
+    "cropBox": { "top": 0.10, "left": 0.08, "width": 0.85, "height": 0.25 }
+  }
 ]
 
-Return ONLY the JSON array, nothing else.`;
+**IMPORTANT FOR MULTI-PAGE QUESTIONS:**
+- Look CAREFULLY at where each question ENDS.
+- A question continues to the NEXT page if no new question number appears.
+- If page 2 starts "Question 2" but page 3 doesn’t start "Question 3", then Question 2 spans BOTH pages 2 AND 3.
+- Set startPage = first page of question, endPage = last page of question.
+
+**WHAT TO LOOK FOR:**
+- “Question 1”, “Q1”, “1.”, or “1)” patterns mark the START of a question.
+- A new question number marks the END of the previous question.
+- If no new number appears, the question continues.
+- Estimate visual crop boundaries where question text starts and ends on each page.
+
+**VISUAL CROP INSTRUCTIONS:**
+- `cropBox` gives the approximate rectangular area for each question.
+- Use normalized values (0 to 1) relative to the full page size.
+  Example:
+  - top=0 means top of page, top=1 means bottom of page
+  - left=0 means left edge, left=1 means right edge
+- Only include the area where the question text appears (no extra margins).
+
+**Example:**
+Page 1: “Question 1: Calculate...”
+Page 2: “...continued from Q1”
+Page 3: “Question 2: Explain...”
+→ Result:
+[
+  {
+    "questionNumber": "1",
+    "startPage": 1,
+    "endPage": 2,
+    "fullText": "Question 1: Calculate the derivative...",
+    "hasSubParts": true,
+    "cropBox": { "top": 0.05, "left": 0.07, "width": 0.88, "height": 0.40 }
+  },
+  {
+    "questionNumber": "2",
+    "startPage": 3,
+    "endPage": 3,
+    "fullText": "Question 2: Explain the process...",
+    "hasSubParts": false,
+    "cropBox": { "top": 0.15, "left": 0.08, "width": 0.85, "height": 0.30 }
+  }
+]
+
+**Return ONLY the JSON array.**`;
 
   try {
     console.log("Sending to Gemini AI...");
