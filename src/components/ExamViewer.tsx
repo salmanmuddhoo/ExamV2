@@ -743,21 +743,12 @@ This helps me give you the most accurate and focused help! 😊`;
               </div>
             </div>
           ) : pdfBlobUrl ? (
-            isMobile ? (
-              <iframe
-                src={pdfBlobUrl}
-                className="w-full h-full border-0"
-                title="Exam Paper"
-                allow="fullscreen"
-              />
-            ) : (
-              <iframe
-                src={pdfBlobUrl}
-                className="w-full h-full border-0"
-                title="Exam Paper"
-                allow="fullscreen"
-              />
-            )
+            <iframe
+              src={`${pdfBlobUrl}#view=FitH`}
+              className="w-full h-full border-0"
+              title="Exam Paper"
+              allow="fullscreen"
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md p-6">
