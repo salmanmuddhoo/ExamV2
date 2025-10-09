@@ -47,7 +47,7 @@ function App() {
 
   useEffect(() => {
     if (initialLoadComplete && !user && !loading) {
-      if (view !== 'home' && view !== 'login' && view !== 'subjects' && view !== 'papers-list') {
+      if (view !== 'home' && view !== 'login' && view !== 'subjects' && view !== 'years' && view !== 'papers-list' && view !== 'exam-viewer') {
         setView('home');
       }
     }
