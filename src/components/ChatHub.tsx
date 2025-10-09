@@ -210,15 +210,9 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
               <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                 <MessageSquare className="w-16 h-16 text-gray-300 mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversations yet</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Start a conversation by selecting an exam paper
+                <p className="text-sm text-gray-600">
+                  Click the "New Conversation" button above to get started
                 </p>
-                <button
-                  onClick={handleNewConversation}
-                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  Browse Exam Papers
-                </button>
               </div>
             ) : (
               <div className="p-3 space-y-2">
