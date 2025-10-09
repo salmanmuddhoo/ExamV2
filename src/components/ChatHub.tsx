@@ -275,7 +275,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0 pr-2">
-                                  <div className="flex items-center space-x-2 mb-1">
+                                  <div className="flex items-center space-x-2">
                                     <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
                                       selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
                                     }`} />
@@ -284,11 +284,6 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
                                     }`}>
                                       {conv.exam_papers.title}
                                     </p>
-                                  </div>
-                                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                    <span>{conv.exam_papers.grade_levels.name}</span>
-                                    <span>•</span>
-                                    <span>{formatDate(conv.updated_at)}</span>
                                   </div>
                                 </div>
                                 <button
