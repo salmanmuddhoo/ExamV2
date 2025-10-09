@@ -142,7 +142,7 @@ async function extractAndSplitQuestions(
     }
   }));
 
-  const AI_PROMPT = `You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
+  const AI_PROMPT= `You are an AI that analyzes scanned exam papers to detect and segment individual questions from the image.
 
 Your task: Extract and split all questions from this exam paper, returning both text and approximate image crop coordinates.
 
@@ -170,13 +170,13 @@ Your task: Extract and split all questions from this exam paper, returning both 
 - Set startPage = first page of question, endPage = last page of question.
 
 **WHAT TO LOOK FOR:**
-- “Question 1”, “Q1”, “1.”, or “1)” patterns mark the START of a question.
+- "Question 1", "Q1", "1.", or "1)" patterns mark the START of a question.
 - A new question number marks the END of the previous question.
 - If no new number appears, the question continues.
 - Estimate visual crop boundaries where question text starts and ends on each page.
 
 **VISUAL CROP INSTRUCTIONS:**
-- `cropBox` gives the approximate rectangular area for each question.
+- \\`cropBox\\` gives the approximate rectangular area for each question.
 - Use normalized values (0 to 1) relative to the full page size.
   Example:
   - top=0 means top of page, top=1 means bottom of page
@@ -184,9 +184,9 @@ Your task: Extract and split all questions from this exam paper, returning both 
 - Only include the area where the question text appears (no extra margins).
 
 **Example:**
-Page 1: “Question 1: Calculate...”
-Page 2: “...continued from Q1”
-Page 3: “Question 2: Explain...”
+Page 1: "Question 1: Calculate..."
+Page 2: "...continued from Q1"
+Page 3: "Question 2: Explain..."
 → Result:
 [
   {
@@ -208,6 +208,7 @@ Page 3: “Question 2: Explain...”
 ]
 
 **Return ONLY the JSON array.**`;
+
 
   try {
     console.log("Sending to Gemini AI...");
