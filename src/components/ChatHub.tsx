@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
+import { Modal } from './Modal';
 
 interface ConversationWithPaper {
   id: string;
@@ -35,6 +36,10 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
   const [showPaperModal, setShowPaperModal] = useState(false);
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; conversationId: string | null }>({
+    show: false,
+    conversationId: null,
+  });
 
   useEffect(() => {
     if (user) {
@@ -94,25 +99,29 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
 
   const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setDeleteModal({ show: true, conversationId });
+  };
 
-    if (!confirm('Delete this conversation? This cannot be undone.')) return;
+  const confirmDelete = async () => {
+    if (!deleteModal.conversationId) return;
 
     try {
       const { error } = await supabase
         .from('conversations')
         .delete()
-        .eq('id', conversationId);
+        .eq('id', deleteModal.conversationId);
 
       if (error) throw error;
 
-      if (selectedConversation === conversationId) {
+      if (selectedConversation === deleteModal.conversationId) {
         setSelectedConversation(null);
       }
 
       await fetchConversations();
+      setDeleteModal({ show: false, conversationId: null });
     } catch (error) {
       console.error('Error deleting conversation:', error);
-      alert('Failed to delete conversation');
+      setDeleteModal({ show: false, conversationId: null });
     }
   };
 
@@ -169,6 +178,17 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
 
   return (
     <>
+      <Modal
+        isOpen={deleteModal.show}
+        onClose={() => setDeleteModal({ show: false, conversationId: null })}
+        onConfirm={confirmDelete}
+        title="Delete Conversation"
+        message="Are you sure you want to delete this conversation? This action cannot be undone."
+        type="confirm"
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+
       <PaperSelectionModal
         isOpen={showPaperModal}
         onClose={() => setShowPaperModal(false)}

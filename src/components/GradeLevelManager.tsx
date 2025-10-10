@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, GraduationCap } from 'lucide-react';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface GradeLevel {
   id: string;
@@ -9,6 +11,7 @@ interface GradeLevel {
 }
 
 export function GradeLevelManager() {
+  const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export function GradeLevelManager() {
       setEditingId(null);
       fetchGradeLevels();
     } catch (error: any) {
-      alert(error.message);
+      showAlert(error.message, 'Error', 'error');
     }
   };
 
@@ -70,14 +73,41 @@ export function GradeLevelManager() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this grade level?')) return;
-
+    // Check if grade level is being used by any exam papers
     try {
-      const { error } = await supabase.from('grade_levels').delete().eq('id', id);
-      if (error) throw error;
-      fetchGradeLevels();
+      const { data: examPapers, error: checkError } = await supabase
+        .from('exam_papers')
+        .select('id')
+        .eq('grade_level_id', id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (examPapers && examPapers.length > 0) {
+        showAlert(
+          'This grade level cannot be deleted because it is being used by one or more exam papers. Please remove or reassign those exam papers first.',
+          'Cannot Delete Grade Level',
+          'warning'
+        );
+        return;
+      }
+
+      // If no exam papers use this grade level, proceed with deletion
+      showConfirm(
+        'Are you sure you want to delete this grade level? This action cannot be undone.',
+        async () => {
+          try {
+            const { error } = await supabase.from('grade_levels').delete().eq('id', id);
+            if (error) throw error;
+            fetchGradeLevels();
+          } catch (error: any) {
+            showAlert(error.message, 'Error', 'error');
+          }
+        },
+        'Delete Grade Level'
+      );
     } catch (error: any) {
-      alert(error.message);
+      showAlert(error.message, 'Error', 'error');
     }
   };
 
@@ -92,8 +122,18 @@ export function GradeLevelManager() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <>
+      <Modal
+        isOpen={modalState.show}
+        onClose={closeModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+      />
+
+      <div>
+        <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <GraduationCap className="w-6 h-6 text-black" />
           <h2 className="text-2xl font-semibold text-gray-900">Grade Levels</h2>
@@ -195,5 +235,6 @@ export function GradeLevelManager() {
         )}
       </div>
     </div>
+    </>
   );
 }

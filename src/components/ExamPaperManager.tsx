@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { Plus, FileText, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createPdfPreviewUrl, revokePdfPreviewUrl, convertPdfToBase64Images, PdfImagePart } from '../lib/pdfUtils';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface ExamPaper {
   id: string;
@@ -10,6 +12,7 @@ interface ExamPaper {
   subject_id: string;
   grade_level_id: string;
   year: number;
+  month: number | null;
   pdf_url: string;
   subjects: { name: string };
   grade_levels: { name: string };
@@ -28,6 +31,7 @@ interface GradeLevel {
 
 export function ExamPaperManager() {
   const { user } = useAuth();
+  const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [examPapers, setExamPapers] = useState<ExamPaper[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
@@ -37,7 +41,29 @@ export function ExamPaperManager() {
     subject_id: '',
     grade_level_id: '',
     year: new Date().getFullYear(),
+    month: '' as string,
   });
+
+  const MONTHS = [
+    { value: '1', label: 'January' },
+    { value: '2', label: 'February' },
+    { value: '3', label: 'March' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'May' },
+    { value: '6', label: 'June' },
+    { value: '7', label: 'July' },
+    { value: '8', label: 'August' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' },
+  ];
+
+  const getMonthName = (monthNumber: number | null): string | null => {
+    if (!monthNumber) return null;
+    const month = MONTHS.find(m => parseInt(m.value) === monthNumber);
+    return month ? month.label : null;
+  };
   const [examPaperFile, setExamPaperFile] = useState<File | null>(null);
   const [markingSchemeFile, setMarkingSchemeFile] = useState<File | null>(null);
   const [examPaperPreviewUrl, setExamPaperPreviewUrl] = useState<string>('');
@@ -102,12 +128,12 @@ export function ExamPaperManager() {
     e.preventDefault();
 
     if (!examPaperFile) {
-      alert('Please select an exam paper PDF');
+      showAlert('Please select an exam paper PDF', 'Missing File', 'warning');
       return;
     }
 
     if (!user) {
-      alert('You must be logged in to upload exam papers');
+      showAlert('You must be logged in to upload exam papers', 'Authentication Required', 'warning');
       return;
     }
 
@@ -124,6 +150,7 @@ export function ExamPaperManager() {
             subject_id: formData.subject_id,
             grade_level_id: formData.grade_level_id,
             year: formData.year,
+            month: formData.month ? parseInt(formData.month) : null,
             pdf_url: examPaperUpload.url,
             pdf_path: examPaperUpload.path,
             uploaded_by: user.id,
@@ -211,7 +238,7 @@ export function ExamPaperManager() {
         console.log('AI Result:', processingResult);
 
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear() });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -219,53 +246,57 @@ export function ExamPaperManager() {
         fetchData();
 
         if (processingResult.questionsCount > 0) {
-          alert(`Success! Detected ${processingResult.questionsCount} questions`);
+          showAlert(`Success! Detected ${processingResult.questionsCount} questions`, 'Upload Successful', 'success');
         } else {
-          alert('Upload successful but no questions detected.');
+          showAlert('Upload successful but no questions detected.', 'Upload Complete', 'warning');
         }
       } catch (processingError: any) {
         console.error('Processing error:', processingError);
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear() });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
         setIsAdding(false);
         fetchData();
-        alert('Exam paper uploaded! Processing error: ' + processingError.message);
+        showAlert('Exam paper uploaded! Processing error: ' + processingError.message, 'Processing Error', 'warning');
       }
     } catch (error: any) {
-      alert(error.message);
+      showAlert(error.message, 'Error', 'error');
     } finally {
       setUploading(false);
     }
   };
 
   const handleDelete = async (paper: ExamPaper) => {
-    if (!confirm('Are you sure you want to delete this exam paper?')) return;
+    showConfirm(
+      'Are you sure you want to delete this exam paper? This action cannot be undone.',
+      async () => {
+        try {
+          await supabase.storage.from('exam-papers').remove([paper.pdf_path]);
 
-    try {
-      await supabase.storage.from('exam-papers').remove([paper.pdf_path]);
+          if (paper.marking_schemes) {
+            const { data: scheme } = await supabase
+              .from('marking_schemes')
+              .select('pdf_path')
+              .eq('id', paper.marking_schemes.id)
+              .single();
 
-      if (paper.marking_schemes) {
-        const { data: scheme } = await supabase
-          .from('marking_schemes')
-          .select('pdf_path')
-          .eq('id', paper.marking_schemes.id)
-          .single();
+            if (scheme) {
+              await supabase.storage.from('marking-schemes').remove([scheme.pdf_path]);
+            }
+          }
 
-        if (scheme) {
-          await supabase.storage.from('marking-schemes').remove([scheme.pdf_path]);
+          const { error } = await supabase.from('exam_papers').delete().eq('id', paper.id);
+          if (error) throw error;
+
+          fetchData();
+        } catch (error: any) {
+          showAlert(error.message, 'Error', 'error');
         }
-      }
-
-      const { error } = await supabase.from('exam_papers').delete().eq('id', paper.id);
-      if (error) throw error;
-
-      fetchData();
-    } catch (error: any) {
-      alert(error.message);
-    }
+      },
+      'Delete Exam Paper'
+    );
   };
 
   const handleExamPaperChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -287,7 +318,7 @@ export function ExamPaperManager() {
       console.log(`PDF converted to ${images.length} images for AI processing`);
     } catch (error) {
       console.error('Error processing PDF:', error);
-      alert('Error processing PDF. The file will still be uploaded.');
+      showAlert('Error processing PDF. The file will still be uploaded.', 'Processing Warning', 'warning');
     } finally {
       setProcessingPdf(false);
     }
@@ -308,7 +339,7 @@ export function ExamPaperManager() {
 
   const handleCancel = () => {
     setIsAdding(false);
-    setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear() });
+    setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '' });
     setExamPaperFile(null);
     setMarkingSchemeFile(null);
     if (examPaperPreviewUrl) {
@@ -327,8 +358,18 @@ export function ExamPaperManager() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <>
+      <Modal
+        isOpen={modalState.show}
+        onClose={closeModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+      />
+
+      <div>
+        <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <FileText className="w-6 h-6 text-black" />
           <h2 className="text-2xl font-semibold text-gray-900">Exam Papers</h2>
@@ -398,6 +439,25 @@ export function ExamPaperManager() {
                   {gradeLevels.map((grade) => (
                     <option key={grade.id} value={grade.id}>
                       {grade.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="month" className="block text-sm font-medium text-gray-900 mb-1">
+                  Month (Optional)
+                </label>
+                <select
+                  id="month"
+                  value={formData.month}
+                  onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                >
+                  <option value="">Select a month</option>
+                  {MONTHS.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
                     </option>
                   ))}
                 </select>
@@ -566,7 +626,7 @@ export function ExamPaperManager() {
                 <h3 className="font-semibold text-gray-900">{paper.title}</h3>
                 <div className="flex items-center space-x-4 mt-1">
                   <span className="text-sm text-gray-600">
-                    {paper.subjects.name} • {paper.grade_levels.name} • {paper.year}
+                    {paper.subjects.name} • {paper.grade_levels.name} • {paper.month ? `${getMonthName(paper.month)} ` : ''}{paper.year}
                   </span>
                   {paper.marking_schemes && (
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
@@ -596,5 +656,6 @@ export function ExamPaperManager() {
         )}
       </div>
     </div>
+    </>
   );
 }

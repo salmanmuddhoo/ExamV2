@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, BookOpen } from 'lucide-react';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface Subject {
   id: string;
@@ -9,6 +11,7 @@ interface Subject {
 }
 
 export function SubjectManager() {
+  const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export function SubjectManager() {
       setEditingId(null);
       fetchSubjects();
     } catch (error: any) {
-      alert(error.message);
+      showAlert(error.message, 'Error', 'error');
     }
   };
 
@@ -70,14 +73,41 @@ export function SubjectManager() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this subject?')) return;
-
+    // Check if subject is being used by any exam papers
     try {
-      const { error } = await supabase.from('subjects').delete().eq('id', id);
-      if (error) throw error;
-      fetchSubjects();
+      const { data: examPapers, error: checkError } = await supabase
+        .from('exam_papers')
+        .select('id')
+        .eq('subject_id', id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (examPapers && examPapers.length > 0) {
+        showAlert(
+          'This subject cannot be deleted because it is being used by one or more exam papers. Please remove or reassign those exam papers first.',
+          'Cannot Delete Subject',
+          'warning'
+        );
+        return;
+      }
+
+      // If no exam papers use this subject, proceed with deletion
+      showConfirm(
+        'Are you sure you want to delete this subject? This action cannot be undone.',
+        async () => {
+          try {
+            const { error } = await supabase.from('subjects').delete().eq('id', id);
+            if (error) throw error;
+            fetchSubjects();
+          } catch (error: any) {
+            showAlert(error.message, 'Error', 'error');
+          }
+        },
+        'Delete Subject'
+      );
     } catch (error: any) {
-      alert(error.message);
+      showAlert(error.message, 'Error', 'error');
     }
   };
 
@@ -92,8 +122,18 @@ export function SubjectManager() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <>
+      <Modal
+        isOpen={modalState.show}
+        onClose={closeModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+      />
+
+      <div>
+        <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <BookOpen className="w-6 h-6 text-black" />
           <h2 className="text-2xl font-semibold text-gray-900">Subjects</h2>
@@ -196,5 +236,6 @@ export function SubjectManager() {
         )}
       </div>
     </div>
+    </>
   );
 }

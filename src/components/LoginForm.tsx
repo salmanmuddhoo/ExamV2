@@ -1,18 +1,54 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn } from 'lucide-react';
+import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { Modal } from './Modal';
 
 interface LoginFormProps {
   onLoginSuccess?: () => void;
 }
 
+interface PasswordStrength {
+  score: number;
+  label: string;
+  color: string;
+}
+
 export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { signIn, signUp } = useAuth();
+
+  const calculatePasswordStrength = (pwd: string): PasswordStrength => {
+    let score = 0;
+
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    if (score === 0 || score === 1) return { score: 1, label: 'Weak', color: 'bg-red-500' };
+    if (score === 2 || score === 3) return { score: 2, label: 'Medium', color: 'bg-yellow-500' };
+    return { score: 3, label: 'Strong', color: 'bg-green-500' };
+  };
+
+  const passwordStrength = calculatePasswordStrength(password);
+
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 8) return 'Password must be at least 8 characters long';
+    if (!/[a-z]/.test(pwd)) return 'Password must contain at least one lowercase letter';
+    if (!/[A-Z]/.test(pwd)) return 'Password must contain at least one uppercase letter';
+    if (!/\d/.test(pwd)) return 'Password must contain at least one number';
+    if (!/[^A-Za-z0-9]/.test(pwd)) return 'Password must contain at least one special character';
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,10 +57,24 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
 
     try {
       if (isSignUp) {
+        // Validate password strength
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+          setError(passwordError);
+          setLoading(false);
+          return;
+        }
+
+        // Check password confirmation
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+
         // Always create user as "student"
         await signUp(email, password, 'student');
-        alert('Account created successfully! Please log in.');
-        setIsSignUp(false);
+        setShowSuccessModal(true);
       } else {
         await signIn(email, password);
         if (onLoginSuccess) {
@@ -39,8 +89,22 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div className="w-full max-w-md">
+    <>
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          setIsSignUp(false);
+          setPassword('');
+          setConfirmPassword('');
+        }}
+        title="Success!"
+        message="Account created successfully! Please log in."
+        type="success"
+      />
+
+      <div className="min-h-screen flex items-center justify-center bg-white px-4">
+        <div className="w-full max-w-md">
         <div className="bg-white p-8">
           <div className="flex items-center justify-center mb-8">
             <div className="bg-black p-3 rounded-lg">
@@ -83,17 +147,92 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
               <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-1.5">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={isSignUp ? 8 : 6}
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+
+              {/* Password Strength Meter - Only show during sign up */}
+              {isSignUp && password.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-600">Password strength:</span>
+                    <span className={`text-xs font-medium ${
+                      passwordStrength.score === 1 ? 'text-red-600' :
+                      passwordStrength.score === 2 ? 'text-yellow-600' :
+                      'text-green-600'
+                    }`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${passwordStrength.color}`}
+                      style={{ width: `${(passwordStrength.score / 3) * 100}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className={`text-xs ${password.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
+                      ✓ At least 8 characters
+                    </p>
+                    <p className={`text-xs ${/[a-z]/.test(password) && /[A-Z]/.test(password) ? 'text-green-600' : 'text-gray-500'}`}>
+                      ✓ Uppercase & lowercase letters
+                    </p>
+                    <p className={`text-xs ${/\d/.test(password) ? 'text-green-600' : 'text-gray-500'}`}>
+                      ✓ At least one number
+                    </p>
+                    <p className={`text-xs ${/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : 'text-gray-500'}`}>
+                      ✓ At least one special character
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Confirm Password - Only show during sign up */}
+            {isSignUp && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-900 mb-1.5">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs text-red-600 mt-1">Passwords do not match</p>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"
@@ -120,5 +259,6 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
         </div>
       </div>
     </div>
+    </>
   );
 }
