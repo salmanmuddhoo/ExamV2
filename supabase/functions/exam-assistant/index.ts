@@ -410,11 +410,7 @@ Deno.serve(async (req) => {
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiApiKey) throw new Error("GEMINI_API_KEY not configured");
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
+    // Supabase client already created earlier for fetching exam paper details
     let conversationHistory = [];
 
     if (isFollowUp) {
