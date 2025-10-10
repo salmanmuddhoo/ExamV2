@@ -273,24 +273,81 @@ export function ExamPaperManager() {
       'Are you sure you want to delete this exam paper? This action cannot be undone.',
       async () => {
         try {
+          // Get all question images for this exam paper
+          const { data: examQuestions } = await supabase
+            .from('exam_questions')
+            .select('image_urls')
+            .eq('exam_paper_id', paper.id);
+
+          // Delete exam paper PDF from storage
           await supabase.storage.from('exam-papers').remove([paper.pdf_path]);
 
+          // Delete all question images from storage
+          if (examQuestions && examQuestions.length > 0) {
+            const imagePaths: string[] = [];
+            examQuestions.forEach((question: any) => {
+              if (question.image_urls && Array.isArray(question.image_urls)) {
+                // Extract paths from URLs
+                question.image_urls.forEach((url: string) => {
+                  // Extract path from URL (format: https://...supabase.co/storage/v1/object/public/question-images/path)
+                  const match = url.match(/question-images\/(.+)$/);
+                  if (match) {
+                    imagePaths.push(match[1]);
+                  }
+                });
+              }
+            });
+
+            if (imagePaths.length > 0) {
+              await supabase.storage.from('question-images').remove(imagePaths);
+            }
+          }
+
+          // Delete marking scheme and its images if it exists
           if (paper.marking_schemes) {
             const { data: scheme } = await supabase
               .from('marking_schemes')
-              .select('pdf_path')
+              .select('id, pdf_path')
               .eq('id', paper.marking_schemes.id)
               .single();
 
             if (scheme) {
+              // Get all marking scheme question images
+              const { data: markingQuestions } = await supabase
+                .from('marking_scheme_questions')
+                .select('image_urls')
+                .eq('marking_scheme_id', scheme.id);
+
+              // Delete marking scheme PDF
               await supabase.storage.from('marking-schemes').remove([scheme.pdf_path]);
+
+              // Delete marking scheme question images
+              if (markingQuestions && markingQuestions.length > 0) {
+                const markingImagePaths: string[] = [];
+                markingQuestions.forEach((question: any) => {
+                  if (question.image_urls && Array.isArray(question.image_urls)) {
+                    question.image_urls.forEach((url: string) => {
+                      const match = url.match(/marking-scheme-images\/(.+)$/);
+                      if (match) {
+                        markingImagePaths.push(match[1]);
+                      }
+                    });
+                  }
+                });
+
+                if (markingImagePaths.length > 0) {
+                  await supabase.storage.from('marking-scheme-images').remove(markingImagePaths);
+                }
+              }
             }
           }
 
+          // Delete the exam paper from database (CASCADE will delete related questions)
           const { error } = await supabase.from('exam_papers').delete().eq('id', paper.id);
           if (error) throw error;
 
           fetchData();
+          showAlert('Exam paper and all related files deleted successfully', 'Deleted', 'success');
         } catch (error: any) {
           showAlert(error.message, 'Error', 'error');
         }
