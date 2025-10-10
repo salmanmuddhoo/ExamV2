@@ -309,43 +309,47 @@ Deno.serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch exam paper details including subject, grade, and AI prompt
-    const { data: examPaper, error: examPaperError } = await supabase
-      .from('exam_papers')
-      .select(`
-        title,
-        subjects (name),
-        grade_levels (name),
-        ai_prompts (system_prompt)
-      `)
-      .eq('id', examPaperId)
-      .single();
-
-    if (examPaperError) {
-      console.error('Error fetching exam paper:', examPaperError);
-    }
-
     // Build context-aware system prompt
     let contextualSystemPrompt = SYSTEM_PROMPT;
 
-    if (examPaper) {
-      const subject = examPaper.subjects?.name || 'Unknown';
-      const grade = examPaper.grade_levels?.name || 'Unknown';
-      const examTitle = examPaper.title || 'Unknown';
+    // Fetch exam paper details including subject, grade, and AI prompt
+    try {
+      const { data: examPaper, error: examPaperError } = await supabase
+        .from('exam_papers')
+        .select(`
+          title,
+          subjects (name),
+          grade_levels (name),
+          ai_prompts (system_prompt)
+        `)
+        .eq('id', examPaperId)
+        .single();
 
-      // Use custom AI prompt if available, otherwise use default
-      if (examPaper.ai_prompts?.system_prompt) {
-        contextualSystemPrompt = examPaper.ai_prompts.system_prompt
-          .replace(/\{\{SUBJECT\}\}/g, subject)
-          .replace(/\{\{GRADE\}\}/g, grade)
-          .replace(/\{\{EXAM_TITLE\}\}/g, examTitle);
+      if (examPaperError) {
+        console.error('Error fetching exam paper:', examPaperError);
+        console.log('Falling back to default prompt');
+      } else if (examPaper) {
+        const subject = examPaper.subjects?.name || 'Unknown';
+        const grade = examPaper.grade_levels?.name || 'Unknown';
+        const examTitle = examPaper.title || 'Unknown';
 
-        console.log('Using custom AI prompt with context');
-      } else {
-        // Add context to default prompt
-        contextualSystemPrompt = `${SYSTEM_PROMPT}\n\n**EXAM CONTEXT:**\nThis is a ${grade} ${subject} exam paper: "${examTitle}". Tailor your explanations to this subject and level.`;
-        console.log('Using default prompt with added context');
+        // Use custom AI prompt if available, otherwise use default
+        if (examPaper.ai_prompts?.system_prompt) {
+          contextualSystemPrompt = examPaper.ai_prompts.system_prompt
+            .replace(/\{\{SUBJECT\}\}/g, subject)
+            .replace(/\{\{GRADE\}\}/g, grade)
+            .replace(/\{\{EXAM_TITLE\}\}/g, examTitle);
+
+          console.log('Using custom AI prompt with context');
+        } else {
+          // Add context to default prompt
+          contextualSystemPrompt = `${SYSTEM_PROMPT}\n\n**EXAM CONTEXT:**\nThis is a ${grade} ${subject} exam paper: "${examTitle}". Tailor your explanations to this subject and level.`;
+          console.log('Using default prompt with added context');
+        }
       }
+    } catch (fetchError) {
+      console.error('Failed to fetch exam paper details:', fetchError);
+      console.log('Using default prompt without context');
     }
 
     if (extractedQuestionNumber && !isFollowUp) {
