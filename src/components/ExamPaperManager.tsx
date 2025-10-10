@@ -287,10 +287,9 @@ export function ExamPaperManager() {
             const imagePaths: string[] = [];
             examQuestions.forEach((question: any) => {
               if (question.image_urls && Array.isArray(question.image_urls)) {
-                // Extract paths from URLs
+                // Extract paths from URLs (format: https://...supabase.co/storage/v1/object/public/exam-questions/examPaperId/q1_page1.jpg)
                 question.image_urls.forEach((url: string) => {
-                  // Extract path from URL (format: https://...supabase.co/storage/v1/object/public/question-images/path)
-                  const match = url.match(/question-images\/(.+)$/);
+                  const match = url.match(/exam-questions\/(.+)$/);
                   if (match) {
                     imagePaths.push(match[1]);
                   }
@@ -299,7 +298,11 @@ export function ExamPaperManager() {
             });
 
             if (imagePaths.length > 0) {
-              await supabase.storage.from('question-images').remove(imagePaths);
+              console.log(`Deleting ${imagePaths.length} question images from storage`);
+              const { error: deleteError } = await supabase.storage.from('exam-questions').remove(imagePaths);
+              if (deleteError) {
+                console.error('Error deleting question images:', deleteError);
+              }
             }
           }
 
@@ -312,37 +315,12 @@ export function ExamPaperManager() {
               .single();
 
             if (scheme) {
-              // Get all marking scheme question images
-              const { data: markingQuestions } = await supabase
-                .from('marking_scheme_questions')
-                .select('image_urls')
-                .eq('marking_scheme_id', scheme.id);
-
               // Delete marking scheme PDF
               await supabase.storage.from('marking-schemes').remove([scheme.pdf_path]);
-
-              // Delete marking scheme question images
-              if (markingQuestions && markingQuestions.length > 0) {
-                const markingImagePaths: string[] = [];
-                markingQuestions.forEach((question: any) => {
-                  if (question.image_urls && Array.isArray(question.image_urls)) {
-                    question.image_urls.forEach((url: string) => {
-                      const match = url.match(/marking-scheme-images\/(.+)$/);
-                      if (match) {
-                        markingImagePaths.push(match[1]);
-                      }
-                    });
-                  }
-                });
-
-                if (markingImagePaths.length > 0) {
-                  await supabase.storage.from('marking-scheme-images').remove(markingImagePaths);
-                }
-              }
             }
           }
 
-          // Delete the exam paper from database (CASCADE will delete related questions)
+          // Delete the exam paper from database (CASCADE will delete related questions and marking schemes)
           const { error } = await supabase.from('exam_papers').delete().eq('id', paper.id);
           if (error) throw error;
 
