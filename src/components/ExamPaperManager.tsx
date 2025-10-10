@@ -14,9 +14,11 @@ interface ExamPaper {
   year: number;
   month: number | null;
   pdf_url: string;
+  ai_prompt_id: string | null;
   subjects: { name: string };
   grade_levels: { name: string };
   marking_schemes: { id: string; pdf_url: string } | null;
+  ai_prompts: { name: string } | null;
 }
 
 interface Subject {
@@ -29,12 +31,19 @@ interface GradeLevel {
   name: string;
 }
 
+interface AIPrompt {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 export function ExamPaperManager() {
   const { user } = useAuth();
   const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [examPapers, setExamPapers] = useState<ExamPaper[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
+  const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -42,6 +51,7 @@ export function ExamPaperManager() {
     grade_level_id: '',
     year: new Date().getFullYear(),
     month: '' as string,
+    ai_prompt_id: '',
   });
 
   const MONTHS = [
@@ -80,27 +90,31 @@ export function ExamPaperManager() {
 
   const fetchData = async () => {
     try {
-      const [papersRes, subjectsRes, gradesRes] = await Promise.all([
+      const [papersRes, subjectsRes, gradesRes, promptsRes] = await Promise.all([
         supabase
           .from('exam_papers')
           .select(`
             *,
             subjects (name),
             grade_levels (name),
-            marking_schemes (id, pdf_url)
+            marking_schemes (id, pdf_url),
+            ai_prompts (name)
           `)
           .order('created_at', { ascending: false }),
         supabase.from('subjects').select('*').order('name'),
         supabase.from('grade_levels').select('*').order('display_order'),
+        supabase.from('ai_prompts').select('id, name, description').order('name'),
       ]);
 
       if (papersRes.error) throw papersRes.error;
       if (subjectsRes.error) throw subjectsRes.error;
       if (gradesRes.error) throw gradesRes.error;
+      if (promptsRes.error) throw promptsRes.error;
 
       setExamPapers(papersRes.data || []);
       setSubjects(subjectsRes.data || []);
       setGradeLevels(gradesRes.data || []);
+      setAiPrompts(promptsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -151,6 +165,7 @@ export function ExamPaperManager() {
             grade_level_id: formData.grade_level_id,
             year: formData.year,
             month: formData.month ? parseInt(formData.month) : null,
+            ai_prompt_id: formData.ai_prompt_id || null,
             pdf_url: examPaperUpload.url,
             pdf_path: examPaperUpload.path,
             uploaded_by: user.id,
@@ -238,7 +253,7 @@ export function ExamPaperManager() {
         console.log('AI Result:', processingResult);
 
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '' });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -253,7 +268,7 @@ export function ExamPaperManager() {
       } catch (processingError: any) {
         console.error('Processing error:', processingError);
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '' });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -397,7 +412,7 @@ export function ExamPaperManager() {
 
   const handleCancel = () => {
     setIsAdding(false);
-    setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '' });
+    setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
     setExamPaperFile(null);
     setMarkingSchemeFile(null);
     if (examPaperPreviewUrl) {
@@ -537,6 +552,29 @@ export function ExamPaperManager() {
                   placeholder="e.g., 2024"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="ai_prompt" className="block text-sm font-medium text-gray-900 mb-1">
+                AI Assistant Prompt (Optional)
+              </label>
+              <select
+                id="ai_prompt"
+                value={formData.ai_prompt_id}
+                onChange={(e) => setFormData({ ...formData, ai_prompt_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+              >
+                <option value="">Use default prompt</option>
+                {aiPrompts.map((prompt) => (
+                  <option key={prompt.id} value={prompt.id}>
+                    {prompt.name}
+                    {prompt.description ? ` - ${prompt.description}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-600">
+                Select a custom AI prompt for this exam paper. Subject and grade will be automatically included.
+              </p>
             </div>
 
             <div>
@@ -689,6 +727,11 @@ export function ExamPaperManager() {
                   {paper.marking_schemes && (
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
                       Has Marking Scheme
+                    </span>
+                  )}
+                  {paper.ai_prompts && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      AI: {paper.ai_prompts.name}
                     </span>
                   )}
                 </div>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, BookOpen, GraduationCap, FileText } from 'lucide-react';
+import { LogOut, BookOpen, GraduationCap, FileText, MessageSquare } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
+import { AIPromptManager } from './AIPromptManager';
 
-type Tab = 'subjects' | 'grades' | 'exams';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts';
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('exams');
@@ -21,6 +22,7 @@ export function AdminDashboard() {
 
   const tabs = [
     { id: 'exams' as Tab, label: 'Exam Papers', icon: FileText },
+    { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
     { id: 'subjects' as Tab, label: 'Subjects', icon: BookOpen },
     { id: 'grades' as Tab, label: 'Grade Levels', icon: GraduationCap },
   ];
@@ -80,6 +82,7 @@ export function AdminDashboard() {
           {activeTab === 'subjects' && <SubjectManager />}
           {activeTab === 'grades' && <GradeLevelManager />}
           {activeTab === 'exams' && <ExamPaperManager />}
+          {activeTab === 'prompts' && <AIPromptManager />}
         </div>
       </div>
     </div>

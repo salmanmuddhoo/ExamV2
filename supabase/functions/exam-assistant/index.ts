@@ -298,17 +298,57 @@ Deno.serve(async (req) => {
     
     console.log(`Is follow-up question: ${isFollowUp}`);
 
-    if (extractedQuestionNumber && !isFollowUp) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-      
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase credentials not configured');
+    // Initialize Supabase client for fetching exam paper details and validation
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase credentials not configured');
+    }
+
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch exam paper details including subject, grade, and AI prompt
+    const { data: examPaper, error: examPaperError } = await supabase
+      .from('exam_papers')
+      .select(`
+        title,
+        subjects (name),
+        grade_levels (name),
+        ai_prompts (system_prompt)
+      `)
+      .eq('id', examPaperId)
+      .single();
+
+    if (examPaperError) {
+      console.error('Error fetching exam paper:', examPaperError);
+    }
+
+    // Build context-aware system prompt
+    let contextualSystemPrompt = SYSTEM_PROMPT;
+
+    if (examPaper) {
+      const subject = examPaper.subjects?.name || 'Unknown';
+      const grade = examPaper.grade_levels?.name || 'Unknown';
+      const examTitle = examPaper.title || 'Unknown';
+
+      // Use custom AI prompt if available, otherwise use default
+      if (examPaper.ai_prompts?.system_prompt) {
+        contextualSystemPrompt = examPaper.ai_prompts.system_prompt
+          .replace(/\{\{SUBJECT\}\}/g, subject)
+          .replace(/\{\{GRADE\}\}/g, grade)
+          .replace(/\{\{EXAM_TITLE\}\}/g, examTitle);
+
+        console.log('Using custom AI prompt with context');
+      } else {
+        // Add context to default prompt
+        contextualSystemPrompt = `${SYSTEM_PROMPT}\n\n**EXAM CONTEXT:**\nThis is a ${grade} ${subject} exam paper: "${examTitle}". Tailor your explanations to this subject and level.`;
+        console.log('Using default prompt with added context');
       }
+    }
 
-      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
+    if (extractedQuestionNumber && !isFollowUp) {
       const validation = await validateQuestionExists(
         supabase,
         examPaperId,
@@ -392,10 +432,10 @@ Deno.serve(async (req) => {
     contents.push(...conversationHistory);
 
     const currentMessageParts: any[] = [
-      { text: SYSTEM_PROMPT },
+      { text: contextualSystemPrompt },
       { text: buildQuestionFocusPrompt(
-        normalizedQuestion, 
-        detectedQuestionNumber, 
+        normalizedQuestion,
+        detectedQuestionNumber,
         questionText,
         markingSchemeText,
         isFollowUp
