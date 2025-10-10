@@ -1,0 +1,11 @@
+CREATE TABLE gemini_caches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  cache_name TEXT NOT NULL,
+  exam_paper_id TEXT NOT NULL,
+  question_number TEXT NOT NULL,
+  expire_time TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(exam_paper_id, question_number, created_at)
+);
+
+CREATE INDEX idx_gemini_caches_lookup ON gemini_caches(exam_paper_id, question_number, created_at DESC);
