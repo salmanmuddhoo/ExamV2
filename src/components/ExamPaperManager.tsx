@@ -273,40 +273,56 @@ export function ExamPaperManager() {
       'Are you sure you want to delete this exam paper? This action cannot be undone.',
       async () => {
         try {
+          console.log('Deleting exam paper:', paper.id);
+
           // Get all question images for this exam paper
-          const { data: examQuestions } = await supabase
+          const { data: examQuestions, error: fetchError } = await supabase
             .from('exam_questions')
             .select('image_urls')
             .eq('exam_paper_id', paper.id);
 
-          // Delete exam paper PDF from storage
-          await supabase.storage.from('exam-papers').remove([paper.pdf_path]);
+          if (fetchError) {
+            console.error('Error fetching exam questions:', fetchError);
+          }
 
-          // Delete all question images from storage
-          if (examQuestions && examQuestions.length > 0) {
-            const imagePaths: string[] = [];
-            examQuestions.forEach((question: any) => {
-              if (question.image_urls && Array.isArray(question.image_urls)) {
-                // Extract paths from URLs (format: https://...supabase.co/storage/v1/object/public/exam-questions/examPaperId/q1_page1.jpg)
-                question.image_urls.forEach((url: string) => {
-                  const match = url.match(/exam-questions\/(.+)$/);
-                  if (match) {
-                    imagePaths.push(match[1]);
-                  }
-                });
-              }
-            });
+          console.log('Found questions:', examQuestions?.length || 0);
 
-            if (imagePaths.length > 0) {
-              console.log(`Deleting ${imagePaths.length} question images from storage`);
-              const { error: deleteError } = await supabase.storage.from('exam-questions').remove(imagePaths);
-              if (deleteError) {
-                console.error('Error deleting question images:', deleteError);
-              }
+          // Delete all question images from storage by deleting the entire folder
+          // Images are stored in format: {examPaperId}/q{number}_page{page}.jpg
+          const { data: files, error: listError } = await supabase.storage
+            .from('exam-questions')
+            .list(paper.id);
+
+          if (listError) {
+            console.error('Error listing files in folder:', listError);
+          } else if (files && files.length > 0) {
+            console.log(`Found ${files.length} files in folder ${paper.id}`);
+
+            // Build full paths for deletion
+            const filePaths = files.map(file => `${paper.id}/${file.name}`);
+            console.log('Deleting files:', filePaths);
+
+            const { error: deleteError } = await supabase.storage
+              .from('exam-questions')
+              .remove(filePaths);
+
+            if (deleteError) {
+              console.error('Error deleting question images:', deleteError);
+            } else {
+              console.log('Successfully deleted question images');
             }
           }
 
-          // Delete marking scheme and its images if it exists
+          // Delete exam paper PDF from storage
+          const { error: pdfDeleteError } = await supabase.storage
+            .from('exam-papers')
+            .remove([paper.pdf_path]);
+
+          if (pdfDeleteError) {
+            console.error('Error deleting exam paper PDF:', pdfDeleteError);
+          }
+
+          // Delete marking scheme and its PDF if it exists
           if (paper.marking_schemes) {
             const { data: scheme } = await supabase
               .from('marking_schemes')
@@ -316,7 +332,13 @@ export function ExamPaperManager() {
 
             if (scheme) {
               // Delete marking scheme PDF
-              await supabase.storage.from('marking-schemes').remove([scheme.pdf_path]);
+              const { error: schemeDeleteError } = await supabase.storage
+                .from('marking-schemes')
+                .remove([scheme.pdf_path]);
+
+              if (schemeDeleteError) {
+                console.error('Error deleting marking scheme PDF:', schemeDeleteError);
+              }
             }
           }
 
@@ -327,6 +349,7 @@ export function ExamPaperManager() {
           fetchData();
           showAlert('Exam paper and all related files deleted successfully', 'Deleted', 'success');
         } catch (error: any) {
+          console.error('Delete error:', error);
           showAlert(error.message, 'Error', 'error');
         }
       },
