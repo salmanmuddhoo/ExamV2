@@ -48,6 +48,11 @@ export interface UserSubscription {
   end_date: string | null;
   cancelled_at: string | null;
 
+  // Cancellation tracking
+  cancel_at_period_end: boolean;
+  cancellation_reason: string | null;
+  cancellation_requested_at: string | null;
+
   created_at: string;
   updated_at: string;
 

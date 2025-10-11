@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Crown, Zap, Check, X, Loader2 } from 'lucide-react';
+import { Crown, Zap, Check, X, Loader2, AlertCircle } from 'lucide-react';
 import type { SubscriptionTier, UserSubscription } from '../types/subscription';
 import { StudentPackageSelector } from './StudentPackageSelector';
 import { PaymentOrchestrator } from './PaymentOrchestrator';
@@ -17,6 +17,9 @@ export function SubscriptionManager() {
   const [selectedStudentTier, setSelectedStudentTier] = useState<SubscriptionTier | null>(null);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentSelectionData | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string>('');
 
   useEffect(() => {
     if (user) {
@@ -146,6 +149,70 @@ export function SubscriptionManager() {
     setPaymentData(null);
   };
 
+  const handleCancelSubscription = async () => {
+    if (!user) return;
+
+    try {
+      setCancelling(true);
+      setCancelError('');
+
+      // Call the cancel_subscription_at_period_end function
+      const { data, error } = await supabase.rpc('cancel_subscription_at_period_end', {
+        p_user_id: user.id,
+        p_reason: 'User requested cancellation'
+      });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+      }
+
+      // Refresh subscription data
+      await fetchData();
+      setShowCancelDialog(false);
+    } catch (error: any) {
+      console.error('Error cancelling subscription:', error);
+      setCancelError(error.message || 'Failed to cancel subscription');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    if (!user) return;
+
+    try {
+      setCancelling(true);
+      setCancelError('');
+
+      // Call the reactivate_subscription function
+      const { data, error } = await supabase.rpc('reactivate_subscription', {
+        p_user_id: user.id
+      });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+      }
+
+      // Refresh subscription data
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error reactivating subscription:', error);
+      setCancelError(error.message || 'Failed to reactivate subscription');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -182,41 +249,86 @@ export function SubscriptionManager() {
     <div className="max-w-6xl mx-auto">
       {/* Current Subscription Status */}
       {currentSubscription && (
-        <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900 mb-1">
-                Current Plan: {currentSubscription.subscription_tiers?.display_name}
-              </h3>
-              <div className="space-y-0.5 text-xs text-gray-600">
-                <p>
-                  Tokens: {currentSubscription.subscription_tiers?.token_limit === null
-                    ? 'Unlimited'
-                    : `${currentSubscription.tokens_used_current_period.toLocaleString()} / ${currentSubscription.subscription_tiers.token_limit.toLocaleString()}`}
-                </p>
-                {currentSubscription.subscription_tiers?.papers_limit !== null && (
+        <div className="mb-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  Current Plan: {currentSubscription.subscription_tiers?.display_name}
+                </h3>
+                <div className="space-y-0.5 text-xs text-gray-600">
                   <p>
-                    Papers: {currentSubscription.papers_accessed_current_period} / {currentSubscription.subscription_tiers.papers_limit}
+                    Tokens: {currentSubscription.subscription_tiers?.token_limit === null
+                      ? 'Unlimited'
+                      : `${currentSubscription.tokens_used_current_period.toLocaleString()} / ${currentSubscription.subscription_tiers.token_limit.toLocaleString()}`}
                   </p>
+                  {currentSubscription.subscription_tiers?.papers_limit !== null && (
+                    <p>
+                      Papers: {currentSubscription.papers_accessed_current_period} / {currentSubscription.subscription_tiers.papers_limit}
+                    </p>
+                  )}
+                  <p>
+                    Period: {new Date(currentSubscription.period_start_date).toLocaleDateString()} - {
+                      currentSubscription.period_end_date
+                        ? new Date(currentSubscription.period_end_date).toLocaleDateString()
+                        : 'Ongoing'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                {currentSubscription.subscription_tiers?.name === 'pro' && (
+                  <Crown className="w-10 h-10 text-yellow-500" />
                 )}
-                <p>
-                  Period: {new Date(currentSubscription.period_start_date).toLocaleDateString()} - {
-                    currentSubscription.period_end_date
-                      ? new Date(currentSubscription.period_end_date).toLocaleDateString()
-                      : 'Ongoing'
-                  }
-                </p>
+                {currentSubscription.subscription_tiers?.name === 'student' && (
+                  <Zap className="w-10 h-10 text-blue-500" />
+                )}
               </div>
             </div>
-            <div className="flex-shrink-0">
-              {currentSubscription.subscription_tiers?.name === 'pro' && (
-                <Crown className="w-10 h-10 text-yellow-500" />
-              )}
-              {currentSubscription.subscription_tiers?.name === 'student' && (
-                <Zap className="w-10 h-10 text-blue-500" />
-              )}
-            </div>
           </div>
+
+          {/* Cancellation Warning */}
+          {currentSubscription.cancel_at_period_end && (
+            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-yellow-900 mb-1">
+                    Subscription Scheduled for Cancellation
+                  </h4>
+                  <p className="text-xs text-yellow-800 mb-2">
+                    Your subscription will end on{' '}
+                    <strong>
+                      {currentSubscription.period_end_date
+                        ? new Date(currentSubscription.period_end_date).toLocaleDateString()
+                        : 'the end of the current period'}
+                    </strong>
+                    . You'll continue to have full access until then.
+                  </p>
+                  <button
+                    onClick={handleReactivateSubscription}
+                    disabled={cancelling}
+                    className="text-xs bg-yellow-600 text-white px-3 py-1.5 rounded hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+                  >
+                    {cancelling ? 'Processing...' : 'Reactivate Subscription'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cancel Button for Active Paid Subscriptions */}
+          {!currentSubscription.cancel_at_period_end &&
+           currentSubscription.subscription_tiers?.name !== 'free' && (
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={() => setShowCancelDialog(true)}
+                className="text-xs text-red-600 hover:text-red-700 font-medium"
+              >
+                Cancel Subscription
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -374,6 +486,73 @@ export function SubscriptionManager() {
         <p>All plans include AI-powered exam assistance and instant explanations</p>
         <p className="mt-1">Cancel anytime. No hidden fees.</p>
       </div>
+
+      {/* Cancellation Confirmation Dialog */}
+      {showCancelDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Cancel Subscription?</h3>
+
+            <div className="mb-6 space-y-3">
+              <p className="text-sm text-gray-700">
+                Are you sure you want to cancel your <strong>{currentSubscription?.subscription_tiers?.display_name}</strong> subscription?
+              </p>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900 font-medium mb-2">
+                  ✓ You'll retain full access until:
+                </p>
+                <p className="text-base font-bold text-blue-900">
+                  {currentSubscription?.period_end_date
+                    ? new Date(currentSubscription.period_end_date).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                    : 'the end of your billing period'}
+                </p>
+              </div>
+
+              <p className="text-xs text-gray-600">
+                After this date, your account will be downgraded to the Free tier. You can reactivate your subscription anytime before it ends.
+              </p>
+            </div>
+
+            {cancelError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{cancelError}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowCancelDialog(false);
+                  setCancelError('');
+                }}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center space-x-2"
+              >
+                {cancelling ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <span>Yes, Cancel</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,6 +32,7 @@ If you're using hosted Supabase:
    - `supabase/migrations/20251011000005_add_profiles_fkey_to_payments.sql`
    - `supabase/migrations/20251011000006_add_unique_user_subscription.sql`
    - `supabase/migrations/20251011000007_handle_mcb_juice_non_recurring.sql`
+   - `supabase/migrations/20251011000008_add_subscription_cancellation.sql`
 
 **Important:** All migrations must be run in order to avoid errors with RLS policies, storage uploads, admin dashboard queries, and payment approval.
 
@@ -397,6 +398,44 @@ SELECT reset_subscription_period();
 ```
 
 **Note:** This only affects `is_recurring = TRUE` subscriptions (Stripe, PayPal). MCB Juice subscriptions will not be reset.
+
+### User Subscription Cancellation
+
+Users can cancel their subscriptions at any time, but they retain full access until the end of their billing period.
+
+**How it works:**
+1. User clicks "Cancel Subscription" in their profile
+2. Subscription is marked with `cancel_at_period_end = TRUE`
+3. User keeps full access until `period_end_date`
+4. At `period_end_date`, subscription status changes to 'cancelled'
+5. User is automatically downgraded to Free tier
+
+**User can reactivate:**
+- User can click "Reactivate Subscription" before the period ends
+- This removes the cancellation flag and restores auto-renewal (if applicable)
+
+**SQL Functions:**
+```sql
+-- Cancel a subscription (user retains access until period_end_date)
+SELECT * FROM cancel_subscription_at_period_end(user_id, 'Optional reason');
+
+-- Reactivate a cancelled subscription
+SELECT * FROM reactivate_subscription(user_id);
+
+-- Process all cancellations and expirations (run daily via cron)
+SELECT process_subscription_expirations();
+```
+
+**Recommended Cron Job:**
+Set up a daily cron job to process expirations:
+```sql
+-- Run once per day
+SELECT process_subscription_expirations();
+```
+
+This function handles both:
+- Non-recurring subscriptions (MCB Juice) that have expired
+- Cancelled subscriptions that have reached their end date
 
 ---
 
