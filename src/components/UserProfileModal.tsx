@@ -170,10 +170,10 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] shadow-2xl overflow-hidden flex flex-col">
+      <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] md:h-[80vh] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-          <h2 className="text-xl font-bold text-gray-900">My Profile</h2>
+        <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900">My Profile</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
@@ -184,46 +184,72 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
         </div>
 
         {/* Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - Tabs */}
-          <div className="w-64 border-r border-gray-200 bg-gray-50 p-4">
-            <nav className="space-y-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-gray-900 text-white'
-                        : 'text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium text-sm">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+          {/* Top/Left Tabs - Horizontal on mobile, Sidebar on desktop */}
+          <div className="md:w-64 border-b md:border-b-0 md:border-r border-gray-200 bg-gray-50">
+            {/* Mobile: Horizontal scrollable tabs */}
+            <div className="md:hidden overflow-x-auto">
+              <nav className="flex p-2 space-x-1">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-shrink-0 flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="font-medium text-xs whitespace-nowrap">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Desktop: Vertical sidebar */}
+            <div className="hidden md:block p-4">
+              <nav className="space-y-1">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="font-medium text-sm">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
           </div>
 
           {/* Right Content Area */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
             {activeTab === 'general' && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-6">General Information</h3>
+                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">General Information</h3>
 
                 {successMessage && (
-                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
+                  <div className="mb-4 p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
                     <Check className="w-4 h-4 text-green-600" />
-                    <p className="text-sm text-green-800">{successMessage}</p>
+                    <p className="text-xs md:text-sm text-green-800">{successMessage}</p>
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   {/* Profile Picture */}
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
                     <div className="relative">
                       {profilePicture ? (
                         <img
@@ -257,34 +283,34 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                         className="hidden"
                       />
                     </div>
-                    <div>
+                    <div className="text-center sm:text-left">
                       <p className="text-sm font-medium text-gray-900">Profile Picture</p>
                       <p className="text-xs text-gray-500">Click the camera icon to upload (max 5MB)</p>
                     </div>
                   </div>
 
-                  {/* First Name and Last Name - Side by Side */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* First Name and Last Name - Stacked on mobile, Side by Side on desktop */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                      <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">First Name</label>
                       <input
                         type="text"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         onBlur={handleFirstNameBlur}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:border-gray-900 transition-colors"
+                        className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:outline-none focus:border-gray-900 transition-colors"
                         placeholder="Enter your first name"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                      <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Last Name</label>
                       <input
                         type="text"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         onBlur={handleLastNameBlur}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:border-gray-900 transition-colors"
+                        className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:outline-none focus:border-gray-900 transition-colors"
                         placeholder="Enter your last name"
                       />
                     </div>
@@ -292,24 +318,24 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
 
                   {/* Email */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Email Address</label>
                     <input
                       type="email"
                       value={profile.email}
                       disabled
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                      className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
                     />
                     <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                   </div>
 
                   {/* Subscription Tier */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subscription Plan</label>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Subscription Plan</label>
                     <input
                       type="text"
                       value={subscriptionTier}
                       disabled
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                      className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
                     />
                     {profile.role === 'admin' && (
                       <p className="text-xs text-gray-500 mt-1">You have administrator access</p>
@@ -321,18 +347,18 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
 
             {activeTab === 'subscription' && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-6">Subscription Management</h3>
+                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Subscription Management</h3>
                 <SubscriptionManager />
               </div>
             )}
 
             {activeTab === 'payment-history' && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-6">Payment History</h3>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                  <History className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No payment history available yet.</p>
-                  <p className="text-sm text-gray-500 mt-2">
+                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Payment History</h3>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 md:p-8 text-center">
+                  <History className="w-10 h-10 md:w-12 md:h-12 text-gray-400 mx-auto mb-3 md:mb-4" />
+                  <p className="text-sm md:text-base text-gray-600">No payment history available yet.</p>
+                  <p className="text-xs md:text-sm text-gray-500 mt-2">
                     Once you make a payment, your transaction history will appear here.
                   </p>
                 </div>
@@ -341,8 +367,8 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
 
             {activeTab === 'settings' && (
               <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-6">Settings</h3>
-                <div className="space-y-6">
+                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Settings</h3>
+                <div className="space-y-4 md:space-y-6">
                   {/* Email Notifications */}
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-3">Email Notifications</h4>
