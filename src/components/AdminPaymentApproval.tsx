@@ -207,20 +207,22 @@ export function AdminPaymentApproval() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   {/* User Info */}
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      <User className="w-5 h-5 text-gray-700" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {transaction.profiles?.first_name || 'Unknown'} {transaction.profiles?.last_name || ''}
-                      </p>
-                      <p className="text-sm text-gray-600">{transaction.profiles?.email}</p>
+                  <div className="mb-4 pb-4 border-b border-gray-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900 text-base">
+                          {transaction.profiles?.first_name || 'Unknown'} {transaction.profiles?.last_name || ''}
+                        </p>
+                        <p className="text-sm font-medium text-blue-600">{transaction.profiles?.email}</p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Transaction Details */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Plan</p>
                       <p className="text-sm font-medium text-gray-900">
