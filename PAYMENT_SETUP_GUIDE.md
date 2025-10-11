@@ -28,8 +28,9 @@ If you're using hosted Supabase:
 3. Run the migration files in order:
    - `supabase/migrations/20251011000002_create_payment_system.sql`
    - `supabase/migrations/20251011000003_fix_payment_rls_policies.sql`
+   - `supabase/migrations/20251011000004_fix_storage_policies.sql`
 
-**Important:** If you get RLS policy errors, run the fix migration to resolve them.
+**Important:** All three migrations must be run to avoid RLS policy errors on payments and storage uploads.
 
 ### Step 2: Create Storage Buckets
 
