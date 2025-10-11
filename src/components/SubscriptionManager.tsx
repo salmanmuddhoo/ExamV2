@@ -477,9 +477,14 @@ export function SubscriptionManager() {
               </button>
 
               {/* Upgrade benefit note */}
-              {canUp && currentSubscription && currentSubscription.tokens_used_current_period > 0 && (
+              {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
                 <p className="text-xs text-green-600 mt-2 text-center">
-                  ✓ Your token usage will carry forward
+                  ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
+                </p>
+              )}
+              {canUp && tier.token_limit === null && currentSubscription && (
+                <p className="text-xs text-green-600 mt-2 text-center">
+                  ✓ Get unlimited tokens
                 </p>
               )}
             </div>

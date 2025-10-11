@@ -18,23 +18,38 @@ This document explains the complete subscription lifecycle including upgrades, d
 - Old subscription is replaced
 - New subscription starts immediately
 - Period resets to new billing cycle
-- **Tokens and papers used carry forward** (prevents gaming the system)
+- **Token USAGE preserved, but gets NEW TIER LIMIT** (additive tokens)
 
-**Token Carryover Logic:**
+**Token Addition Logic:**
 ```
-Student Package: Used 200K / 500K tokens
+Student Package: 500K limit, used 3K → 497K remaining
+↓ Upgrades to Professional (5M limit)
+Professional Package: Used 3K, limit now 5M
+✓ Effectively got 497K + 5M = 5,497K tokens available
+```
+
+**If Upgrading to Unlimited:**
+```
+Student Package: 500K limit, used 3K → 497K remaining
 ↓ Upgrades to Professional (Unlimited)
-Professional Package: Starts with 200K tokens already used
-✓ Cannot reset usage by upgrading
+Professional Package: Used 3K, unlimited tokens
+✓ Gets unlimited tokens (tracked usage stays at 3K)
 ```
 
 **Example:**
 ```
-User on Student Package (5 days remaining, 200K tokens used)
-↓ Upgrades to Professional
-Professional Package activated immediately
-New 30-day period starts
-Token usage: 200K carried forward (now unlimited, but usage tracked)
+User on Student Package (5 days remaining)
+- Token limit: 500K
+- Used: 3K
+- Remaining: 497K
+
+↓ Upgrades to Professional ($25/month)
+
+Professional Package activated immediately:
+- Token limit: 5M (or unlimited based on admin config)
+- Used: 3K (preserved)
+- Remaining: 4,997K (or unlimited)
+- New 30-day period starts
 ```
 
 ---
@@ -293,7 +308,7 @@ Solution:
 ### Example 2: User Upgrades Mid-Period
 ```
 Day 15 of Student Package monthly ($15)
-Used 250K / 500K tokens
+Limit: 500K, Used: 250K, Remaining: 250K
 
 User upgrades to Professional ($25/month)
 
@@ -301,14 +316,18 @@ Result:
 - Student Package cancelled immediately
 - Professional Package activated
 - New 30-day period starts
-- Token usage: 250K carried forward
-- Professional has unlimited tokens, but usage still tracked
+- Token usage: 250K preserved
+- Professional limit: 5M (or unlimited based on admin config)
+- New remaining: 4,750K (or unlimited minus 250K used)
 - Paid $25 for Professional
 - Previous $15 already paid (not refunded)
 
-Why carry forward?
-Prevents users from gaming: "Use 499K tokens, upgrade to Pro,
-reset to 0, downgrade back" - This is blocked!
+Math:
+Student: 250K used, 250K remaining
+      ↓ Upgrade
+Pro: 250K used, 5M limit
+   = 250K + (5M - 250K) = 250K remaining from Student + 4.75M new
+   = Effectively 4.75M additional tokens
 ```
 
 ### Example 3: User Cancels MCB Juice
