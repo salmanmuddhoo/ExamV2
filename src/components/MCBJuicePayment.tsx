@@ -43,8 +43,8 @@ export function MCBJuicePayment({
     try {
       // Upload proof of payment
       const fileExt = proofFile.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `payment-proofs/${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('payment-proofs')
