@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, User, CreditCard, History, Settings, Camera, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { SubscriptionManager } from './SubscriptionManager';
 import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
 
@@ -9,11 +8,12 @@ interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: TabType;
+  onOpenSubscriptions?: () => void;
 }
 
 type TabType = 'general' | 'subscription' | 'payment-history' | 'settings';
 
-export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: UserProfileModalProps) {
+export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOpenSubscriptions }: UserProfileModalProps) {
   const { user, profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [firstName, setFirstName] = useState(profile?.first_name || '');
@@ -415,8 +415,39 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: Us
 
             {activeTab === 'subscription' && (
               <div>
-                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Subscription Management</h3>
-                <SubscriptionManager />
+                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">My Subscription</h3>
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6 border border-gray-200">
+                  <div className="mb-6">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Plan</h4>
+                    <p className="text-2xl font-bold text-gray-900">{subscriptionTier}</p>
+                    {selectedGrade && (
+                      <p className="text-sm text-gray-600 mt-2">Grade: {selectedGrade}</p>
+                    )}
+                    {selectedSubjects.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-600">Subjects:</p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {selectedSubjects.map((subject, index) => (
+                            <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      if (onOpenSubscriptions) {
+                        onOpenSubscriptions();
+                      }
+                    }}
+                    className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                  >
+                    Manage Subscription
+                  </button>
+                </div>
               </div>
             )}
 

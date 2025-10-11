@@ -33,8 +33,7 @@ interface Props {
   tokensRemaining?: number;
   papersRemaining?: number;
   onCloseWelcomeModal?: () => void;
-  shouldOpenSubscriptions?: boolean;
-  onSubscriptionsOpened?: () => void;
+  onOpenSubscriptions?: () => void;
 }
 
 export function ChatHub({
@@ -45,8 +44,7 @@ export function ChatHub({
   tokensRemaining = 0,
   papersRemaining = 0,
   onCloseWelcomeModal,
-  shouldOpenSubscriptions = false,
-  onSubscriptionsOpened
+  onOpenSubscriptions
 }: Props) {
   const { user, signOut } = useAuth();
   const [conversations, setConversations] = useState<ConversationWithPaper[]>([]);
@@ -69,14 +67,6 @@ export function ChatHub({
     }
   }, [user]);
 
-  useEffect(() => {
-    if (shouldOpenSubscriptions) {
-      handleOpenSubscriptions();
-      if (onSubscriptionsOpened) {
-        onSubscriptionsOpened();
-      }
-    }
-  }, [shouldOpenSubscriptions]);
 
   const fetchConversations = async () => {
     if (!user) return;
@@ -129,8 +119,9 @@ export function ChatHub({
   };
 
   const handleOpenSubscriptions = () => {
-    setProfileModalTab('subscription');
-    setShowProfileModal(true);
+    if (onOpenSubscriptions) {
+      onOpenSubscriptions();
+    }
   };
 
   const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
@@ -235,6 +226,7 @@ export function ChatHub({
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         initialTab={profileModalTab}
+        onOpenSubscriptions={onOpenSubscriptions}
       />
 
       <div className="h-screen flex flex-col md:flex-row bg-gray-50">
@@ -246,18 +238,18 @@ export function ChatHub({
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
               <div className="flex items-center space-x-1">
                 <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="My Profile"
-                >
-                  <User className="w-5 h-5 text-gray-700" />
-                </button>
-                <button
                   onClick={onNavigateHome}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Go to homepage"
                 >
                   <Home className="w-5 h-5 text-gray-700" />
+                </button>
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="My Profile"
+                >
+                  <User className="w-5 h-5 text-gray-700" />
                 </button>
                 <button
                   onClick={handleSignOut}
@@ -395,21 +387,29 @@ export function ChatHub({
           ) : (
             <div className="flex items-center justify-center h-full p-6">
               <div className="text-center max-w-md">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-sm mb-6">
-                  <MessageSquare className="w-10 h-10 text-gray-400" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                  Select a conversation
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  Ready to ace your exams?
                 </h2>
-                <p className="text-gray-600 mb-6">
-                  Choose a conversation from the left to continue, or start a new one by selecting an exam paper
+                <p className="text-gray-600 mb-8">
+                  Choose a conversation from the left to continue, or click "New Conversation" to start chatting with an exam paper
                 </p>
-                <button
-                  onClick={handleNewConversation}
-                  className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  Browse Exam Papers
-                </button>
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-center mb-3">
+                    <Crown className="w-6 h-6 text-yellow-500 mr-2" />
+                    <p className="text-base font-semibold text-gray-900">
+                      Upgrade for unlimited access
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Get unlimited tokens, access to all exam papers, and priority support
+                  </p>
+                  <button
+                    onClick={handleOpenSubscriptions}
+                    className="w-full px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                  >
+                    View Plans
+                  </button>
+                </div>
               </div>
             </div>
           )}

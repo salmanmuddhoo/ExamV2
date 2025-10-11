@@ -41,13 +41,13 @@ export function PaymentMethodSelector({
   const getPaymentIcon = (methodName: string) => {
     switch (methodName) {
       case 'stripe':
-        return <CreditCard className="w-8 h-8" />;
+        return <CreditCard className="w-6 h-6" />;
       case 'paypal':
-        return <DollarSign className="w-8 h-8" />;
+        return <DollarSign className="w-6 h-6" />;
       case 'mcb_juice':
-        return <Smartphone className="w-8 h-8" />;
+        return <Smartphone className="w-6 h-6" />;
       default:
-        return <CreditCard className="w-8 h-8" />;
+        return <CreditCard className="w-6 h-6" />;
     }
   };
 
@@ -87,56 +87,56 @@ export function PaymentMethodSelector({
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <button
           onClick={onBack}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center space-x-1.5 text-gray-600 hover:text-gray-900 mb-3"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to plans</span>
+          <span className="text-xs sm:text-sm font-medium">Back to plans</span>
         </button>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Choose Payment Method</h2>
-        <p className="text-gray-600">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">Choose Payment Method</h2>
+        <p className="text-xs sm:text-sm text-gray-600">
           Complete your purchase for <strong>{paymentData.tierName}</strong> ({paymentData.billingCycle})
         </p>
       </div>
 
       {/* Payment Methods */}
-      <div className="space-y-3">
+      <div className="space-y-2.5 sm:space-y-3">
         {paymentMethods.map((method) => (
           <button
             key={method.id}
             onClick={() => onPaymentMethodSelected(method)}
-            className="w-full bg-white border-2 border-gray-200 hover:border-gray-900 rounded-xl p-6 transition-all group"
+            className="w-full bg-white border-2 border-gray-200 hover:border-gray-900 rounded-lg p-3 sm:p-4 transition-all group"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-gray-100 rounded-lg group-hover:bg-gray-900 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 bg-gray-100 rounded-lg group-hover:bg-gray-900 transition-colors flex-shrink-0">
                   <div className="text-gray-900 group-hover:text-white transition-colors">
                     {getPaymentIcon(method.name)}
                   </div>
                 </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                <div className="text-left min-w-0 flex-1">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-0.5 truncate">
                     {method.display_name}
                   </h3>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-[10px] sm:text-xs text-gray-600 line-clamp-2">
                     {getPaymentDescription(method.name)}
                   </p>
                   {method.requires_manual_approval && (
-                    <p className="text-xs text-orange-600 mt-1">
+                    <p className="text-[9px] sm:text-[10px] text-orange-600 mt-0.5">
                       ⚠️ Requires admin approval (usually within 24 hours)
                     </p>
                   )}
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="text-right flex-shrink-0">
+                <p className="text-base sm:text-xl font-bold text-gray-900 whitespace-nowrap">
                   {getDisplayAmount(method)}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-[9px] sm:text-[10px] text-gray-500">
                   {method.currency}
                 </p>
               </div>
@@ -146,8 +146,8 @@ export function PaymentMethodSelector({
       </div>
 
       {/* Info */}
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
+      <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-[10px] sm:text-xs text-blue-800">
           <strong>💡 Secure Payment:</strong> All payments are processed securely. Your payment information is encrypted and never stored on our servers.
         </p>
       </div>

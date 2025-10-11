@@ -8,6 +8,7 @@ import { ChatHub } from './components/ChatHub';
 import { Navbar } from './components/Navbar';
 import { ExamPapersBrowser } from './components/ExamPapersBrowser';
 import { WelcomeModal } from './components/WelcomeModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
 import { supabase } from './lib/supabase';
 
 type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser';
@@ -21,7 +22,7 @@ function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
   const [papersRemaining, setPapersRemaining] = useState(0);
-  const [shouldOpenSubscriptions, setShouldOpenSubscriptions] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   useEffect(() => {
     if (!loading && !initialLoadComplete) {
@@ -155,8 +156,19 @@ function App() {
   };
 
   const handleOpenSubscriptionsFromExamViewer = () => {
-    setShouldOpenSubscriptions(true);
-    handleBackToHome();
+    setShowSubscriptionModal(true);
+  };
+
+  const handleCloseSubscriptionModal = () => {
+    setShowSubscriptionModal(false);
+  };
+
+  const handleSubscriptionSuccess = () => {
+    setShowSubscriptionModal(false);
+    // Refresh subscription data if needed
+    if (user) {
+      checkFirstTimeUser();
+    }
   };
 
   if (loading) {
@@ -205,29 +217,42 @@ function App() {
 
   if (view === 'chat-hub' && user) {
     return (
-      <ChatHub
-        onSelectConversation={handleSelectConversation}
-        onSelectPaper={handleSelectPaper}
-        onNavigateHome={handleNavigateToHomepage}
-        showWelcomeModal={showWelcomeModal}
-        tokensRemaining={tokensRemaining}
-        papersRemaining={papersRemaining}
-        onCloseWelcomeModal={() => setShowWelcomeModal(false)}
-        shouldOpenSubscriptions={shouldOpenSubscriptions}
-        onSubscriptionsOpened={() => setShouldOpenSubscriptions(false)}
-      />
+      <>
+        <ChatHub
+          onSelectConversation={handleSelectConversation}
+          onSelectPaper={handleSelectPaper}
+          onNavigateHome={handleNavigateToHomepage}
+          showWelcomeModal={showWelcomeModal}
+          tokensRemaining={tokensRemaining}
+          papersRemaining={papersRemaining}
+          onCloseWelcomeModal={() => setShowWelcomeModal(false)}
+          onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+        />
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+        />
+      </>
     );
   }
 
   if (view === 'exam-viewer' && selectedPaperId) {
     return (
-      <ExamViewer
-        paperId={selectedPaperId}
-        conversationId={selectedConversationId}
-        onBack={handleBackToHome}
-        onLoginRequired={handleNavigateToLogin}
-        onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
-      />
+      <>
+        <ExamViewer
+          paperId={selectedPaperId}
+          conversationId={selectedConversationId}
+          onBack={handleBackToHome}
+          onLoginRequired={handleNavigateToLogin}
+          onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
+        />
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+        />
+      </>
     );
   }
 
@@ -265,6 +290,14 @@ function App() {
         onClose={() => setShowWelcomeModal(false)}
         tokensRemaining={tokensRemaining}
         papersRemaining={papersRemaining}
+        onUpgrade={() => setShowSubscriptionModal(true)}
+      />
+
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={handleCloseSubscriptionModal}
+        onSuccess={handleSubscriptionSuccess}
       />
     </>
   );
