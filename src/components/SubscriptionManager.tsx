@@ -90,10 +90,9 @@ export function SubscriptionManager() {
   };
 
   const canDowngrade = (tier: SubscriptionTier) => {
-    if (!currentSubscription) return false;
-    const currentTier = tiers.find(t => t.id === currentSubscription.tier_id);
-    if (!currentTier) return false;
-    return tier.display_order < currentTier.display_order;
+    // Users cannot downgrade during an active paid subscription period
+    // They must wait until subscription expires or cancel it (which downgrades at period end)
+    return false;
   };
 
   const handleSelectPlan = (tier: SubscriptionTier) => {
