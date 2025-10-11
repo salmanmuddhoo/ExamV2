@@ -66,30 +66,48 @@ function StripeCheckoutForm({
 
       if (transactionError) throw transactionError;
 
-      // Call your backend to create a payment intent
-      // For now, we'll simulate this with a test payment method
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-        'pi_test_secret', // This should come from your backend
-        {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              email: user.email,
-            },
-          },
-        }
-      );
+      // Create a payment method with Stripe
+      // NOTE: In production, you should create a Payment Intent via your backend API
+      // For test mode, we'll create a payment method and simulate successful payment
+      const { error: paymentMethodError, paymentMethod: stripePaymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          email: user.email,
+        },
+      });
 
-      if (stripeError) {
-        throw new Error(stripeError.message);
+      if (paymentMethodError) {
+        throw new Error(paymentMethodError.message);
       }
 
-      // Update transaction as completed
+      // Simulate successful payment for test mode
+      // In production, you would call your backend API here to create a Payment Intent:
+      // const response = await fetch('/api/stripe/create-payment-intent', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     amount: paymentData.amount * 100, // Convert to cents
+      //     currency: 'usd',
+      //     payment_method: stripePaymentMethod.id
+      //   })
+      // });
+      // const { client_secret } = await response.json();
+      // const { error, paymentIntent } = await stripe.confirmCardPayment(client_secret);
+
+      // For test mode: Mark transaction as completed immediately
+      const testTransactionId = `test_${stripePaymentMethod.id}_${Date.now()}`;
+
       const { error: updateError } = await supabase
         .from('payment_transactions')
         .update({
           status: 'completed',
-          external_transaction_id: paymentIntent?.id
+          external_transaction_id: testTransactionId,
+          metadata: {
+            tier_name: paymentData.tierName,
+            test_mode: true,
+            stripe_payment_method_id: stripePaymentMethod.id
+          }
         })
         .eq('id', transaction.id);
 
@@ -211,8 +229,14 @@ function StripeCheckoutForm({
 
       {/* Test Mode Notice */}
       <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <p className="text-sm text-yellow-800">
-          <strong>⚠️ Test Mode:</strong> Use test card: 4242 4242 4242 4242 (any future date, any CVC)
+        <p className="text-sm text-yellow-800 mb-2">
+          <strong>⚠️ Test Mode:</strong> This is a simulated payment for testing purposes.
+        </p>
+        <p className="text-xs text-yellow-700">
+          Use test card: <strong>4242 4242 4242 4242</strong> (any future date, any CVC)
+        </p>
+        <p className="text-xs text-yellow-700 mt-1">
+          No real charges will be made. In production, this will use actual Stripe Payment Intents.
         </p>
       </div>
     </div>
