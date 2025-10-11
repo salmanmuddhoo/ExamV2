@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, User, CreditCard, History, Settings, Camera, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SubscriptionManager } from './SubscriptionManager';
+import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
 
 interface UserProfileModalProps {
@@ -422,13 +423,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: Us
             {activeTab === 'payment-history' && (
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Payment History</h3>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 md:p-8 text-center">
-                  <History className="w-10 h-10 md:w-12 md:h-12 text-gray-400 mx-auto mb-3 md:mb-4" />
-                  <p className="text-sm md:text-base text-gray-600">No payment history available yet.</p>
-                  <p className="text-xs md:text-sm text-gray-500 mt-2">
-                    Once you make a payment, your transaction history will appear here.
-                  </p>
-                </div>
+                <PaymentHistory />
               </div>
             )}
 
