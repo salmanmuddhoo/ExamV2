@@ -102,6 +102,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Clear session storage on logout (including welcome modal flag)
+      sessionStorage.clear();
+
       setUser(null);
       setProfile(null);
       const { error } = await supabase.auth.signOut();

@@ -39,6 +39,15 @@ function App() {
       return;
     }
 
+    // Check if welcome modal was already shown in this session
+    const welcomeShownKey = `welcome_shown_${user.id}`;
+    const welcomeShown = sessionStorage.getItem(welcomeShownKey);
+
+    if (welcomeShown === 'true') {
+      console.log('ℹ️ Welcome modal already shown in this session');
+      return;
+    }
+
     console.log('🔍 Checking subscription for user:', user.id);
 
     try {
@@ -69,6 +78,9 @@ function App() {
         setTokensRemaining(tokensLeft);
         setPapersRemaining(papersLeft);
         setShowWelcomeModal(true);
+
+        // Mark welcome modal as shown for this session
+        sessionStorage.setItem(welcomeShownKey, 'true');
         console.log('🎉 Welcome modal should show now');
       } else {
         console.log('⚠️ Not a free tier user or no subscription found');
