@@ -171,22 +171,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Step 6: Add RLS policy for users to cancel their own subscriptions
-CREATE POLICY "Users can update their own subscription cancellation"
-  ON user_subscriptions FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (
-    auth.uid() = user_id AND
-    -- Only allow updating cancellation fields
-    (
-      OLD.user_id = NEW.user_id AND
-      OLD.tier_id = NEW.tier_id AND
-      OLD.status = NEW.status AND
-      OLD.period_start_date = NEW.period_start_date AND
-      OLD.period_end_date = NEW.period_end_date
-    )
-  );
+-- Step 6: RLS policies are already in place from previous migrations
+-- Users will use the cancel_subscription_at_period_end() and reactivate_subscription() functions
+-- These functions run with SECURITY DEFINER so they bypass RLS and handle updates safely
 
 -- Step 7: Add comments
 COMMENT ON COLUMN user_subscriptions.cancel_at_period_end IS
