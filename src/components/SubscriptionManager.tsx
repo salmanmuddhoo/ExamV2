@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { Crown, Zap, Check, X, Loader2 } from 'lucide-react';
 import type { SubscriptionTier, UserSubscription } from '../types/subscription';
 import { StudentPackageSelector } from './StudentPackageSelector';
+import { PaymentOrchestrator } from './PaymentOrchestrator';
+import type { PaymentSelectionData } from '../types/payment';
 
 export function SubscriptionManager() {
   const { user } = useAuth();
@@ -13,6 +15,8 @@ export function SubscriptionManager() {
   const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [showStudentSelector, setShowStudentSelector] = useState(false);
   const [selectedStudentTier, setSelectedStudentTier] = useState<SubscriptionTier | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentData, setPaymentData] = useState<PaymentSelectionData | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -112,15 +116,34 @@ export function SubscriptionManager() {
   };
 
   const proceedToPayment = (tier: SubscriptionTier, gradeId: string | null, subjectIds: string[] | null) => {
-    // TODO: Integrate with payment gateway
-    console.log('Proceeding to payment:', {
-      tier: tier.name,
-      billing: selectedBillingCycle,
-      price: getPrice(tier),
-      gradeId,
-      subjectIds
+    const price = getPrice(tier);
+
+    setPaymentData({
+      tierId: tier.id,
+      tierName: tier.display_name,
+      amount: price,
+      currency: 'USD',
+      billingCycle: selectedBillingCycle,
+      selectedGradeId: gradeId || undefined,
+      selectedSubjectIds: subjectIds || undefined
     });
-    alert(`Payment integration coming soon!\n\nSelected: ${tier.display_name}\nBilling: ${selectedBillingCycle}\nPrice: $${getPrice(tier)}${gradeId ? `\nGrade: ${gradeId}\nSubjects: ${subjectIds?.length}` : ''}`);
+
+    setShowPayment(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPayment(false);
+    setPaymentData(null);
+    setShowStudentSelector(false);
+    setSelectedStudentTier(null);
+
+    // Refresh subscription data
+    fetchData();
+  };
+
+  const handleBackFromPayment = () => {
+    setShowPayment(false);
+    setPaymentData(null);
   };
 
   if (loading) {
@@ -128,6 +151,17 @@ export function SubscriptionManager() {
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
       </div>
+    );
+  }
+
+  // Show payment orchestrator if payment is initiated
+  if (showPayment && paymentData) {
+    return (
+      <PaymentOrchestrator
+        paymentData={paymentData}
+        onBack={handleBackFromPayment}
+        onSuccess={handlePaymentSuccess}
+      />
     );
   }
 
