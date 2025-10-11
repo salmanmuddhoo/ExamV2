@@ -6,6 +6,7 @@ import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
 import { UserProfileModal } from './UserProfileModal';
 import { SubscriptionManager } from './SubscriptionManager';
+import { WelcomeModal } from './WelcomeModal';
 
 interface ConversationWithPaper {
   id: string;
@@ -28,9 +29,25 @@ interface Props {
   onSelectConversation: (conversationId: string, paperId: string) => void;
   onSelectPaper: (paperId: string) => void;
   onNavigateHome: () => void;
+  showWelcomeModal?: boolean;
+  tokensRemaining?: number;
+  papersRemaining?: number;
+  onCloseWelcomeModal?: () => void;
+  shouldOpenSubscriptions?: boolean;
+  onSubscriptionsOpened?: () => void;
 }
 
-export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }: Props) {
+export function ChatHub({
+  onSelectConversation,
+  onSelectPaper,
+  onNavigateHome,
+  showWelcomeModal = false,
+  tokensRemaining = 0,
+  papersRemaining = 0,
+  onCloseWelcomeModal,
+  shouldOpenSubscriptions = false,
+  onSubscriptionsOpened
+}: Props) {
   const { user, signOut } = useAuth();
   const [conversations, setConversations] = useState<ConversationWithPaper[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +55,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
   const [showPaperModal, setShowPaperModal] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileModalTab, setProfileModalTab] = useState<'general' | 'subscription' | 'payment-history' | 'settings'>('general');
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; conversationId: string | null }>({
@@ -50,6 +68,15 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
       fetchConversations();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (shouldOpenSubscriptions) {
+      handleOpenSubscriptions();
+      if (onSubscriptionsOpened) {
+        onSubscriptionsOpened();
+      }
+    }
+  }, [shouldOpenSubscriptions]);
 
   const fetchConversations = async () => {
     if (!user) return;
@@ -99,6 +126,11 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
       }
       return newSet;
     });
+  };
+
+  const handleOpenSubscriptions = () => {
+    setProfileModalTab('subscription');
+    setShowProfileModal(true);
   };
 
   const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
@@ -202,6 +234,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
       <UserProfileModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+        initialTab={profileModalTab}
       />
 
       <div className="h-screen flex flex-col md:flex-row bg-gray-50">
@@ -382,6 +415,15 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
           )}
         </div>
       </div>
+
+      {/* Welcome Modal */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={onCloseWelcomeModal || (() => {})}
+        tokensRemaining={tokensRemaining}
+        papersRemaining={papersRemaining}
+        onUpgrade={handleOpenSubscriptions}
+      />
     </>
   );
 }

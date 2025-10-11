@@ -5,9 +5,10 @@ interface WelcomeModalProps {
   onClose: () => void;
   tokensRemaining: number;
   papersRemaining: number;
+  onUpgrade?: () => void;
 }
 
-export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining }: WelcomeModalProps) {
+export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining, onUpgrade }: WelcomeModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -85,7 +86,12 @@ export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining
               Upgrade to <strong>Student Package</strong> or <strong>Premium</strong> for unlimited exam papers, more AI tokens, and advanced features!
             </p>
             <button
-              onClick={onClose}
+              onClick={() => {
+                if (onUpgrade) {
+                  onUpgrade();
+                }
+                onClose();
+              }}
               className="w-full bg-gradient-to-r from-gray-900 to-gray-700 text-white py-2 px-3 rounded-lg text-xs font-medium hover:from-gray-800 hover:to-gray-600 transition-all flex items-center justify-center space-x-2"
             >
               <span>Explore Plans</span>

@@ -21,6 +21,7 @@ function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
   const [papersRemaining, setPapersRemaining] = useState(0);
+  const [shouldOpenSubscriptions, setShouldOpenSubscriptions] = useState(false);
 
   useEffect(() => {
     if (!loading && !initialLoadComplete) {
@@ -141,6 +142,11 @@ function App() {
     setView('papers-browser');
   };
 
+  const handleOpenSubscriptionsFromExamViewer = () => {
+    setShouldOpenSubscriptions(true);
+    handleBackToHome();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -187,21 +193,17 @@ function App() {
 
   if (view === 'chat-hub' && user) {
     return (
-      <>
-        <ChatHub
-          onSelectConversation={handleSelectConversation}
-          onSelectPaper={handleSelectPaper}
-          onNavigateHome={handleNavigateToHomepage}
-        />
-
-        {/* Welcome Modal for first-time users */}
-        <WelcomeModal
-          isOpen={showWelcomeModal}
-          onClose={() => setShowWelcomeModal(false)}
-          tokensRemaining={tokensRemaining}
-          papersRemaining={papersRemaining}
-        />
-      </>
+      <ChatHub
+        onSelectConversation={handleSelectConversation}
+        onSelectPaper={handleSelectPaper}
+        onNavigateHome={handleNavigateToHomepage}
+        showWelcomeModal={showWelcomeModal}
+        tokensRemaining={tokensRemaining}
+        papersRemaining={papersRemaining}
+        onCloseWelcomeModal={() => setShowWelcomeModal(false)}
+        shouldOpenSubscriptions={shouldOpenSubscriptions}
+        onSubscriptionsOpened={() => setShouldOpenSubscriptions(false)}
+      />
     );
   }
 
@@ -212,6 +214,7 @@ function App() {
         conversationId={selectedConversationId}
         onBack={handleBackToHome}
         onLoginRequired={handleNavigateToLogin}
+        onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
       />
     );
   }

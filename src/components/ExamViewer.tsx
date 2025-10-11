@@ -26,9 +26,10 @@ interface Props {
   conversationId?: string | null;
   onBack: () => void;
   onLoginRequired: () => void;
+  onOpenSubscriptions?: () => void;
 }
 
-export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }: Props) {
+export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, onOpenSubscriptions }: Props) {
   const { user } = useAuth();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
@@ -1140,7 +1141,7 @@ You can still view and download this exam paper!`
                   </div>
                   {tierName === 'free' && (
                     <button
-                      onClick={onBack}
+                      onClick={onOpenSubscriptions || onBack}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
                       Upgrade
@@ -1159,7 +1160,7 @@ You can still view and download this exam paper!`
                     You can view this paper, but you've used your 2 AI chat papers on the free tier.
                   </p>
                   <button
-                    onClick={onBack}
+                    onClick={onOpenSubscriptions || onBack}
                     className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                   >
                     Upgrade to Unlock Chat

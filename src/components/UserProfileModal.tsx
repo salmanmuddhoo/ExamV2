@@ -7,13 +7,14 @@ import { supabase } from '../lib/supabase';
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: TabType;
 }
 
 type TabType = 'general' | 'subscription' | 'payment-history' | 'settings';
 
-export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
+export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: UserProfileModalProps) {
   const { user, profile, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('general');
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [firstName, setFirstName] = useState(profile?.first_name || '');
   const [lastName, setLastName] = useState(profile?.last_name || '');
   const [profilePicture, setProfilePicture] = useState(profile?.profile_picture_url || '');
@@ -34,6 +35,12 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
       setLastName(profile.last_name || '');
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   const fetchSubscriptionTier = async () => {
     if (!user) return;

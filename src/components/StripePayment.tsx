@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
 // TODO: Replace with your Stripe publishable key (test mode)
-const stripePromise = loadStripe('pk_test_YOUR_PUBLISHABLE_KEY');
+const stripePromise = loadStripe('pk_test_51SH0xvCDkfruimlwdFlj8SaZhpDyrjcl1lMzCtOtKyrst5upXG3rscpavu1wStepSleqyD3SDrHxXV7DHcAei0BB00rxHlIwja');
 
 interface StripePaymentProps {
   paymentData: PaymentSelectionData;
