@@ -21,6 +21,8 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: Us
   const [uploadingImage, setUploadingImage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [subscriptionTier, setSubscriptionTier] = useState<string>('Loading...');
+  const [selectedGrade, setSelectedGrade] = useState<string>('');
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,7 +50,13 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: Us
     try {
       const { data, error } = await supabase
         .from('user_subscriptions')
-        .select('subscription_tiers(name)')
+        .select(`
+          subscription_tiers(name, display_name),
+          selected_grade_id,
+          selected_subject_ids,
+          grade_levels(name),
+          subjects:selected_subject_ids
+        `)
         .eq('user_id', user.id)
         .eq('status', 'active')
         .single();
@@ -56,9 +64,25 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: Us
       if (error || !data) {
         setSubscriptionTier('No active subscription');
       } else {
-        const tierName = (data.subscription_tiers as any)?.name || 'Unknown';
-        // Capitalize first letter
-        setSubscriptionTier(tierName.charAt(0).toUpperCase() + tierName.slice(1));
+        const tierName = (data.subscription_tiers as any)?.display_name || 'Unknown';
+        setSubscriptionTier(tierName);
+
+        // If student package, fetch grade and subjects
+        if (data.selected_grade_id && data.grade_levels) {
+          setSelectedGrade((data.grade_levels as any)?.name || '');
+        }
+
+        // Fetch subject names if student package
+        if (data.selected_subject_ids && data.selected_subject_ids.length > 0) {
+          const { data: subjects, error: subjectsError } = await supabase
+            .from('subjects')
+            .select('name')
+            .in('id', data.selected_subject_ids);
+
+          if (!subjectsError && subjects) {
+            setSelectedSubjects(subjects.map(s => s.name));
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching subscription tier:', error);
@@ -348,6 +372,42 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general' }: Us
                       <p className="text-xs text-gray-500 mt-1">You have administrator access</p>
                     )}
                   </div>
+
+                  {/* Student Package Details */}
+                  {(selectedGrade || selectedSubjects.length > 0) && (
+                    <div className="col-span-1 sm:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Student Package Selection</h4>
+
+                      {selectedGrade && (
+                        <div className="mb-3">
+                          <p className="text-xs text-gray-600 mb-1">Grade Level</p>
+                          <div className="inline-flex items-center px-3 py-1.5 bg-white border border-blue-300 rounded-lg">
+                            <span className="text-sm font-medium text-gray-900">{selectedGrade}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedSubjects.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-600 mb-2">Selected Subjects ({selectedSubjects.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedSubjects.map((subject, index) => (
+                              <div
+                                key={index}
+                                className="inline-flex items-center px-3 py-1.5 bg-white border border-blue-300 rounded-lg"
+                              >
+                                <span className="text-sm font-medium text-gray-900">{subject}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-gray-500 mt-3 italic">
+                        These selections apply to your exam paper access and AI assistance.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
