@@ -18,14 +18,23 @@ This document explains the complete subscription lifecycle including upgrades, d
 - Old subscription is replaced
 - New subscription starts immediately
 - Period resets to new billing cycle
-- Tokens/papers reset to new tier limits
+- **Tokens and papers used carry forward** (prevents gaming the system)
+
+**Token Carryover Logic:**
+```
+Student Package: Used 200K / 500K tokens
+↓ Upgrades to Professional (Unlimited)
+Professional Package: Starts with 200K tokens already used
+✓ Cannot reset usage by upgrading
+```
 
 **Example:**
 ```
-User on Student Package (5 days remaining)
+User on Student Package (5 days remaining, 200K tokens used)
 ↓ Upgrades to Professional
 Professional Package activated immediately
 New 30-day period starts
+Token usage: 200K carried forward (now unlimited, but usage tracked)
 ```
 
 ---
@@ -284,14 +293,22 @@ Solution:
 ### Example 2: User Upgrades Mid-Period
 ```
 Day 15 of Student Package monthly ($15)
+Used 250K / 500K tokens
+
 User upgrades to Professional ($25/month)
 
 Result:
 - Student Package cancelled immediately
 - Professional Package activated
 - New 30-day period starts
+- Token usage: 250K carried forward
+- Professional has unlimited tokens, but usage still tracked
 - Paid $25 for Professional
 - Previous $15 already paid (not refunded)
+
+Why carry forward?
+Prevents users from gaming: "Use 499K tokens, upgrade to Pro,
+reset to 0, downgrade back" - This is blocked!
 ```
 
 ### Example 3: User Cancels MCB Juice

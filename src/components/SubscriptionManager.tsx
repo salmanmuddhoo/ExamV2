@@ -454,14 +454,14 @@ export function SubscriptionManager() {
               {/* CTA Button */}
               <button
                 onClick={() => handleSelectPlan(tier)}
-                disabled={isCurrent}
+                disabled={isCurrent || canDown}
                 className={`w-full py-2 text-sm rounded-lg font-medium transition-colors ${
                   isCurrent
                     ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                    : canDown
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : canUp
                     ? 'bg-black text-white hover:bg-gray-800'
-                    : canDown
-                    ? 'bg-gray-600 text-white hover:bg-gray-700'
                     : 'bg-black text-white hover:bg-gray-800'
                 }`}
               >
@@ -470,11 +470,18 @@ export function SubscriptionManager() {
                   : canUp
                   ? 'Upgrade'
                   : canDown
-                  ? 'Downgrade'
+                  ? 'Not Available'
                   : price === 0
                   ? 'Get Started'
                   : 'Select Plan'}
               </button>
+
+              {/* Upgrade benefit note */}
+              {canUp && currentSubscription && currentSubscription.tokens_used_current_period > 0 && (
+                <p className="text-xs text-green-600 mt-2 text-center">
+                  ✓ Your token usage will carry forward
+                </p>
+              )}
             </div>
           );
         })}

@@ -33,6 +33,7 @@ If you're using hosted Supabase:
    - `supabase/migrations/20251011000006_add_unique_user_subscription.sql`
    - `supabase/migrations/20251011000007_handle_mcb_juice_non_recurring.sql`
    - `supabase/migrations/20251011000008_add_subscription_cancellation.sql`
+   - `supabase/migrations/20251011000009_token_carryover_on_upgrade.sql`
 
 **Important:** All migrations must be run in order to avoid errors with RLS policies, storage uploads, admin dashboard queries, and payment approval.
 
