@@ -25,7 +25,11 @@ npx supabase db reset
 If you're using hosted Supabase:
 1. Go to your Supabase project dashboard
 2. Navigate to **SQL Editor**
-3. Run the migration file: `supabase/migrations/20251011000002_create_payment_system.sql`
+3. Run the migration files in order:
+   - `supabase/migrations/20251011000002_create_payment_system.sql`
+   - `supabase/migrations/20251011000003_fix_payment_rls_policies.sql`
+
+**Important:** If you get RLS policy errors, run the fix migration to resolve them.
 
 ### Step 2: Create Storage Buckets
 
