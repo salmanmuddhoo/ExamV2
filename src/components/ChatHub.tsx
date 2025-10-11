@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
+import { UserProfileModal } from './UserProfileModal';
 import { SubscriptionManager } from './SubscriptionManager';
 
 interface ConversationWithPaper {
@@ -36,6 +37,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [showPaperModal, setShowPaperModal] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; conversationId: string | null }>({
@@ -197,6 +199,11 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
         onSelectPaper={handlePaperSelected}
       />
 
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
+
       <div className="h-screen flex flex-col md:flex-row bg-gray-50">
         {/* Left Panel - Conversations List */}
         <div className="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -206,11 +213,11 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
               <div className="flex items-center space-x-1">
                 <button
-                  onClick={() => setShowSubscription(true)}
+                  onClick={() => setShowProfileModal(true)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Manage subscription"
+                  title="My Profile"
                 >
-                  <Crown className="w-5 h-5 text-yellow-600" />
+                  <User className="w-5 h-5 text-gray-700" />
                 </button>
                 <button
                   onClick={onNavigateHome}

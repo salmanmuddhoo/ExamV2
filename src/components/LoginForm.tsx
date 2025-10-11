@@ -17,6 +17,8 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -97,8 +99,20 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
           return;
         }
 
+        // Validate name fields
+        if (!firstName.trim()) {
+          setError('First name is required');
+          setLoading(false);
+          return;
+        }
+        if (!lastName.trim()) {
+          setError('Last name is required');
+          setLoading(false);
+          return;
+        }
+
         // Always create user as "student"
-        await signUp(email, password, 'student');
+        await signUp(email, password, firstName.trim(), lastName.trim(), 'student');
         setShowSuccessModal(true);
       } else {
         await signIn(email, password);
@@ -220,6 +234,40 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp && (
+              <>
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-900 mb-1.5">
+                    First Name
+                  </label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    placeholder="John"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-900 mb-1.5">
+                    Last Name
+                  </label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    placeholder="Doe"
+                  />
+                </div>
+              </>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-1.5">
                 Email address
@@ -351,6 +399,10 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
+                setFirstName('');
+                setLastName('');
+                setPassword('');
+                setConfirmPassword('');
               }}
               className="text-black hover:text-gray-800 text-sm transition-colors"
             >

@@ -52,6 +52,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
   const [chatLocked, setChatLocked] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState<number>(-1); // -1 = unlimited
   const [tierName, setTierName] = useState<string>('');
+  const [aiProcessingStatus, setAiProcessingStatus] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -317,15 +318,21 @@ This helps me give you the most accurate and focused help! 😊`;
 
               setChatLocked(shouldLockChat);
 
-              // Set display values
-              setPapersRemaining(papersLimit - subscription.papers_accessed_current_period);
-              setTokensRemaining(tokenLimit - subscription.tokens_used_current_period);
+              // Set display values (ensure non-negative)
+              setPapersRemaining(Math.max(0, papersLimit - subscription.papers_accessed_current_period));
+              setTokensRemaining(Math.max(0, tokenLimit - subscription.tokens_used_current_period));
               setTierName('free');
             }
           } else {
-            // For paid tiers, also get token info
+            // For paid tiers, also get token info (ensure non-negative)
             setTierName(access.tier_name);
-            setTokensRemaining(access.tokens_remaining);
+            setTokensRemaining(Math.max(0, access.tokens_remaining));
+
+            // Lock chat if no tokens remaining for paid tiers with limits
+            if (access.tokens_remaining !== null && access.tokens_remaining <= 0) {
+              setChatLocked(true);
+              console.log('🔒 Paid tier: Chat locked - Token limit reached');
+            }
           }
         }
       }
@@ -467,6 +474,50 @@ This helps me give you the most accurate and focused help! 😊`;
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  // 🔹 NEW: Refresh token and paper counts in real-time
+  const refreshTokenCounts = async () => {
+    if (!user) return;
+
+    try {
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('tokens_used_current_period, papers_accessed_current_period, subscription_tiers!inner(name, token_limit, papers_limit)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscription) {
+        const tierName = subscription.subscription_tiers?.name;
+        const tokenLimit = subscription.subscription_tiers?.token_limit;
+        const papersLimit = subscription.subscription_tiers?.papers_limit;
+
+        // Update token count
+        if (tokenLimit !== null) {
+          const remaining = Math.max(0, tokenLimit - subscription.tokens_used_current_period);
+          setTokensRemaining(remaining);
+          console.log(`🔄 Token count updated: ${remaining} tokens remaining`);
+
+          // Lock chat if tokens depleted
+          if (remaining === 0) {
+            setChatLocked(true);
+            console.log('🔒 Chat locked - Token limit reached');
+          }
+        }
+
+        // Update paper count (free tier only)
+        if (tierName === 'free' && papersLimit !== null) {
+          const remaining = Math.max(0, papersLimit - subscription.papers_accessed_current_period);
+          setPapersRemaining(remaining);
+          console.log(`🔄 Paper count updated: ${remaining} papers remaining`);
+        }
+
+        setTierName(tierName);
+      }
+    } catch (error) {
+      console.error('Error refreshing token counts:', error);
     }
   };
 
@@ -615,7 +666,7 @@ You can still view and download this exam paper!`
             const newCount = subscription.papers_accessed_current_period + 1;
             console.log(`✅ Free tier: Tracked chat usage for paper ${paperId} (${newCount}/${papersLimit} papers used)`);
             console.log(`📊 Remaining: ${papersLimit - newCount} papers, ${tokenLimit ? tokenLimit - subscription.tokens_used_current_period : 'unlimited'} tokens`);
-            // Update local state
+            // Update local state immediately
             setPapersRemaining((papersLimit || 2) - newCount);
           }
         }
@@ -626,14 +677,15 @@ You can still view and download this exam paper!`
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setSending(true);
+    setAiProcessingStatus('Reading your question...');
 
     try {
       const questionNumber = extractQuestionNumber(userMessage);
-      
+
       console.log('Original input:', userMessage);
       console.log('Extracted question number:', questionNumber);
       console.log('Last question number:', lastQuestionNumber);
-      
+
       // 🔹 NEW: Check if this is a follow-up on the same question
       const isFollowUp = questionNumber && lastQuestionNumber && questionNumber === lastQuestionNumber;
       
@@ -649,12 +701,14 @@ You can still view and download this exam paper!`
       if (isFollowUp) {
         // 🔹 FOLLOW-UP: Don't send images, use conversation history
         console.log(`💬 Follow-up question detected - using conversation context (no images sent)`);
+        setAiProcessingStatus('Analyzing your follow-up question...');
         requestBody.optimizedMode = true;
         requestBody.questionNumber = questionNumber;
         requestBody.examPaperImages = []; // Empty - backend will use history
         requestBody.markingSchemeImages = [];
       } else if (questionNumber) {
         // 🔹 NEW QUESTION: Fetch data (from cache if available)
+        setAiProcessingStatus(`Reading Question ${questionNumber} from exam paper...`);
         const questionData = await fetchQuestionData(questionNumber);
 
         if (questionData && questionData.exam.length > 0) {
@@ -663,6 +717,7 @@ You can still view and download this exam paper!`
           console.log(`   - Marking scheme: TEXT (not images)`);
           console.log(`💰 Cost optimization: Using text instead of marking scheme images`);
 
+          setAiProcessingStatus(`Analyzing Question ${questionNumber}...`);
           requestBody.optimizedMode = true;
           requestBody.questionNumber = questionNumber;
           requestBody.examPaperImages = questionData.exam;
@@ -673,6 +728,7 @@ You can still view and download this exam paper!`
           setLastQuestionNumber(questionNumber);
         } else {
           console.log(`❌ Question ${questionNumber} not found in database, using fallback mode`);
+          setAiProcessingStatus(`Analyzing Question ${questionNumber}...`);
           requestBody.optimizedMode = false;
           requestBody.examPaperImages = examPaperImages;
           requestBody.markingSchemeImages = markingSchemeImages;
@@ -745,6 +801,7 @@ You can still view and download this exam paper!`
       }
       */
 
+      setAiProcessingStatus('Sending to AI assistant...');
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/exam-assistant`,
         {
@@ -756,6 +813,8 @@ You can still view and download this exam paper!`
           body: JSON.stringify(requestBody),
         }
       );
+
+      setAiProcessingStatus('AI is analyzing and preparing response...');
 
       if (!response.ok) {
         throw new Error('Failed to get response from AI');
@@ -814,6 +873,9 @@ You can still view and download this exam paper!`
       }, (assistantMessage.length / 3) * 15 + 200);
 
       await saveMessageToConversation(userMessage, assistantMessage, questionNumber);
+
+      // 🔹 NEW: Refresh token/paper counts immediately after AI response
+      await refreshTokenCounts();
     } catch (error) {
       console.error('Error sending message:', error);
       setMessages((prev) => [
@@ -825,6 +887,7 @@ You can still view and download this exam paper!`
       ]);
     } finally {
       setSending(false);
+      setAiProcessingStatus('');
     }
   };
 
@@ -1040,8 +1103,13 @@ You can still view and download this exam paper!`
 
             {sending && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-2.5">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-3">
+                  <div className="flex items-center space-x-3">
+                    <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                    <span className="text-sm text-gray-600">
+                      {aiProcessingStatus || 'Processing...'}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

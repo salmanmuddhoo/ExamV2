@@ -6,13 +6,16 @@ interface Profile {
   id: string;
   email: string;
   role: 'admin' | 'student';
+  first_name?: string;
+  last_name?: string;
+  profile_picture_url?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, role?: 'admin' | 'student') => Promise<void>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, role?: 'admin' | 'student') => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -66,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, role: 'admin' | 'student' = 'student') => {
+  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'admin' | 'student' = 'student') => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -77,7 +80,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user) {
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ role })
+        .update({
+          role,
+          first_name: firstName,
+          last_name: lastName
+        })
         .eq('id', data.user.id);
 
       if (profileError) throw profileError;

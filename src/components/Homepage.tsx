@@ -1,4 +1,4 @@
-import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface Props {
@@ -120,6 +120,88 @@ export function Homepage({ onGetStarted }: Props) {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section className="border-b border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Choose Your Plan
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Start free and upgrade anytime. All plans include access to our comprehensive exam library and AI tutor.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
+            {/* Free Tier */}
+            <PricingCard
+              name="Free"
+              price="$0"
+              period="forever"
+              description="Perfect for trying out the platform"
+              icon={<BookOpen className="w-6 h-6" />}
+              features={[
+                "Access to 2 exam papers",
+                "20,000 AI tokens per month",
+                "Basic AI assistance",
+                "View all subjects",
+                "No credit card required"
+              ]}
+              buttonText="Get Started Free"
+              onButtonClick={onGetStarted}
+              popular={false}
+            />
+
+            {/* Student Package */}
+            <PricingCard
+              name="Student Package"
+              price="$9.99"
+              period="per month"
+              description="Best for focused subject learning"
+              icon={<Star className="w-6 h-6" />}
+              features={[
+                "Choose 1 grade level",
+                "Select up to 3 subjects",
+                "100,000 AI tokens per month",
+                "Unlimited exam paper access",
+                "Priority AI responses",
+                "Download exam papers"
+              ]}
+              buttonText="Start Learning"
+              onButtonClick={onGetStarted}
+              popular={true}
+            />
+
+            {/* Premium */}
+            <PricingCard
+              name="Premium"
+              price="$19.99"
+              period="per month"
+              description="Everything you need to excel"
+              icon={<Crown className="w-6 h-6" />}
+              features={[
+                "All grades & subjects",
+                "Unlimited AI tokens",
+                "Unlimited exam papers",
+                "Advanced AI explanations",
+                "Detailed progress tracking",
+                "Priority support"
+              ]}
+              buttonText="Go Premium"
+              onButtonClick={onGetStarted}
+              popular={false}
+            />
+          </div>
+
+          {/* FAQ or Additional Info */}
+          <div className="mt-12 text-center">
+            <p className="text-sm text-gray-600">
+              All plans include full access to our AI tutor and comprehensive exam library. Cancel anytime.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Benefits Section */}
       <section className="border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20">
@@ -228,6 +310,82 @@ function Benefit({ text }: { text: string }) {
     <div className="flex items-start space-x-3">
       <CheckCircle className="w-6 h-6 text-black flex-shrink-0 mt-0.5" />
       <span className="text-gray-700">{text}</span>
+    </div>
+  );
+}
+
+interface PricingCardProps {
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  icon: React.ReactNode;
+  features: string[];
+  buttonText: string;
+  onButtonClick: () => void;
+  popular?: boolean;
+}
+
+function PricingCard({
+  name,
+  price,
+  period,
+  description,
+  icon,
+  features,
+  buttonText,
+  onButtonClick,
+  popular = false
+}: PricingCardProps) {
+  return (
+    <div className={`relative rounded-2xl border-2 ${
+      popular
+        ? 'border-black shadow-2xl scale-105 bg-white'
+        : 'border-gray-200 bg-white shadow-lg'
+    } p-8 transition-all hover:shadow-xl`}>
+      {popular && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-xs font-semibold uppercase tracking-wide shadow-lg">
+            Most Popular
+          </div>
+        </div>
+      )}
+
+      <div className="text-center mb-6">
+        <div className={`inline-flex items-center justify-center w-14 h-14 rounded-xl mb-4 ${
+          popular ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' : 'bg-gray-100 text-gray-900'
+        }`}>
+          {icon}
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">{name}</h3>
+        <p className="text-sm text-gray-600 mb-4">{description}</p>
+        <div className="flex items-baseline justify-center">
+          <span className="text-5xl font-bold text-gray-900">{price}</span>
+          <span className="text-gray-600 ml-2">/ {period}</span>
+        </div>
+      </div>
+
+      <button
+        onClick={onButtonClick}
+        className={`w-full py-3 px-6 rounded-xl font-semibold transition-all mb-6 ${
+          popular
+            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
+            : 'bg-gray-900 text-white hover:bg-gray-800'
+        }`}
+      >
+        {buttonText}
+      </button>
+
+      <div className="space-y-3">
+        {features.map((feature, index) => (
+          <div key={index} className="flex items-start space-x-3">
+            <CheckCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+              popular ? 'text-blue-600' : 'text-gray-900'
+            }`} />
+            <span className="text-sm text-gray-700">{feature}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

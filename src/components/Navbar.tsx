@@ -81,7 +81,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                 onClick={() => handleGradeClick(grade.id, grade.name)}
                 className="px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors font-medium"
               >
-                Grade {grade.name}
+                {grade.name}
               </button>
             ))}
 
@@ -154,7 +154,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                         onClick={() => handleGradeClick(grade.id, grade.name)}
                         className="w-full text-left px-6 py-2 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
                       >
-                        Grade {grade.name}
+                        {grade.name}
                       </button>
                     ))}
                   </div>

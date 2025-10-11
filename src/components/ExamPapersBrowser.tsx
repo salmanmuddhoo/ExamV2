@@ -43,7 +43,6 @@ export function ExamPapersBrowser({ onSelectPaper }: Props) {
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -157,9 +156,9 @@ export function ExamPapersBrowser({ onSelectPaper }: Props) {
 
         {/* Search and Filter Bar */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Search */}
-            <div className="flex-1 relative">
+          {/* Search */}
+          <div className="mb-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
@@ -169,86 +168,70 @@ export function ExamPapersBrowser({ onSelectPaper }: Props) {
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-black transition-colors"
               />
             </div>
-
-            {/* Filter Button */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors relative"
-            >
-              <Filter className="w-5 h-5" />
-              <span className="font-medium">Filters</span>
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-black text-white text-xs rounded-full flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
           </div>
 
           {/* Filter Panel */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                {/* Subject Filter */}
-                <select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
-                >
-                  <option value="">All Subjects</option>
-                  {subjects.map(subject => (
-                    <option key={subject.id} value={subject.name}>{subject.name}</option>
-                  ))}
-                </select>
+          <div className="border-t border-gray-200 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+              {/* Subject Filter */}
+              <select
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
+              >
+                <option value="">All Subjects</option>
+                {subjects.map(subject => (
+                  <option key={subject.id} value={subject.name}>{subject.name}</option>
+                ))}
+              </select>
 
-                {/* Grade Filter */}
-                <select
-                  value={selectedGrade}
-                  onChange={(e) => setSelectedGrade(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
-                >
-                  <option value="">All Grades</option>
-                  {gradeLevels.map(grade => (
-                    <option key={grade.id} value={grade.name}>Grade {grade.name}</option>
-                  ))}
-                </select>
+              {/* Grade Filter */}
+              <select
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
+              >
+                <option value="">All Grades</option>
+                {gradeLevels.map(grade => (
+                  <option key={grade.id} value={grade.name}>{grade.name}</option>
+                ))}
+              </select>
 
-                {/* Year Filter */}
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
-                >
-                  <option value="">All Years</option>
-                  {getUniqueYears().map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+              {/* Year Filter */}
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
+              >
+                <option value="">All Years</option>
+                {getUniqueYears().map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
 
-                {/* Month Filter */}
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
-                >
-                  <option value="">All Months</option>
-                  {MONTHS.map((month, index) => (
-                    <option key={index + 1} value={index + 1}>{month}</option>
-                  ))}
-                </select>
-              </div>
-
-              {activeFiltersCount > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center space-x-1 text-sm text-gray-600 hover:text-black transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                  <span>Clear all filters</span>
-                </button>
-              )}
+              {/* Month Filter */}
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-black text-sm"
+              >
+                <option value="">All Months</option>
+                {MONTHS.map((month, index) => (
+                  <option key={index + 1} value={index + 1}>{month}</option>
+                ))}
+              </select>
             </div>
-          )}
+
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center space-x-1 text-sm text-gray-600 hover:text-black transition-colors"
+              >
+                <X className="w-4 h-4" />
+                <span>Clear all filters</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Results */}
@@ -302,7 +285,7 @@ export function ExamPapersBrowser({ onSelectPaper }: Props) {
                         <div className="flex items-center text-xs text-gray-600">
                           <span className="font-medium">{paper.subjects.name}</span>
                           <span className="mx-1.5">•</span>
-                          <span>Grade {paper.grade_levels.name}</span>
+                          <span>{paper.grade_levels.name}</span>
                         </div>
                         <div className="flex items-center text-xs text-gray-600">
                           <Calendar className="w-3.5 h-3.5 mr-1" />
