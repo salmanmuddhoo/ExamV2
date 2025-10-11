@@ -29,8 +29,9 @@ If you're using hosted Supabase:
    - `supabase/migrations/20251011000002_create_payment_system.sql`
    - `supabase/migrations/20251011000003_fix_payment_rls_policies.sql`
    - `supabase/migrations/20251011000004_fix_storage_policies.sql`
+   - `supabase/migrations/20251011000005_add_profiles_fkey_to_payments.sql`
 
-**Important:** All three migrations must be run to avoid RLS policy errors on payments and storage uploads.
+**Important:** All migrations must be run in order to avoid errors with RLS policies, storage uploads, and admin dashboard queries.
 
 ### Step 2: Create Storage Buckets
 
