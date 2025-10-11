@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, Trash2, Upload, X } from 'lucide-react';
+import { Plus, FileText, Trash2, Upload, X, Edit } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createPdfPreviewUrl, revokePdfPreviewUrl, convertPdfToBase64Images, PdfImagePart } from '../lib/pdfUtils';
 import { Modal } from './Modal';
@@ -45,6 +45,7 @@ export function ExamPaperManager() {
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     subject_id: '',
@@ -138,8 +139,68 @@ export function ExamPaperManager() {
     return { path: data.path, url: publicUrl };
   };
 
+  const handleEdit = (paper: ExamPaper) => {
+    setEditingId(paper.id);
+    setFormData({
+      title: paper.title,
+      subject_id: paper.subject_id,
+      grade_level_id: paper.grade_level_id,
+      year: paper.year,
+      month: paper.month ? paper.month.toString() : '',
+      ai_prompt_id: paper.ai_prompt_id || '',
+    });
+    setIsAdding(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editingId) return;
+
+    setUploading(true);
+
+    try {
+      const { error } = await supabase
+        .from('exam_papers')
+        .update({
+          title: formData.title,
+          subject_id: formData.subject_id,
+          grade_level_id: formData.grade_level_id,
+          year: formData.year,
+          month: formData.month ? parseInt(formData.month) : null,
+          ai_prompt_id: formData.ai_prompt_id || null,
+        })
+        .eq('id', editingId);
+
+      if (error) throw error;
+
+      showAlert('Exam paper updated successfully!', 'Success', 'success');
+
+      setFormData({
+        title: '',
+        subject_id: '',
+        grade_level_id: '',
+        year: new Date().getFullYear(),
+        month: '',
+        ai_prompt_id: '',
+      });
+      setIsAdding(false);
+      setEditingId(null);
+      fetchData();
+    } catch (error: any) {
+      console.error('Update error:', error);
+      showAlert(error.message || 'Failed to update exam paper', 'Update Failed', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (editingId) {
+      return handleUpdate(e);
+    }
 
     if (!examPaperFile) {
       showAlert('Please select an exam paper PDF', 'Missing File', 'warning');
@@ -412,6 +473,7 @@ export function ExamPaperManager() {
 
   const handleCancel = () => {
     setIsAdding(false);
+    setEditingId(null);
     setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
     setExamPaperFile(null);
     setMarkingSchemeFile(null);
@@ -460,6 +522,9 @@ export function ExamPaperManager() {
 
       {isAdding && (
         <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {editingId ? 'Edit Exam Paper' : 'Add New Exam Paper'}
+          </h3>
           <div className="space-y-4">
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-900 mb-1">
@@ -577,6 +642,8 @@ export function ExamPaperManager() {
               </p>
             </div>
 
+            {!editingId && (
+              <>
             <div>
               <label htmlFor="exam-paper" className="block text-sm font-medium text-gray-900 mb-1">
                 Exam Paper PDF (Required)
@@ -676,6 +743,8 @@ export function ExamPaperManager() {
                 </div>
               )}
             </div>
+              </>
+            )}
 
             {processingStatus && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -692,7 +761,10 @@ export function ExamPaperManager() {
                 disabled={uploading}
                 className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploading ? 'Uploading & Processing...' : 'Upload Exam Paper'}
+                {editingId
+                  ? (uploading ? 'Updating...' : 'Update Exam Paper')
+                  : (uploading ? 'Uploading & Processing...' : 'Upload Exam Paper')
+                }
               </button>
               <button
                 type="button"
@@ -746,8 +818,16 @@ export function ExamPaperManager() {
                   View PDF
                 </a>
                 <button
+                  onClick={() => handleEdit(paper)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit exam paper details"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => handleDelete(paper)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete exam paper"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

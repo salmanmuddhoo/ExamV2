@@ -32,15 +32,15 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = Deno.env.get('GEMINI_UPLOAD_API_KEY') || Deno.env.get('GEMINI_API_KEY');
     if (!geminiApiKey) {
-      throw new Error("GEMINI_API_KEY not configured");
+      throw new Error("GEMINI_UPLOAD_API_KEY or GEMINI_API_KEY not configured");
     }
 
     console.log(`Analyzing ${pageImages.length} pages with Gemini...`);
 
-    const questions = await extractAndSplitQuestions(pageImages, geminiApiKey);
-    
+    const { questions, tokenUsage: extractTokens } = await extractAndSplitQuestions(pageImages, geminiApiKey);
+
     console.log(`Extracted ${questions.length} questions`);
 
     if (questions.length === 0) {
@@ -62,13 +62,16 @@ Deno.serve(async (req: Request) => {
 
     // Extract marking scheme answers if marking scheme is provided
     let markingSchemeData: Map<string, string> = new Map();
+    let markingSchemeTokens = null;
     if (markingSchemeImages && markingSchemeImages.length > 0) {
       console.log(`Extracting marking scheme for ${questions.length} questions...`);
-      markingSchemeData = await extractMarkingScheme(
+      const markingResult = await extractMarkingScheme(
         questions,
         markingSchemeImages,
         geminiApiKey
       );
+      markingSchemeData = markingResult.markingScheme;
+      markingSchemeTokens = markingResult.tokenUsage;
       console.log(`Extracted marking scheme for ${markingSchemeData.size} questions`);
     }
 
@@ -107,6 +110,37 @@ Deno.serve(async (req: Request) => {
     
     console.log(`Database save complete: ${savedCount} saved, ${errorCount} errors`);
 
+    // Calculate total token usage and cost
+    const totalPromptTokens = extractTokens.promptTokens + (markingSchemeTokens?.promptTokens || 0);
+    const totalCompletionTokens = extractTokens.completionTokens + (markingSchemeTokens?.completionTokens || 0);
+    const totalTokens = totalPromptTokens + totalCompletionTokens;
+    const totalCost = extractTokens.cost + (markingSchemeTokens?.cost || 0);
+
+    console.log('=== Processing Token Usage ===');
+    console.log(`Question extraction: ${extractTokens.totalTokens} tokens, $${extractTokens.cost.toFixed(6)}`);
+    if (markingSchemeTokens) {
+      console.log(`Marking scheme extraction: ${markingSchemeTokens.totalTokens} tokens, $${markingSchemeTokens.cost.toFixed(6)}`);
+    }
+    console.log(`Total: ${totalTokens} tokens, $${totalCost.toFixed(6)}`);
+
+    // Save token usage to database
+    try {
+      await supabase.from('token_usage_logs').insert({
+        exam_paper_id: examPaperId,
+        model: 'gemini-2.0-flash-exp',
+        provider: 'gemini',
+        prompt_tokens: totalPromptTokens,
+        completion_tokens: totalCompletionTokens,
+        total_tokens: totalTokens,
+        estimated_cost: totalCost,
+        images_count: pageImages.length + (markingSchemeImages?.length || 0),
+        is_follow_up: false
+      });
+      console.log('✅ Token usage saved to database');
+    } catch (logError) {
+      console.error('Failed to log token usage:', logError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -116,7 +150,21 @@ Deno.serve(async (req: Request) => {
           pages: q.pageNumbers,
           imageCount: q.imageUrls.length,
           preview: q.fullText.substring(0, 100) + '...'
-        }))
+        })),
+        tokenUsage: {
+          totalTokens,
+          totalCost: parseFloat(totalCost.toFixed(6)),
+          breakdown: {
+            extraction: {
+              tokens: extractTokens.totalTokens,
+              cost: parseFloat(extractTokens.cost.toFixed(6))
+            },
+            markingScheme: markingSchemeTokens ? {
+              tokens: markingSchemeTokens.totalTokens,
+              cost: parseFloat(markingSchemeTokens.cost.toFixed(6))
+            } : null
+          }
+        }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -210,11 +258,22 @@ Return ONLY the JSON array, nothing else.`;
 
     const data = await response.json();
     const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!rawText) {
       console.error("No text in response!");
       throw new Error("Empty response from Gemini");
     }
+
+    // Extract token usage
+    const usageMetadata = data?.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount || 0;
+    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
+
+    // Calculate cost (Gemini 2.0 Flash pricing)
+    const inputCost = (promptTokens / 1000000) * 0.075;
+    const outputCost = (completionTokens / 1000000) * 0.30;
+    const totalCost = inputCost + outputCost;
     
     const finishReason = data?.candidates?.[0]?.finishReason;
     if (finishReason && finishReason !== 'STOP') {
@@ -278,7 +337,16 @@ Return ONLY the JSON array, nothing else.`;
     });
 
     console.log(`Validated ${validQuestions.length} questions`);
-    return validQuestions;
+
+    return {
+      questions: validQuestions,
+      tokenUsage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: totalTokensUsed,
+        cost: totalCost
+      }
+    };
 
   } catch (error) {
     console.error("AI extraction failed:", error);
@@ -367,7 +435,7 @@ async function extractMarkingScheme(
   questions: any[],
   markingSchemeImages: Array<{ pageNumber: number; base64Image: string }>,
   geminiApiKey: string
-): Promise<Map<string, string>> {
+): Promise<{ markingScheme: Map<string, string>; tokenUsage: any }> {
   
   const imageParts = markingSchemeImages.map(page => ({
     inline_data: {
@@ -450,16 +518,33 @@ Return ONLY the JSON object.`;
 
     if (!response.ok) {
       console.error("Marking scheme extraction failed:", response.status);
-      return new Map();
+      return {
+        markingScheme: new Map(),
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+      };
     }
 
     const data = await response.json();
     const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!rawText) {
       console.error("No marking scheme response");
-      return new Map();
+      return {
+        markingScheme: new Map(),
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+      };
     }
+
+    // Extract token usage
+    const usageMetadata = data?.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount || 0;
+    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
+
+    // Calculate cost (Gemini 2.0 Flash pricing)
+    const inputCost = (promptTokens / 1000000) * 0.075;
+    const outputCost = (completionTokens / 1000000) * 0.30;
+    const totalCost = inputCost + outputCost;
 
     let jsonText = rawText.trim();
     
@@ -481,10 +566,21 @@ Return ONLY the JSON object.`;
       }
     }
 
-    return resultMap;
+    return {
+      markingScheme: resultMap,
+      tokenUsage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: totalTokensUsed,
+        cost: totalCost
+      }
+    };
 
   } catch (error) {
     console.error("Failed to extract marking scheme:", error);
-    return new Map();
+    return {
+      markingScheme: new Map(),
+      tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+    };
   }
 }

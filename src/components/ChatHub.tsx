@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
+import { SubscriptionManager } from './SubscriptionManager';
 
 interface ConversationWithPaper {
   id: string;
@@ -34,6 +35,7 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [showPaperModal, setShowPaperModal] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; conversationId: string | null }>({
@@ -204,6 +206,13 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
               <div className="flex items-center space-x-1">
                 <button
+                  onClick={() => setShowSubscription(true)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Manage subscription"
+                >
+                  <Crown className="w-5 h-5 text-yellow-600" />
+                </button>
+                <button
                   onClick={onNavigateHome}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Go to homepage"
@@ -328,25 +337,42 @@ export function ChatHub({ onSelectConversation, onSelectPaper, onNavigateHome }:
           </div>
         </div>
 
-        {/* Right Panel - Empty State */}
-        <div className="flex-1 flex items-center justify-center p-6 bg-gray-50">
-          <div className="text-center max-w-md">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-sm mb-6">
-              <MessageSquare className="w-10 h-10 text-gray-400" />
+        {/* Right Panel - Subscription Manager or Empty State */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          {showSubscription ? (
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Manage Subscription</h2>
+                <button
+                  onClick={() => setShowSubscription(false)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+              <SubscriptionManager />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
-              Select a conversation
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Choose a conversation from the left to continue, or start a new one by selecting an exam paper
-            </p>
-            <button
-              onClick={handleNewConversation}
-              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              Browse Exam Papers
-            </button>
-          </div>
+          ) : (
+            <div className="flex items-center justify-center h-full p-6">
+              <div className="text-center max-w-md">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-sm mb-6">
+                  <MessageSquare className="w-10 h-10 text-gray-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                  Select a conversation
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Choose a conversation from the left to continue, or start a new one by selecting an exam paper
+                </p>
+                <button
+                  onClick={handleNewConversation}
+                  className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  Browse Exam Papers
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -47,6 +47,11 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired }:
   const [pdfLoadError, setPdfLoadError] = useState(false);
   const [lastQuestionNumber, setLastQuestionNumber] = useState<string | null>(null); // 🔹 NEW: Track last question
   const [imageCache, setImageCache] = useState<Map<string, { exam: string[], markingSchemeText: string, questionText: string }>>(new Map()); // 🔹 NEW: Cache images
+  const [paperAccessDenied, setPaperAccessDenied] = useState(false);
+  const [papersRemaining, setPapersRemaining] = useState<number>(-1); // -1 = unlimited
+  const [chatLocked, setChatLocked] = useState(false);
+  const [tokensRemaining, setTokensRemaining] = useState<number>(-1); // -1 = unlimited
+  const [tierName, setTierName] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -248,6 +253,7 @@ This helps me give you the most accurate and focused help! 😊`;
 
   const fetchExamPaper = async () => {
     try {
+      // Fetch exam paper first - all users can VIEW any paper
       const { data, error } = await supabase
         .from('exam_papers')
         .select(`
@@ -261,6 +267,68 @@ This helps me give you the most accurate and focused help! 😊`;
 
       if (error) throw error;
       setExamPaper(data);
+
+      // Check chat access limits for free tier users
+      if (user) {
+        const { data: accessCheck, error: accessError } = await supabase
+          .rpc('check_user_subscription_access', {
+            p_user_id: user.id,
+            p_feature: 'paper_access'
+          });
+
+        if (accessError) {
+          console.error('Error checking paper access:', accessError);
+        } else if (accessCheck && accessCheck.length > 0) {
+          const access = accessCheck[0];
+          setPapersRemaining(access.papers_remaining);
+
+          // Check chat access for free tier (check both token and paper limits)
+          if (access.tier_name === 'free') {
+            const { data: subscription } = await supabase
+              .from('user_subscriptions')
+              .select('accessed_paper_ids, papers_accessed_current_period, tokens_used_current_period, subscription_tiers!inner(papers_limit, token_limit)')
+              .eq('user_id', user.id)
+              .eq('status', 'active')
+              .single();
+
+            if (subscription) {
+              const alreadyAccessed = subscription.accessed_paper_ids.includes(paperId);
+              const papersLimit = subscription.subscription_tiers?.papers_limit || 2;
+              const tokenLimit = subscription.subscription_tiers?.token_limit || 50000;
+
+              let shouldLockChat = false;
+              let lockReason = '';
+
+              // Check token limit first
+              if (subscription.tokens_used_current_period >= tokenLimit) {
+                shouldLockChat = true;
+                lockReason = 'token_limit';
+                console.log(`🔒 Free tier: Chat locked - Token limit reached (${subscription.tokens_used_current_period}/${tokenLimit})`);
+              }
+              // Then check paper limit (only if this paper hasn't been accessed yet)
+              else if (subscription.papers_accessed_current_period >= papersLimit && !alreadyAccessed) {
+                shouldLockChat = true;
+                lockReason = 'paper_limit';
+                console.log(`🔒 Free tier: Chat locked - Paper limit reached (${subscription.papers_accessed_current_period}/${papersLimit} papers)`);
+              }
+              else {
+                console.log(`✅ Free tier: Chat available - ${subscription.papers_accessed_current_period}/${papersLimit} papers, ${subscription.tokens_used_current_period}/${tokenLimit} tokens used`);
+              }
+
+              setChatLocked(shouldLockChat);
+
+              // Set display values
+              setPapersRemaining(papersLimit - subscription.papers_accessed_current_period);
+              setTokensRemaining(tokenLimit - subscription.tokens_used_current_period);
+              setTierName('free');
+            }
+          } else {
+            // For paid tiers, also get token info
+            setTierName(access.tier_name);
+            setTokensRemaining(access.tokens_remaining);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error fetching exam paper:', error);
     } finally {
@@ -278,11 +346,13 @@ This helps me give you the most accurate and focused help! 😊`;
 
       if (error) throw error;
 
-      const loadedMessages = data.map(msg => ({
+      const loadedMessages = data.map((msg, index) => ({
         role: msg.role as 'user' | 'assistant',
         content: msg.content,
         questionNumber: msg.question_number
       }));
+
+      console.log('📨 Loaded messages order:', loadedMessages.map((m, i) => `${i}: ${m.role} - ${m.content.substring(0, 30)}...`));
 
       // Check if conversation is from a previous day
       if (loadedMessages.length > 0) {
@@ -307,7 +377,7 @@ This helps me give you the most accurate and focused help! 😊`;
       setCurrentConversationId(convId);
 
       // Set last question from loaded conversation
-      const lastMsg = loadedMessages.reverse().find(m => m.questionNumber);
+      const lastMsg = [...loadedMessages].reverse().find(m => m.questionNumber);
       if (lastMsg?.questionNumber) {
         setLastQuestionNumber(lastMsg.questionNumber);
       }
@@ -361,27 +431,34 @@ This helps me give you the most accurate and focused help! 😊`;
         }
       }
 
-      // 🔹 NEW: Save with question_number and has_images metadata
-      const { error: msgError } = await supabase
+      // Insert user message first
+      const { error: userMsgError } = await supabase
         .from('conversation_messages')
-        .insert([
-          {
-            conversation_id: convId,
-            role: 'user',
-            content: userMessage,
-            question_number: questionNumber,
-            has_images: false
-          },
-          {
-            conversation_id: convId,
-            role: 'assistant',
-            content: assistantMessage,
-            question_number: questionNumber,
-            has_images: false
-          }
-        ]);
+        .insert({
+          conversation_id: convId,
+          role: 'user',
+          content: userMessage,
+          question_number: questionNumber,
+          has_images: false
+        });
 
-      if (msgError) throw msgError;
+      if (userMsgError) throw userMsgError;
+
+      // Small delay to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Then insert assistant message
+      const { error: assistantMsgError } = await supabase
+        .from('conversation_messages')
+        .insert({
+          conversation_id: convId,
+          role: 'assistant',
+          content: assistantMessage,
+          question_number: questionNumber,
+          has_images: false
+        });
+
+      if (assistantMsgError) throw assistantMsgError;
     } catch (error) {
       console.error('Error saving conversation:', error);
     }
@@ -465,6 +542,85 @@ This helps me give you the most accurate and focused help! 😊`;
     e.preventDefault();
 
     if (!input.trim() || sending || !examPaper) return;
+
+    // Check if user has chat access for this paper (token + paper limit check)
+    if (user) {
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('accessed_paper_ids, papers_accessed_current_period, tokens_used_current_period, subscription_tiers!inner(name, papers_limit, token_limit)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscription) {
+        const tierName = subscription.subscription_tiers?.name;
+        const papersLimit = subscription.subscription_tiers?.papers_limit;
+        const tokenLimit = subscription.subscription_tiers?.token_limit;
+        const alreadyAccessed = subscription.accessed_paper_ids.includes(paperId);
+
+        // Check token limit first (for all tiers with limits)
+        if (tokenLimit !== null && subscription.tokens_used_current_period >= tokenLimit) {
+          setMessages((prev) => [...prev, {
+            role: 'assistant',
+            content: `🔒 **Token Limit Reached**
+
+You've used all ${tokenLimit.toLocaleString()} tokens for this month.
+
+**To continue using AI chat:**
+- Upgrade to **Student Package** ($15/month) - Get 500K tokens/month
+- Upgrade to **Professional Package** ($25/month) - Unlimited tokens
+
+Your tokens will reset at the start of next month.`
+          }]);
+          return;
+        }
+
+        // Check paper limit (for tiers with paper limits, like free tier)
+        if (tierName === 'free' && papersLimit !== null && !alreadyAccessed) {
+          if (subscription.papers_accessed_current_period >= papersLimit) {
+            // Limit reached and this is a new paper - block chat
+            setMessages((prev) => [...prev, {
+              role: 'assistant',
+              content: `🔒 **Paper Limit Reached**
+
+You can view this exam paper, but you've used AI chat on ${papersLimit} papers already (your free tier limit).
+
+You still have **${tokenLimit ? tokenLimit - subscription.tokens_used_current_period : 0} tokens** remaining, but they can only be used on the ${papersLimit} papers you've already chatted with.
+
+**To unlock AI chat for more papers:**
+- Upgrade to **Student Package** ($15/month) - Chat with unlimited papers
+- Upgrade to **Professional Package** ($25/month) - Unlimited everything
+
+You can still view and download this exam paper!`
+            }]);
+            return;
+          }
+        }
+
+        // Track this paper usage if it's the first message on this paper (free tier only)
+        if (tierName === 'free' && !alreadyAccessed) {
+          const newAccessedIds = [...subscription.accessed_paper_ids, paperId];
+          const { error: updateError } = await supabase
+            .from('user_subscriptions')
+            .update({
+              papers_accessed_current_period: subscription.papers_accessed_current_period + 1,
+              accessed_paper_ids: newAccessedIds
+            })
+            .eq('user_id', user.id)
+            .eq('status', 'active');
+
+          if (updateError) {
+            console.error('Error tracking paper chat usage:', updateError);
+          } else {
+            const newCount = subscription.papers_accessed_current_period + 1;
+            console.log(`✅ Free tier: Tracked chat usage for paper ${paperId} (${newCount}/${papersLimit} papers used)`);
+            console.log(`📊 Remaining: ${papersLimit - newCount} papers, ${tokenLimit ? tokenLimit - subscription.tokens_used_current_period : 'unlimited'} tokens`);
+            // Update local state
+            setPapersRemaining((papersLimit || 2) - newCount);
+          }
+        }
+      }
+    }
 
     const userMessage = input.trim();
     setInput('');
@@ -680,6 +836,7 @@ This helps me give you the most accurate and focused help! 😊`;
     );
   }
 
+
   if (!examPaper) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -894,23 +1051,71 @@ This helps me give you the most accurate and focused help! 😊`;
 
           {user && (
             <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
-              <form onSubmit={handleSendMessage} className="flex space-x-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question..."
-                  disabled={sending}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={sending || !input.trim()}
-                  className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
+              {/* Token Counter - Show for tiers with limits */}
+              {tierName && tokensRemaining !== -1 && (
+                <div className="mb-2 flex items-center justify-between text-xs text-gray-600">
+                  <div className="flex items-center space-x-4">
+                    <span>
+                      <span className="font-medium">Tokens:</span>{' '}
+                      <span className={tokensRemaining < 5000 ? 'text-orange-600 font-semibold' : ''}>
+                        {tokensRemaining.toLocaleString()}
+                      </span>
+                    </span>
+                    {papersRemaining !== -1 && (
+                      <span>
+                        <span className="font-medium">Papers:</span>{' '}
+                        <span className={papersRemaining === 0 ? 'text-orange-600 font-semibold' : ''}>
+                          {papersRemaining}/2
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  {tierName === 'free' && (
+                    <button
+                      onClick={onBack}
+                      className="text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Upgrade
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {chatLocked ? (
+                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <Lock className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                    <h4 className="font-semibold text-gray-900">Chat Locked - Free Tier Limit Reached</h4>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-3">
+                    You can view this paper, but you've used your 2 AI chat papers on the free tier.
+                  </p>
+                  <button
+                    onClick={onBack}
+                    className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+                  >
+                    Upgrade to Unlock Chat
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask a question..."
+                    disabled={sending}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !input.trim()}
+                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              )}
             </div>
           )}
         </div>

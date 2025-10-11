@@ -23,6 +23,10 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
   const { signIn, signUp } = useAuth();
 
   const calculatePasswordStrength = (pwd: string): PasswordStrength => {
@@ -48,6 +52,27 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
     if (!/\d/.test(pwd)) return 'Password must contain at least one number';
     if (!/[^A-Za-z0-9]/.test(pwd)) return 'Password must contain at least one special character';
     return null;
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setResetLoading(true);
+
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setResetSuccess(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,6 +128,18 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
         type="success"
       />
 
+      <Modal
+        isOpen={resetSuccess}
+        onClose={() => {
+          setResetSuccess(false);
+          setShowForgotPassword(false);
+          setResetEmail('');
+        }}
+        title="Check Your Email"
+        message="If an account exists with that email, you will receive a password reset link shortly."
+        type="success"
+      />
+
       <div className="min-h-screen flex items-center justify-center bg-white px-4">
         <div className="w-full max-w-md">
         <div className="bg-white p-8">
@@ -112,14 +149,69 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
             </div>
           </div>
 
-          <h2 className="text-3xl font-semibold text-center mb-2 text-gray-900">
-            {isSignUp ? 'Create your account' : 'Welcome back'}
-          </h2>
-          <p className="text-center text-gray-600 mb-8 text-sm">
-            {isSignUp
-              ? 'Sign up to access exam papers'
-              : 'Sign in to manage the platform'}
-          </p>
+          {showForgotPassword ? (
+            <>
+              <h2 className="text-3xl font-semibold text-center mb-2 text-gray-900">
+                Reset Password
+              </h2>
+              <p className="text-center text-gray-600 mb-8 text-sm">
+                Enter your email address and we'll send you a password reset link
+              </p>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div>
+                  <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-900 mb-1.5">
+                    Email address
+                  </label>
+                  <input
+                    id="resetEmail"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full bg-black text-white py-2.5 rounded font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setError('');
+                    setResetEmail('');
+                  }}
+                  className="text-black hover:text-gray-800 text-sm transition-colors"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-semibold text-center mb-2 text-gray-900">
+                {isSignUp ? 'Create your account' : 'Welcome back'}
+              </h2>
+              <p className="text-center text-gray-600 mb-8 text-sm">
+                {isSignUp
+                  ? 'Sign up to access exam papers'
+                  : 'Sign in to manage the platform'}
+              </p>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
@@ -243,6 +335,17 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
             </button>
           </form>
 
+          {!isSignUp && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-gray-600 hover:text-black transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
           <div className="mt-6 text-center">
             <button
               onClick={() => {
@@ -256,6 +359,8 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                 : "Don't have an account? Sign up"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

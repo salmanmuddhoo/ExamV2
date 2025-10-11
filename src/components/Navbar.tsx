@@ -16,9 +16,10 @@ interface Props {
   onNavigateChatHub?: () => void;
   onSelectGrade: (gradeId: string, gradeName: string) => void;
   currentView: string;
+  hideSignInButton?: boolean;
 }
 
-export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onSelectGrade, currentView }: Props) {
+export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onSelectGrade, currentView, hideSignInButton = false }: Props) {
   const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
@@ -88,7 +89,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
 
             {user ? (
               <>
-                {profile?.role !== 'admin' && onNavigateChatHub && (
+                {onNavigateChatHub && (
                   <button
                     onClick={onNavigateChatHub}
                     className="flex items-center space-x-1 px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors"
@@ -114,7 +115,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                   <span>Sign Out</span>
                 </button>
               </>
-            ) : (
+            ) : !hideSignInButton ? (
               <button
                 onClick={onNavigateLogin}
                 className="flex items-center space-x-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
@@ -122,7 +123,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                 <LogIn className="w-4 h-4" />
                 <span>Sign In</span>
               </button>
-            )}
+            ) : null}
           </div>
 
           <button
@@ -162,7 +163,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
 
               {user ? (
                 <>
-                  {profile?.role !== 'admin' && onNavigateChatHub && (
+                  {onNavigateChatHub && (
                     <button
                       onClick={() => {
                         onNavigateChatHub();
@@ -194,7 +195,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                     <span>Sign Out</span>
                   </button>
                 </>
-              ) : (
+              ) : !hideSignInButton ? (
                 <button
                   onClick={() => {
                     onNavigateLogin();
@@ -206,7 +207,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                   <LogIn className="w-4 h-4" />
                   <span>Sign In</span>
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         )}

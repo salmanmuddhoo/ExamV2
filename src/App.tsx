@@ -6,11 +6,9 @@ import { Homepage } from './components/Homepage';
 import { ExamViewer } from './components/ExamViewer';
 import { ChatHub } from './components/ChatHub';
 import { Navbar } from './components/Navbar';
-import { SubjectsPage } from './components/SubjectsPage';
-import { YearsPage } from './components/YearsPage';
-import { PapersListPage } from './components/PapersListPage';
+import { ExamPapersBrowser } from './components/ExamPapersBrowser';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'subjects' | 'years' | 'papers-list';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser';
 
 function App() {
   const { user, profile, loading } = useAuth();
@@ -18,11 +16,6 @@ function App() {
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
-  const [selectedGradeName, setSelectedGradeName] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedSubjectName, setSelectedSubjectName] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && !initialLoadComplete) {
@@ -47,7 +40,7 @@ function App() {
 
   useEffect(() => {
     if (initialLoadComplete && !user && !loading) {
-      if (view !== 'home' && view !== 'login' && view !== 'subjects' && view !== 'years' && view !== 'papers-list' && view !== 'exam-viewer') {
+      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer') {
         setView('home');
       }
     }
@@ -92,35 +85,7 @@ function App() {
   };
 
   const handleSelectGrade = (gradeId: string, gradeName: string) => {
-    setSelectedGradeId(gradeId);
-    setSelectedGradeName(gradeName);
-    setSelectedSubjectId(null);
-    setSelectedSubjectName(null);
-    setView('subjects');
-  };
-
-  const handleSelectSubject = (subjectId: string, subjectName: string) => {
-    setSelectedSubjectId(subjectId);
-    setSelectedSubjectName(subjectName);
-    setSelectedYear(null);
-    setView('years');
-  };
-
-  const handleSelectYear = (year: number) => {
-    setSelectedYear(year);
-    setView('papers-list');
-  };
-
-  const handleBackToSubjects = () => {
-    setSelectedSubjectId(null);
-    setSelectedSubjectName(null);
-    setSelectedYear(null);
-    setView('subjects');
-  };
-
-  const handleBackToYears = () => {
-    setSelectedYear(null);
-    setView('years');
+    setView('papers-browser');
   };
 
   if (loading) {
@@ -135,14 +100,39 @@ function App() {
   }
 
   if (view === 'login') {
-    return <LoginForm onLoginSuccess={() => {}} />;
+    return (
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+          hideSignInButton={true}
+        />
+        <LoginForm onLoginSuccess={() => {}} />
+      </>
+    );
   }
 
   if (view === 'admin' && user && profile?.role === 'admin') {
-    return <AdminDashboard />;
+    return (
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
+        <AdminDashboard />
+      </>
+    );
   }
 
-  if (view === 'chat-hub' && user && profile?.role !== 'admin') {
+  if (view === 'chat-hub' && user) {
     return (
       <ChatHub
         onSelectConversation={handleSelectConversation}
@@ -163,7 +153,7 @@ function App() {
     );
   }
 
-  if (view === 'subjects' && selectedGradeId && selectedGradeName) {
+  if (view === 'papers-browser') {
     return (
       <>
         <Navbar
@@ -174,59 +164,7 @@ function App() {
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
-        <SubjectsPage
-          gradeId={selectedGradeId}
-          gradeName={selectedGradeName}
-          onBack={handleBackToHome}
-          onSelectSubject={handleSelectSubject}
-        />
-      </>
-    );
-  }
-
-  if (view === 'years' && selectedGradeId && selectedGradeName && selectedSubjectId && selectedSubjectName) {
-    return (
-      <>
-        <Navbar
-          onNavigateHome={handleBackToHome}
-          onNavigateAdmin={handleNavigateToAdmin}
-          onNavigateLogin={handleNavigateToLogin}
-          onNavigateChatHub={handleNavigateToChatHub}
-          onSelectGrade={handleSelectGrade}
-          currentView={view}
-        />
-        <YearsPage
-          gradeId={selectedGradeId}
-          gradeName={selectedGradeName}
-          subjectId={selectedSubjectId}
-          subjectName={selectedSubjectName}
-          onBack={handleBackToSubjects}
-          onSelectYear={handleSelectYear}
-        />
-      </>
-    );
-  }
-
-  if (view === 'papers-list' && selectedGradeId && selectedGradeName && selectedSubjectId && selectedSubjectName && selectedYear) {
-    return (
-      <>
-        <Navbar
-          onNavigateHome={handleBackToHome}
-          onNavigateAdmin={handleNavigateToAdmin}
-          onNavigateLogin={handleNavigateToLogin}
-          onNavigateChatHub={handleNavigateToChatHub}
-          onSelectGrade={handleSelectGrade}
-          currentView={view}
-        />
-        <PapersListPage
-          gradeId={selectedGradeId}
-          gradeName={selectedGradeName}
-          subjectId={selectedSubjectId}
-          subjectName={selectedSubjectName}
-          year={selectedYear}
-          onBack={handleBackToYears}
-          onSelectPaper={handleSelectPaper}
-        />
+        <ExamPapersBrowser onSelectPaper={handleSelectPaper} />
       </>
     );
   }

@@ -309,6 +309,49 @@ Deno.serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Check subscription access before proceeding
+    if (userId) {
+      const { data: accessCheck, error: accessError } = await supabase
+        .rpc('check_user_subscription_access', {
+          p_user_id: userId,
+          p_feature: 'chat'
+        });
+
+      if (accessError) {
+        console.error('Error checking subscription access:', accessError);
+      } else if (accessCheck && accessCheck.length > 0) {
+        const access = accessCheck[0];
+
+        if (!access.has_access) {
+          let errorMessage = 'Access denied';
+          let upgradeRequired = false;
+
+          if (access.reason === 'Token limit exceeded') {
+            errorMessage = `You've reached your monthly token limit. Please upgrade your subscription to continue using the AI assistant.`;
+            upgradeRequired = true;
+          } else if (access.reason === 'No active subscription') {
+            errorMessage = `You don't have an active subscription. Please subscribe to use the AI assistant.`;
+            upgradeRequired = true;
+          }
+
+          return new Response(
+            JSON.stringify({
+              error: errorMessage,
+              accessDenied: true,
+              upgradeRequired: upgradeRequired,
+              tierName: access.tier_name,
+              tokensRemaining: access.tokens_remaining,
+              papersRemaining: access.papers_remaining
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        console.log(`✅ Access granted - Tier: ${access.tier_name}`);
+        console.log(`📊 Tokens remaining: ${access.tokens_remaining === -1 ? 'Unlimited' : access.tokens_remaining}`);
+      }
+    }
+
     // Build context-aware system prompt
     let contextualSystemPrompt = SYSTEM_PROMPT;
 
@@ -407,8 +450,8 @@ Deno.serve(async (req) => {
 
     console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
 
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) throw new Error("GEMINI_API_KEY not configured");
+    const geminiApiKey = Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY");
+    if (!geminiApiKey) throw new Error("GEMINI_ASSISTANT_API_KEY or GEMINI_API_KEY not configured");
 
     // Supabase client already created earlier for fetching exam paper details
     let conversationHistory = [];
@@ -475,6 +518,81 @@ Deno.serve(async (req) => {
     const data = await response.json();
     const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated";
 
+    // Extract token usage from Gemini response
+    const usageMetadata = data?.usageMetadata || {};
+    const promptTokenCount = usageMetadata.promptTokenCount || 0;
+    const candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
+    const totalTokenCount = usageMetadata.totalTokenCount || (promptTokenCount + candidatesTokenCount);
+
+    // Log token usage for monitoring
+    console.log('=== Token Usage ===');
+    console.log(`Input tokens: ${promptTokenCount}`);
+    console.log(`Output tokens: ${candidatesTokenCount}`);
+    console.log(`Total tokens: ${totalTokenCount}`);
+    console.log(`Images sent: ${finalExamImages.length}`);
+    console.log(`Conversation history messages: ${conversationHistory.length}`);
+
+    // Calculate estimated cost (Gemini 2.0 Flash pricing as of Oct 2024)
+    // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
+    const inputCost = (promptTokenCount / 1000000) * 0.075;
+    const outputCost = (candidatesTokenCount / 1000000) * 0.30;
+    const totalCost = inputCost + outputCost;
+
+    console.log(`Estimated cost: $${totalCost.toFixed(6)}`);
+
+    // Save token usage to database for cost tracking and analytics
+    try {
+      await supabase.from('token_usage_logs').insert({
+        user_id: userId || null,
+        exam_paper_id: examPaperId,
+        conversation_id: conversationId || null,
+        question_number: detectedQuestionNumber,
+        model: 'gemini-2.0-flash-exp',
+        provider: 'gemini',
+        prompt_tokens: promptTokenCount,
+        completion_tokens: candidatesTokenCount,
+        total_tokens: totalTokenCount,
+        estimated_cost: totalCost,
+        images_count: finalExamImages.length,
+        is_follow_up: isFollowUp
+      });
+      console.log('Token usage logged to database');
+
+      // Update user subscription token usage
+      if (userId) {
+        // First get current usage
+        const { data: currentSub, error: fetchError } = await supabase
+          .from('user_subscriptions')
+          .select('tokens_used_current_period')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .single();
+
+        if (fetchError) {
+          console.error('Failed to fetch current subscription:', fetchError);
+        } else if (currentSub) {
+          const newTokenCount = currentSub.tokens_used_current_period + totalTokenCount;
+
+          const { error: updateError } = await supabase
+            .from('user_subscriptions')
+            .update({
+              tokens_used_current_period: newTokenCount
+            })
+            .eq('user_id', userId)
+            .eq('status', 'active');
+
+          if (updateError) {
+            console.error('Failed to update subscription token usage:', updateError);
+          } else {
+            console.log(`Updated subscription token usage: ${currentSub.tokens_used_current_period} -> ${newTokenCount} (+${totalTokenCount} tokens)`);
+          }
+        }
+      }
+    } catch (logError) {
+      console.error('Failed to log token usage:', logError);
+      // Don't fail the request if logging fails
+    }
+
     return new Response(
       JSON.stringify({
         answer: aiResponse,
@@ -485,7 +603,13 @@ Deno.serve(async (req) => {
         imagesUsed: finalExamImages.length,
         isFollowUp: isFollowUp,
         conversationHistoryUsed: conversationHistory.length,
-        usedMarkingSchemeText: !!markingSchemeText
+        usedMarkingSchemeText: !!markingSchemeText,
+        tokenUsage: {
+          promptTokens: promptTokenCount,
+          completionTokens: candidatesTokenCount,
+          totalTokens: totalTokenCount,
+          estimatedCost: totalCost
+        }
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
