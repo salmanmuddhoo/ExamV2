@@ -31,6 +31,7 @@ If you're using hosted Supabase:
    - `supabase/migrations/20251011000004_fix_storage_policies.sql`
    - `supabase/migrations/20251011000005_add_profiles_fkey_to_payments.sql`
    - `supabase/migrations/20251011000006_add_unique_user_subscription.sql`
+   - `supabase/migrations/20251011000007_handle_mcb_juice_non_recurring.sql`
 
 **Important:** All migrations must be run in order to avoid errors with RLS policies, storage uploads, admin dashboard queries, and payment approval.
 
@@ -166,6 +167,11 @@ const PAYPAL_CLIENT_ID = 'AX4Abc123...xyz789';
 ### Configuration
 
 MCB Juice payments require manual approval. No API integration is needed.
+
+**IMPORTANT: MCB Juice is a manual payment method - subscriptions will NOT auto-renew.**
+- Users must manually submit a new payment each month/year
+- When subscription expires, users will be downgraded to Free tier
+- Admin should notify users before expiration to remind them to renew
 
 #### Step 1: Get MCB Juice Merchant Account
 1. Contact MCB Bank Mauritius
@@ -330,6 +336,67 @@ You'll need to create backend endpoints for:
 - **Symbol**: Rs
 - **Example**: Rs 455
 - **Exchange Rate**: ~45.5 MUR per 1 USD (update regularly!)
+
+---
+
+## Subscription Management
+
+### Automatic Renewal vs Manual Renewal
+
+The system handles two types of subscriptions:
+
+#### 1. Auto-Renewing (Stripe, PayPal)
+- Subscription automatically renews at the end of each period
+- `is_recurring = TRUE` in database
+- Token/paper limits reset automatically each period
+- Users are charged automatically by payment provider
+
+#### 2. Manual Renewal (MCB Juice)
+- Subscription does **NOT** automatically renew
+- `is_recurring = FALSE` in database
+- User must submit a new payment each period
+- Subscription expires at `period_end_date` if not renewed
+- User is automatically downgraded to Free tier upon expiration
+
+### Checking Expiring Subscriptions
+
+To find users whose subscriptions are expiring soon (for notification purposes):
+
+```sql
+-- Find subscriptions expiring in next 7 days (MCB Juice users)
+SELECT * FROM check_expiring_subscriptions(7);
+```
+
+This returns:
+- User email
+- Tier name
+- Expiration date
+- Days remaining
+- Payment method used
+
+**Recommended:** Set up a daily cron job to check this and send reminder emails.
+
+### Expiring Non-Recurring Subscriptions
+
+To manually expire subscriptions that have passed their end date:
+
+```sql
+-- Expire non-recurring subscriptions and downgrade to free tier
+SELECT expire_non_recurring_subscriptions();
+```
+
+**Recommended:** Set up a daily cron job to run this function automatically.
+
+### Resetting Recurring Subscriptions
+
+To reset token/paper limits for recurring subscriptions at the start of new period:
+
+```sql
+-- Reset limits for auto-renewing subscriptions
+SELECT reset_subscription_period();
+```
+
+**Note:** This only affects `is_recurring = TRUE` subscriptions (Stripe, PayPal). MCB Juice subscriptions will not be reset.
 
 ---
 
