@@ -8,9 +8,10 @@ interface UserSubscription {
   status: string;
   papers_accessed_current_period: number;
   tokens_used_current_period: number;
+  token_limit_override: number | null;
   accessed_paper_ids: string[];
-  start_date: string;
-  end_date: string | null;
+  period_start_date: string;
+  period_end_date: string | null;
   created_at: string;
   profiles: {
     email: string;
@@ -173,13 +174,85 @@ export function AdminSubscriptionManager() {
     try {
       setUpdating(true);
 
-      const { error } = await supabase
+      // Get current subscription and new tier info
+      const { data: currentSub, error: subError } = await supabase
         .from('user_subscriptions')
-        .update({ tier_id: editTierId })
+        .select(`
+          tokens_used_current_period,
+          subscription_tiers!inner(name, token_limit)
+        `)
         .eq('user_id', userId)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .single();
 
-      if (error) throw error;
+      if (subError) throw subError;
+
+      const { data: newTier, error: tierError } = await supabase
+        .from('subscription_tiers')
+        .select('name, token_limit')
+        .eq('id', editTierId)
+        .single();
+
+      if (tierError) throw tierError;
+
+      console.log('=== ADMIN TIER UPGRADE: TOKEN CARRYOVER ===');
+      console.log('Old tier:', currentSub.subscription_tiers?.name);
+      console.log('New tier:', newTier.name);
+
+      // Calculate tokens remaining from old tier
+      const oldLimit = (currentSub.subscription_tiers as any)?.token_limit;
+      const oldTokensUsed = currentSub.tokens_used_current_period ?? 0;
+      const oldTokensRemaining = oldLimit !== null ? Math.max(0, oldLimit - oldTokensUsed) : 0;
+
+      console.log('Old limit:', oldLimit);
+      console.log('Old tokens used:', oldTokensUsed);
+      console.log('Old tokens remaining:', oldTokensRemaining);
+      console.log('New tier limit:', newTier.token_limit);
+
+      // Calculate new token limit with carryover
+      let newTokenLimit = newTier.token_limit;
+      if (newTokenLimit !== null && oldTokensRemaining > 0) {
+        // Add remaining tokens to new tier limit
+        newTokenLimit = newTier.token_limit + oldTokensRemaining;
+        console.log('✓ CARRYING OVER TOKENS!');
+        console.log('New total token limit:', newTokenLimit, '(', newTier.token_limit, '+', oldTokensRemaining, ')');
+      } else {
+        console.log('No token carryover (either unlimited tier or no remaining tokens)');
+      }
+
+      // Update tier and reset billing cycle dates to today
+      const now = new Date();
+      const periodEnd = new Date(now);
+      periodEnd.setDate(periodEnd.getDate() + 30); // 30 days from now
+
+      console.log('Saving to database:', {
+        tier_id: editTierId,
+        token_limit_override: newTokenLimit,
+        tokens_used_current_period: 0
+      });
+      console.log('=== END ADMIN UPGRADE DEBUG ===');
+
+      const { data: updateResult, error } = await supabase
+        .from('user_subscriptions')
+        .update({
+          tier_id: editTierId,
+          period_start_date: now.toISOString(),
+          period_end_date: periodEnd.toISOString(),
+          token_limit_override: newTokenLimit, // Custom token limit with carryover
+          tokens_used_current_period: 0, // Reset usage to 0 for new period
+          papers_accessed_current_period: 0, // Reset paper usage for new billing period
+          accessed_paper_ids: [] // Clear accessed papers list
+        })
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .select();
+
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
+      }
+
+      console.log('Update successful! Result:', updateResult);
 
       await fetchSubscriptions();
       setEditingUserId(null);
@@ -469,15 +542,32 @@ export function AdminSubscriptionManager() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {sub.tokens_used_current_period.toLocaleString()}
-                    {sub.subscription_tiers.token_limit !== null && (
-                      <span className="text-gray-500"> / {sub.subscription_tiers.token_limit.toLocaleString()}</span>
-                    )}
-                    {sub.subscription_tiers.token_limit === null && (
-                      <span className="text-gray-500"> / ∞</span>
-                    )}
+                    {(() => {
+                      const tierLimit = sub.subscription_tiers.token_limit;
+                      const actualLimit = sub.token_limit_override ?? tierLimit;
+                      const carryover = sub.token_limit_override && tierLimit ? sub.token_limit_override - tierLimit : 0;
+
+                      if (actualLimit === null) {
+                        return <span className="text-gray-500"> / ∞</span>;
+                      }
+
+                      if (carryover > 0) {
+                        return (
+                          <span className="text-gray-500">
+                            {' / '}
+                            <span title={`Tier: ${tierLimit.toLocaleString()} + Carryover: ${carryover.toLocaleString()}`}>
+                              {actualLimit.toLocaleString()}
+                            </span>
+                            <span className="text-green-600 text-xs ml-1">(+{carryover.toLocaleString()})</span>
+                          </span>
+                        );
+                      }
+
+                      return <span className="text-gray-500"> / {actualLimit.toLocaleString()}</span>;
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(sub.start_date)} - {sub.end_date ? formatDate(sub.end_date) : 'Ongoing'}
+                    {formatDate(sub.period_start_date)} - {sub.period_end_date ? formatDate(sub.period_end_date) : 'Ongoing'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center space-x-2">
@@ -548,12 +638,26 @@ export function AdminSubscriptionManager() {
                 <p className="text-xs text-gray-500 mb-1">Tokens Used</p>
                 <p className="text-sm font-semibold text-gray-900">
                   {(sub.tokens_used_current_period / 1000).toFixed(1)}K
-                  {sub.subscription_tiers.token_limit !== null && (
-                    <span className="text-gray-500"> / {(sub.subscription_tiers.token_limit / 1000).toFixed(0)}K</span>
-                  )}
-                  {sub.subscription_tiers.token_limit === null && (
-                    <span className="text-gray-500"> / ∞</span>
-                  )}
+                  {(() => {
+                    const tierLimit = sub.subscription_tiers.token_limit;
+                    const actualLimit = sub.token_limit_override ?? tierLimit;
+                    const carryover = sub.token_limit_override && tierLimit ? sub.token_limit_override - tierLimit : 0;
+
+                    if (actualLimit === null) {
+                      return <span className="text-gray-500"> / ∞</span>;
+                    }
+
+                    if (carryover > 0) {
+                      return (
+                        <>
+                          <span className="text-gray-500"> / {(actualLimit / 1000).toFixed(0)}K</span>
+                          <span className="text-green-600 text-xs ml-1">(+{(carryover / 1000).toFixed(0)}K)</span>
+                        </>
+                      );
+                    }
+
+                    return <span className="text-gray-500"> / {(actualLimit / 1000).toFixed(0)}K</span>;
+                  })()}
                 </p>
               </div>
             </div>
@@ -561,7 +665,7 @@ export function AdminSubscriptionManager() {
             {/* Period */}
             <div className="mb-3">
               <p className="text-xs text-gray-500">
-                Period: {formatDate(sub.start_date)} - {sub.end_date ? formatDate(sub.end_date) : 'Ongoing'}
+                Period: {formatDate(sub.period_start_date)} - {sub.period_end_date ? formatDate(sub.period_end_date) : 'Ongoing'}
               </p>
             </div>
 

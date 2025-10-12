@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -9,8 +9,9 @@ import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { AdminSubscriptionManager } from './AdminSubscriptionManager';
 import { TierConfigManager } from './TierConfigManager';
 import { AdminPaymentApproval } from './AdminPaymentApproval';
+import { UserManagement } from './UserManagement';
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'users';
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('exams');
@@ -19,6 +20,7 @@ export function AdminDashboard() {
   const tabs = [
     { id: 'exams' as Tab, label: 'Exam Papers', icon: FileText },
     { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
+    { id: 'users' as Tab, label: 'User Management', icon: UserCog },
     { id: 'subscriptions' as Tab, label: 'Subscriptions', icon: Users },
     { id: 'payments' as Tab, label: 'Payment Approvals', icon: CreditCard },
     { id: 'tier-config' as Tab, label: 'Tier Config', icon: Settings },
@@ -65,11 +67,12 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`bg-white rounded-lg border border-gray-200 ${activeTab === 'analytics' || activeTab === 'payments' ? 'p-6' : 'p-6'}`}>
+        <div className={`bg-white rounded-lg border border-gray-200 ${activeTab === 'analytics' || activeTab === 'payments' || activeTab === 'users' ? 'p-6' : 'p-6'}`}>
           {activeTab === 'subjects' && <SubjectManager />}
           {activeTab === 'grades' && <GradeLevelManager />}
           {activeTab === 'exams' && <ExamPaperManager />}
           {activeTab === 'prompts' && <AIPromptManager />}
+          {activeTab === 'users' && <UserManagement />}
           {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
           {activeTab === 'payments' && <AdminPaymentApproval />}
           {activeTab === 'tier-config' && <TierConfigManager />}

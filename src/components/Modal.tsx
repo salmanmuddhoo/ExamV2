@@ -5,10 +5,11 @@ interface ModalProps {
   onClose: () => void;
   onConfirm?: () => void;
   title: string;
-  message: string;
+  message: string | React.ReactNode;
   type?: 'alert' | 'confirm' | 'success' | 'error' | 'warning';
   confirmText?: string;
   cancelText?: string;
+  confirmDisabled?: boolean;
 }
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
   type = 'alert',
   confirmText = 'OK',
   cancelText = 'Cancel',
+  confirmDisabled = false,
 }: ModalProps) {
   if (!isOpen) return null;
 
@@ -65,9 +67,9 @@ export function Modal({
           </h3>
 
           {/* Message */}
-          <p className="text-center text-gray-600 mb-6 whitespace-pre-line">
-            {message}
-          </p>
+          <div className="text-center text-gray-600 mb-6 whitespace-pre-line">
+            {typeof message === 'string' ? <p>{message}</p> : message}
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3">
@@ -81,7 +83,8 @@ export function Modal({
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                  disabled={confirmDisabled}
+                  className="flex-1 px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {confirmText}
                 </button>

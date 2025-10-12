@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, CreditCard, History, Settings, Camera, Check, Loader2 } from 'lucide-react';
+import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
+import { Modal } from './Modal';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -22,9 +23,36 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [uploadingImage, setUploadingImage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [subscriptionTier, setSubscriptionTier] = useState<string>('Loading...');
+  const [tierName, setTierName] = useState<string>('');
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [tokensRemaining, setTokensRemaining] = useState<number | null>(null);
+  const [tokensLimit, setTokensLimit] = useState<number | null>(null);
+  const [tokensTierLimit, setTokensTierLimit] = useState<number | null>(null); // Tier's base limit
+  const [tokensCarryover, setTokensCarryover] = useState<number>(0); // Carryover amount
+  const [papersRemaining, setPapersRemaining] = useState<number | null>(null);
+  const [papersLimit, setPapersLimit] = useState<number | null>(null);
+  const [cycleStart, setCycleStart] = useState<string | null>(null);
+  const [cycleEnd, setCycleEnd] = useState<string | null>(null);
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState<boolean>(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getTierIcon = (tierName: string) => {
+    switch (tierName) {
+      case 'free':
+        return <BookOpen className="w-6 h-6 text-gray-600" />;
+      case 'student':
+        return <Star className="w-6 h-6 text-blue-600" />;
+      case 'pro':
+        return <Crown className="w-6 h-6 text-yellow-500" />;
+      default:
+        return <BookOpen className="w-6 h-6 text-gray-600" />;
+    }
+  };
 
   useEffect(() => {
     if (user && isOpen) {
@@ -45,28 +73,125 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     }
   }, [isOpen, initialTab]);
 
-  const fetchSubscriptionTier = async () => {
+  const fetchSubscriptionTier = async (retryCount = 0) => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select(`
-          subscription_tiers(name, display_name),
+          subscription_tiers(name, display_name, token_limit, papers_limit),
           selected_grade_id,
           selected_subject_ids,
           grade_levels(name),
-          subjects:selected_subject_ids
+          subjects:selected_subject_ids,
+          tokens_used_current_period,
+          token_limit_override,
+          papers_accessed_current_period,
+          period_start_date,
+          period_end_date,
+          cancel_at_period_end,
+          payment_provider
         `)
         .eq('user_id', user.id)
         .eq('status', 'active')
         .single();
 
       if (error || !data) {
+        // Only try to create subscription once (prevent infinite loop)
+        if (retryCount === 0) {
+          console.log('No subscription found, attempting to create free tier subscription...');
+
+          try {
+            const { data: ensureData, error: ensureError } = await supabase
+              .rpc('ensure_user_has_subscription', { p_user_id: user.id });
+
+            if (ensureError) {
+              console.error('Error ensuring subscription:', ensureError);
+            } else if (ensureData && ensureData[0]?.success) {
+              console.log('Subscription created:', ensureData[0].message);
+              // Retry fetching the subscription ONCE
+              await fetchSubscriptionTier(1);
+              return;
+            }
+          } catch (err) {
+            console.error('Failed to create subscription:', err);
+          }
+        }
+
+        // If we still don't have a subscription, show error state
+        console.log('Could not fetch or create subscription, showing error state');
         setSubscriptionTier('No active subscription');
+        setTierName('');
+        setTokensRemaining(null);
+        setTokensLimit(null);
+        setPapersRemaining(null);
+        setPapersLimit(null);
+        setCycleStart(null);
+        setCycleEnd(null);
+        setCancelAtPeriodEnd(false);
+        setPaymentProvider('');
       } else {
-        const tierName = (data.subscription_tiers as any)?.display_name || 'Unknown';
-        setSubscriptionTier(tierName);
+        const tierData = data.subscription_tiers as any;
+        const displayName = tierData?.display_name || 'Unknown';
+        const internalTierName = tierData?.name || '';
+        setSubscriptionTier(displayName);
+        setTierName(internalTierName);
+
+        // Set token information
+        const tierLimit = tierData?.token_limit;
+        const overrideLimit = data.token_limit_override;
+        const tokensUsed = data.tokens_used_current_period ?? 0;
+        const isAdmin = profile?.role === 'admin';
+
+        // Calculate carryover and final limit
+        const carryover = overrideLimit && tierLimit ? overrideLimit - tierLimit : 0;
+        const finalLimit = overrideLimit ?? tierLimit;
+        const tokensRemaining = finalLimit === null ? null : finalLimit - tokensUsed;
+
+        console.log('=== TOKEN CARRYOVER DEBUG ===');
+        console.log('Raw data from DB:', {
+          tier_name: data.subscription_tiers?.name,
+          tier_base_limit: tierLimit,
+          token_limit_override: overrideLimit,
+          carryover_calculated: carryover,
+          final_limit: finalLimit,
+          tokens_used: tokensUsed,
+          tokens_remaining: tokensRemaining
+        });
+
+        setTokensTierLimit(tierLimit);
+        setTokensCarryover(carryover);
+        setTokensLimit(finalLimit);
+        setTokensRemaining(isAdmin ? tokensRemaining : Math.max(0, tokensRemaining || 0));
+
+        console.log('Final state:', {
+          tierLimit,
+          carryover,
+          totalLimit: finalLimit,
+          remaining: tokensRemaining
+        });
+        console.log('=== END TOKEN DEBUG ===');
+
+        // Set papers information
+        const paperLimit = tierData?.papers_limit;
+        const papersUsed = data.papers_accessed_current_period || 0;
+        setPapersLimit(paperLimit);
+
+        // For non-admin users, cap the remaining papers at 0 (never show negative)
+        // Admins see actual usage for cost calculation
+        const papersRemaining = paperLimit === null ? null : paperLimit - papersUsed;
+        setPapersRemaining(isAdmin ? papersRemaining : Math.max(0, papersRemaining || 0));
+
+        // Set cycle dates
+        setCycleStart(data.period_start_date);
+        setCycleEnd(data.period_end_date);
+
+        // Set cancellation status
+        setCancelAtPeriodEnd(data.cancel_at_period_end || false);
+
+        // Set payment provider
+        setPaymentProvider(data.payment_provider || '');
 
         // If student package, fetch grade and subjects
         if (data.selected_grade_id && data.grade_levels) {
@@ -197,6 +322,62 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const handleLastNameBlur = () => {
     if (lastName.trim() !== (profile?.last_name || '')) {
       handleSaveProfile();
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!user) return;
+
+    setCancelling(true);
+    try {
+      const { data, error } = await supabase
+        .rpc('cancel_subscription_at_period_end', {
+          p_user_id: user.id,
+          p_reason: cancellationReason || null
+        });
+
+      if (error) throw error;
+
+      if (data && data.length > 0 && data[0].success) {
+        setSuccessMessage('Subscription will be cancelled at the end of your billing period.');
+        setTimeout(() => setSuccessMessage(''), 5000);
+        setCancelAtPeriodEnd(true);
+        setShowCancelModal(false);
+        setCancellationReason('');
+        await fetchSubscriptionTier();
+      } else {
+        alert(data[0]?.message || 'Failed to cancel subscription');
+      }
+    } catch (error: any) {
+      console.error('Error cancelling subscription:', error);
+      alert(`Failed to cancel subscription: ${error.message || 'Please try again.'}`);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('reactivate_subscription', {
+          p_user_id: user.id
+        });
+
+      if (error) throw error;
+
+      if (data && data.length > 0 && data[0].success) {
+        setSuccessMessage('Subscription reactivated successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        setCancelAtPeriodEnd(false);
+        await fetchSubscriptionTier();
+      } else {
+        alert(data[0]?.message || 'Failed to reactivate subscription');
+      }
+    } catch (error: any) {
+      console.error('Error reactivating subscription:', error);
+      alert(`Failed to reactivate subscription: ${error.message || 'Please try again.'}`);
     }
   };
 
@@ -360,55 +541,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                   </div>
 
-                  {/* Subscription Tier */}
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Subscription Plan</label>
-                    <input
-                      type="text"
-                      value={subscriptionTier}
-                      disabled
-                      className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 text-sm"
-                    />
-                    {profile.role === 'admin' && (
-                      <p className="text-xs text-gray-500 mt-1">You have administrator access</p>
-                    )}
-                  </div>
-
-                  {/* Student Package Details */}
-                  {(selectedGrade || selectedSubjects.length > 0) && (
-                    <div className="col-span-1 sm:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Student Package Selection</h4>
-
-                      {selectedGrade && (
-                        <div className="mb-3">
-                          <p className="text-xs text-gray-600 mb-1">Grade Level</p>
-                          <div className="inline-flex items-center px-3 py-1.5 bg-white border border-blue-300 rounded-lg">
-                            <span className="text-sm font-medium text-gray-900">{selectedGrade}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedSubjects.length > 0 && (
-                        <div>
-                          <p className="text-xs text-gray-600 mb-2">Selected Subjects ({selectedSubjects.length})</p>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedSubjects.map((subject, index) => (
-                              <div
-                                key={index}
-                                className="inline-flex items-center px-3 py-1.5 bg-white border border-blue-300 rounded-lg"
-                              >
-                                <span className="text-sm font-medium text-gray-900">{subject}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <p className="text-xs text-gray-500 mt-3 italic">
-                        These selections apply to your exam paper access and AI assistance.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -416,17 +548,129 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
             {activeTab === 'subscription' && (
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">My Subscription</h3>
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6 border border-gray-200">
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Plan</h4>
-                    <p className="text-2xl font-bold text-gray-900">{subscriptionTier}</p>
+                <div className="space-y-4">
+                  {/* Current Plan Card */}
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6 border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Current Plan</h4>
+                    <div className="flex items-start space-x-3 mb-4">
+                      <div className="flex-shrink-0 mt-1">
+                        {getTierIcon(tierName)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-2xl font-bold text-gray-900 leading-none mb-2">{subscriptionTier}</p>
+                        {cycleStart && cycleEnd && (
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="w-3 h-3 text-gray-500" />
+                            <p className="text-xs text-gray-600">
+                              {new Date(cycleStart).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Usage Stats */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      {/* Tokens */}
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-600">AI Tokens</span>
+                          <span className="text-xs text-gray-500">
+                            {tokensLimit === null ? 'Unlimited' : `${(tokensLimit - (tokensRemaining || 0)).toLocaleString()} / ${tokensLimit.toLocaleString()}`}
+                          </span>
+                        </div>
+                        {tokensLimit !== null && (
+                          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                (tokensRemaining || 0) / tokensLimit > 0.5
+                                  ? 'bg-green-500'
+                                  : (tokensRemaining || 0) / tokensLimit > 0.2
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.max(0, Math.min(100, ((tokensRemaining || 0) / tokensLimit) * 100))}%` }}
+                            />
+                          </div>
+                        )}
+                        {/* Token Breakdown */}
+                        {tokensCarryover > 0 && tokensLimit !== null && (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <p className="text-xs text-gray-500 mb-1">Token Breakdown:</p>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-600">Tier Allocation:</span>
+                                <span className="font-medium text-gray-900">{tokensTierLimit?.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-green-600">+ Carryover:</span>
+                                <span className="font-medium text-green-600">{tokensCarryover.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
+                                <span className="text-gray-700 font-medium">Total Available:</span>
+                                <span className="font-bold text-gray-900">{tokensLimit.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {tokensLimit === null && (
+                          <div className="text-center py-2">
+                            <span className="text-xl font-bold text-green-600">∞</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Papers */}
+                      <div className="bg-white rounded-lg p-4 border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-600">Exam Papers</span>
+                          <span className="text-xs text-gray-500">
+                            {papersLimit === null ? 'Unlimited' : `${papersLimit - (papersRemaining || 0)} / ${papersLimit}`}
+                          </span>
+                        </div>
+                        {papersLimit !== null && (
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                (papersRemaining || 0) / papersLimit > 0.5
+                                  ? 'bg-green-500'
+                                  : (papersRemaining || 0) / papersLimit > 0.2
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.max(0, Math.min(100, ((papersRemaining || 0) / papersLimit) * 100))}%` }}
+                            />
+                          </div>
+                        )}
+                        {papersLimit === null && (
+                          <div className="py-2">
+                            {tierName === 'student' && selectedGrade && selectedSubjects.length > 0 ? (
+                              <div>
+                                <div className="flex items-center justify-center mb-1">
+                                  <span className="text-xl font-bold text-green-600">∞</span>
+                                </div>
+                                <p className="text-[10px] text-gray-600 text-center">
+                                  For {selectedGrade} - {selectedSubjects.length} subject{selectedSubjects.length !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="text-center">
+                                <span className="text-xl font-bold text-green-600">∞</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Grade and Subjects */}
                     {selectedGrade && (
-                      <p className="text-sm text-gray-600 mt-2">Grade: {selectedGrade}</p>
+                      <p className="text-sm text-gray-600 mb-2">Grade: <span className="font-medium">{selectedGrade}</span></p>
                     )}
                     {selectedSubjects.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600">Subjects:</p>
-                        <div className="flex flex-wrap gap-2 mt-1">
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-600 mb-2">Subjects:</p>
+                        <div className="flex flex-wrap gap-2">
                           {selectedSubjects.map((subject, index) => (
                             <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
                               {subject}
@@ -435,18 +679,62 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                         </div>
                       </div>
                     )}
+
+                    <button
+                      onClick={() => {
+                        onClose();
+                        if (onOpenSubscriptions) {
+                          onOpenSubscriptions();
+                        }
+                      }}
+                      className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                    >
+                      Manage Subscription
+                    </button>
+
+                    {/* Cancellation Alert */}
+                    {cancelAtPeriodEnd && (
+                      <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-start space-x-2">
+                          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-yellow-900 mb-1">
+                              Subscription Scheduled for Cancellation
+                            </p>
+                            <p className="text-xs text-yellow-800 mb-2">
+                              Your subscription will end on {cycleEnd ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'the end of your billing period'}. You'll have access until then.
+                            </p>
+                            {paymentProvider === 'MCB Juice' && (
+                              <p className="text-xs text-yellow-700 mb-3 italic">
+                                Note: MCB Juice payments require manual renewal. Reactivating will restore access for the current period, but you'll need to make another payment to continue after {cycleEnd ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'this period'}.
+                              </p>
+                            )}
+                            {paymentProvider !== 'MCB Juice' && paymentProvider && (
+                              <p className="text-xs text-yellow-700 mb-3 italic">
+                                Reactivating will resume automatic billing at the end of your current period.
+                              </p>
+                            )}
+                            <button
+                              onClick={handleReactivateSubscription}
+                              className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
+                            >
+                              Reactivate Subscription
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cancel Subscription Button - Only show if not already cancelled and not free tier */}
+                    {!cancelAtPeriodEnd && tierName !== 'free' && (
+                      <button
+                        onClick={() => setShowCancelModal(true)}
+                        className="w-full mt-3 px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                      >
+                        Cancel Subscription
+                      </button>
+                    )}
                   </div>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      if (onOpenSubscriptions) {
-                        onOpenSubscriptions();
-                      }
-                    }}
-                    className="w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors font-medium"
-                  >
-                    Manage Subscription
-                  </button>
                 </div>
               </div>
             )}
@@ -525,6 +813,40 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
           </div>
         </div>
       </div>
+
+      {/* Cancel Subscription Modal */}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => {
+          setShowCancelModal(false);
+          setCancellationReason('');
+        }}
+        onConfirm={handleCancelSubscription}
+        title="Cancel Subscription"
+        message={
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period ({cycleEnd ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'end of period'}).
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Why are you cancelling? (Optional)
+              </label>
+              <textarea
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-gray-900 resize-none"
+                rows={3}
+                placeholder="Let us know how we can improve..."
+              />
+            </div>
+          </div>
+        }
+        type="confirm"
+        confirmText={cancelling ? 'Cancelling...' : 'Cancel Subscription'}
+        cancelText="Keep Subscription"
+        confirmDisabled={cancelling}
+      />
     </div>
   );
 }

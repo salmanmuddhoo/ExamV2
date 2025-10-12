@@ -282,7 +282,11 @@ function App() {
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
-      <Homepage onGetStarted={handleNavigateToLogin} />
+      <Homepage
+        onGetStarted={handleNavigateToLogin}
+        onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+        isLoggedIn={!!user}
+      />
 
       {/* Welcome Modal for first-time users */}
       <WelcomeModal

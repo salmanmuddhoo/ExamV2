@@ -60,12 +60,63 @@ export function ChatHub({
     show: false,
     conversationId: null,
   });
+  const [userTier, setUserTier] = useState<string>('');
 
   useEffect(() => {
     if (user) {
       fetchConversations();
+      fetchUserTier();
     }
   }, [user]);
+
+  const fetchUserTier = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_tiers(name)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !data) {
+        // No subscription found - try to create one
+        console.log('No subscription found for user, attempting to create free tier...');
+
+        try {
+          const { data: ensureData, error: ensureError } = await supabase
+            .rpc('ensure_user_has_subscription', { p_user_id: user.id });
+
+          if (ensureError) {
+            console.error('Error ensuring subscription:', ensureError);
+          } else if (ensureData && ensureData[0]?.success) {
+            console.log('Subscription created, retrying fetch...');
+            // Retry fetching the tier
+            const { data: retryData } = await supabase
+              .from('user_subscriptions')
+              .select('subscription_tiers(name)')
+              .eq('user_id', user.id)
+              .eq('status', 'active')
+              .single();
+
+            if (retryData && retryData.subscription_tiers) {
+              setUserTier((retryData.subscription_tiers as any).name);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to create subscription:', err);
+        }
+        return;
+      }
+
+      if (data && data.subscription_tiers) {
+        setUserTier((data.subscription_tiers as any).name);
+      }
+    } catch (error) {
+      console.error('Error fetching user tier:', error);
+    }
+  };
 
 
   const fetchConversations = async () => {
@@ -198,7 +249,8 @@ export function ChatHub({
 
   const handlePaperSelected = (paperId: string) => {
     setShowPaperModal(false);
-    onSelectPaper(paperId); // ExamViewer will auto-load existing conversation
+    // Allow user to view the paper - chat access will be checked in ExamViewer
+    onSelectPaper(paperId);
   };
 
   const groupedConversations = groupConversationsBySubject();
@@ -393,23 +445,38 @@ export function ChatHub({
                 <p className="text-gray-600 mb-8">
                   Choose a conversation from the left to continue, or click "New Conversation" to start chatting with an exam paper
                 </p>
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-lg p-6">
-                  <div className="flex items-center justify-center mb-3">
-                    <Crown className="w-6 h-6 text-yellow-500 mr-2" />
-                    <p className="text-base font-semibold text-gray-900">
-                      Upgrade for unlimited access
+
+                {userTier !== 'pro' ? (
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-lg p-6">
+                    <div className="flex items-center justify-center mb-3">
+                      <Crown className="w-6 h-6 text-yellow-500 mr-2" />
+                      <p className="text-base font-semibold text-gray-900">
+                        Upgrade for unlimited access
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Get unlimited tokens, access to all exam papers, and priority support
+                    </p>
+                    <button
+                      onClick={handleOpenSubscriptions}
+                      className="w-full px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                    >
+                      View Plans
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-lg p-6">
+                    <div className="flex items-center justify-center mb-3">
+                      <Crown className="w-6 h-6 text-yellow-600 mr-2" />
+                      <p className="text-base font-semibold text-gray-900">
+                        You're on Professional Package!
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-700">
+                      You have full access to all exam papers and unlimited chat assistance. Start a new conversation to begin your study session!
                     </p>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Get unlimited tokens, access to all exam papers, and priority support
-                  </p>
-                  <button
-                    onClick={handleOpenSubscriptions}
-                    className="w-full px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-                  >
-                    View Plans
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           )}

@@ -1,11 +1,59 @@
 import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface Props {
   onGetStarted: () => void;
+  onOpenSubscriptions?: () => void;
+  isLoggedIn?: boolean;
 }
 
-export function Homepage({ onGetStarted }: Props) {
+interface TierConfig {
+  name: string;
+  display_name: string;
+  price_monthly: number;
+  token_limit: number | null;
+  papers_limit: number | null;
+}
+
+export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false }: Props) {
+  const [tiers, setTiers] = useState<{
+    free?: TierConfig;
+    student?: TierConfig;
+    pro?: TierConfig;
+  }>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTiers();
+  }, []);
+
+  const fetchTiers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_tiers')
+        .select('name, display_name, price_monthly, token_limit, papers_limit')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      const tiersMap: any = {};
+      data?.forEach(tier => {
+        tiersMap[tier.name] = tier;
+      });
+      setTiers(tiersMap);
+    } catch (error) {
+      console.error('Error fetching tiers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatNumber = (num: number | null) => {
+    if (num === null) return 'Unlimited';
+    if (num >= 1000) return `${(num / 1000).toLocaleString()}K`;
+    return num.toLocaleString();
+  };
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -134,63 +182,69 @@ export function Homepage({ onGetStarted }: Props) {
 
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
             {/* Free Tier */}
-            <PricingCard
-              name="Free"
-              price="$0"
-              period="forever"
-              description="Perfect for trying out the platform"
-              icon={<BookOpen className="w-6 h-6" />}
-              features={[
-                "Access to 2 exam papers",
-                "20,000 AI tokens per month",
-                "Basic AI assistance",
-                "View all subjects",
-                "No credit card required"
-              ]}
-              buttonText="Get Started Free"
-              onButtonClick={onGetStarted}
-              popular={false}
-            />
+            {!loading && tiers.free && (
+              <PricingCard
+                name={tiers.free.display_name}
+                price="$0"
+                period="forever"
+                description="Perfect for trying out the platform"
+                icon={<BookOpen className="w-6 h-6" />}
+                features={[
+                  `Access to ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
+                  `${formatNumber(tiers.free.token_limit)} AI tokens per month`,
+                  "Basic AI assistance",
+                  "View all subjects",
+                  "No credit card required"
+                ]}
+                buttonText="Get Started Free"
+                onButtonClick={onGetStarted}
+                popular={false}
+              />
+            )}
 
             {/* Student Package */}
-            <PricingCard
-              name="Student Package"
-              price="$9.99"
-              period="per month"
-              description="Best for focused subject learning"
-              icon={<Star className="w-6 h-6" />}
-              features={[
-                "Choose 1 grade level",
-                "Select up to 3 subjects",
-                "100,000 AI tokens per month",
-                "Unlimited exam paper access",
-                "Priority AI responses",
-                "Download exam papers"
-              ]}
-              buttonText="Start Learning"
-              onButtonClick={onGetStarted}
-              popular={true}
-            />
+            {!loading && tiers.student && (
+              <PricingCard
+                name={tiers.student.display_name}
+                price={`$${tiers.student.price_monthly.toFixed(2)}`}
+                period="per month"
+                description="Best for focused subject learning"
+                icon={<Star className="w-6 h-6" />}
+                features={[
+                  "Choose 1 grade level",
+                  "Select up to 3 subjects",
+                  `${formatNumber(tiers.student.token_limit)} AI tokens per month`,
+                  `${formatNumber(tiers.student.papers_limit)} exam paper access`,
+                  "Priority AI responses",
+                  "Download exam papers"
+                ]}
+                buttonText="Start Learning"
+                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                popular={true}
+              />
+            )}
 
             {/* Premium */}
-            <PricingCard
-              name="Premium"
-              price="$19.99"
-              period="per month"
-              description="Everything you need to excel"
-              icon={<Crown className="w-6 h-6" />}
-              features={[
-                "All grades & subjects",
-                "Unlimited AI tokens",
-                "Unlimited exam papers",
-                "Advanced AI explanations",
-                "Detailed progress tracking",
-                "Priority support"
-              ]}
-              buttonText="Go Premium"
-              onButtonClick={onGetStarted}
-              popular={false}
-            />
+            {!loading && tiers.pro && (
+              <PricingCard
+                name={tiers.pro.display_name}
+                price={`$${tiers.pro.price_monthly.toFixed(2)}`}
+                period="per month"
+                description="Everything you need to excel"
+                icon={<Crown className="w-6 h-6" />}
+                features={[
+                  "All grades & subjects",
+                  `${formatNumber(tiers.pro.token_limit)} AI tokens`,
+                  `${formatNumber(tiers.pro.papers_limit)} exam papers`,
+                  "Advanced AI explanations",
+                  "Detailed progress tracking",
+                  "Priority support"
+                ]}
+                buttonText="Go Premium"
+                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                popular={false}
+              />
+            )}
           </div>
 
           {/* FAQ or Additional Info */}
