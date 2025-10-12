@@ -79,7 +79,7 @@ export function AIPromptAnalytics() {
         logs.forEach((log: any) => {
           // Get prompt information from the related exam paper
           const aiPrompt = log.exam_papers?.ai_prompts;
-          const promptName = aiPrompt?.name || log.exam_papers?.title || 'Default Prompt';
+          const promptName = aiPrompt?.name || 'Default System Prompt';
           const promptId = aiPrompt?.id || 'default';
 
           const key = promptId;
@@ -125,7 +125,7 @@ export function AIPromptAnalytics() {
         logs.forEach((log: any) => {
           const date = new Date(log.created_at).toISOString().split('T')[0];
           const aiPrompt = log.exam_papers?.ai_prompts;
-          const promptName = aiPrompt?.name || log.exam_papers?.title || 'Default Prompt';
+          const promptName = aiPrompt?.name || 'Default System Prompt';
           const promptId = aiPrompt?.id || 'default';
           const promptKey = promptId;
 
