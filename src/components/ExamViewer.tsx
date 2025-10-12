@@ -54,6 +54,8 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const [tokensRemaining, setTokensRemaining] = useState<number>(-1); // -1 = unlimited
   const [tierName, setTierName] = useState<string>('');
   const [aiProcessingStatus, setAiProcessingStatus] = useState<string>('');
+  const [tokensLimit, setTokensLimit] = useState<number | null>(null);
+  const [tokensUsed, setTokensUsed] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -288,7 +290,7 @@ This helps me give you the most accurate and focused help! 😊`;
           if (access.tier_name === 'free') {
             const { data: subscription } = await supabase
               .from('user_subscriptions')
-              .select('accessed_paper_ids, papers_accessed_current_period, tokens_used_current_period, subscription_tiers!inner(papers_limit, token_limit)')
+              .select('accessed_paper_ids, papers_accessed_current_period, tokens_used_current_period, token_limit_override, subscription_tiers!inner(papers_limit, token_limit)')
               .eq('user_id', user.id)
               .eq('status', 'active')
               .single();
@@ -296,7 +298,8 @@ This helps me give you the most accurate and focused help! 😊`;
             if (subscription) {
               const alreadyAccessed = subscription.accessed_paper_ids.includes(paperId);
               const papersLimit = subscription.subscription_tiers?.papers_limit || 2;
-              const tokenLimit = subscription.subscription_tiers?.token_limit || 50000;
+              const tierTokenLimit = subscription.subscription_tiers?.token_limit || 50000;
+              const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
 
               let shouldLockChat = false;
               let lockReason = '';
@@ -359,6 +362,10 @@ This helps me give you the most accurate and focused help! 😊`;
       console.error('Error fetching exam paper:', error);
     } finally {
       setLoading(false);
+      // Load token counts for display
+      if (user) {
+        refreshTokenCounts();
+      }
     }
   };
 
@@ -503,19 +510,25 @@ This helps me give you the most accurate and focused help! 😊`;
     try {
       const { data: subscription } = await supabase
         .from('user_subscriptions')
-        .select('tokens_used_current_period, papers_accessed_current_period, subscription_tiers!inner(name, token_limit, papers_limit)')
+        .select('tokens_used_current_period, token_limit_override, papers_accessed_current_period, subscription_tiers!inner(name, token_limit, papers_limit)')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .single();
 
       if (subscription) {
         const tierName = subscription.subscription_tiers?.name;
-        const tokenLimit = subscription.subscription_tiers?.token_limit;
+        const tierTokenLimit = subscription.subscription_tiers?.token_limit;
+        const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
         const papersLimit = subscription.subscription_tiers?.papers_limit;
+        const used = subscription.tokens_used_current_period;
+
+        // Set token limit and used for display
+        setTokensLimit(tokenLimit);
+        setTokensUsed(used);
 
         // Update token count
         if (tokenLimit !== null) {
-          const remaining = Math.max(0, tokenLimit - subscription.tokens_used_current_period);
+          const remaining = Math.max(0, tokenLimit - used);
           setTokensRemaining(remaining);
           console.log(`🔄 Token count updated: ${remaining} tokens remaining`);
 
@@ -646,7 +659,7 @@ You can still view and download this exam paper!`
 
       const { data: subscription } = await supabase
         .from('user_subscriptions')
-        .select('accessed_paper_ids, papers_accessed_current_period, tokens_used_current_period, subscription_tiers!inner(name, papers_limit, token_limit)')
+        .select('accessed_paper_ids, papers_accessed_current_period, tokens_used_current_period, token_limit_override, subscription_tiers!inner(name, papers_limit, token_limit)')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .single();
@@ -654,7 +667,8 @@ You can still view and download this exam paper!`
       if (subscription) {
         const tierName = subscription.subscription_tiers?.name;
         const papersLimit = subscription.subscription_tiers?.papers_limit;
-        const tokenLimit = subscription.subscription_tiers?.token_limit;
+        const tierTokenLimit = subscription.subscription_tiers?.token_limit;
+        const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
         const alreadyAccessed = subscription.accessed_paper_ids.includes(paperId);
 
         // Check token limit first (for all tiers with limits)
@@ -1167,33 +1181,13 @@ You can still view and download this exam paper!`
 
           {user && (
             <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
-              {/* Token Counter - Show for tiers with limits */}
-              {tierName && tokensRemaining !== -1 && (
-                <div className="mb-2 flex items-center justify-between text-xs text-gray-600">
-                  <div className="flex items-center space-x-4">
-                    <span>
-                      <span className="font-medium">Tokens:</span>{' '}
-                      <span className={tokensRemaining < 5000 ? 'text-orange-600 font-semibold' : ''}>
-                        {tokensRemaining.toLocaleString()}
-                      </span>
-                    </span>
-                    {papersRemaining !== -1 && (
-                      <span>
-                        <span className="font-medium">Papers:</span>{' '}
-                        <span className={papersRemaining === 0 ? 'text-orange-600 font-semibold' : ''}>
-                          {papersRemaining}/2
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  {(tierName === 'free' || tierName === 'student') && (
-                    <button
-                      onClick={onOpenSubscriptions || onBack}
-                      className="text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Upgrade
-                    </button>
-                  )}
+              {/* Token Display - Show used/total */}
+              {tokensLimit !== null && (
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="text-xs text-gray-600">AI Tokens:</span>
+                  <span className="text-xs font-semibold text-gray-900">
+                    {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
+                  </span>
                 </div>
               )}
 
