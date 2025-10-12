@@ -520,15 +520,18 @@ This helps me give you the most accurate and focused help! 😊`;
         const tierTokenLimit = subscription.subscription_tiers?.token_limit;
         const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
         const papersLimit = subscription.subscription_tiers?.papers_limit;
-        const used = subscription.tokens_used_current_period;
+        const actualUsed = subscription.tokens_used_current_period;
+
+        // For regular users, cap displayed usage at the limit
+        const displayedUsed = tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed;
 
         // Set token limit and used for display
         setTokensLimit(tokenLimit);
-        setTokensUsed(used);
+        setTokensUsed(displayedUsed);
 
         // Update token count
         if (tokenLimit !== null) {
-          const remaining = Math.max(0, tokenLimit - used);
+          const remaining = Math.max(0, tokenLimit - actualUsed);
           setTokensRemaining(remaining);
           console.log(`🔄 Token count updated: ${remaining} tokens remaining`);
 

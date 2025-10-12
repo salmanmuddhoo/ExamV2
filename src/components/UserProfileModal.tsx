@@ -30,6 +30,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [tokensLimit, setTokensLimit] = useState<number | null>(null);
   const [tokensTierLimit, setTokensTierLimit] = useState<number | null>(null); // Tier's base limit
   const [tokensCarryover, setTokensCarryover] = useState<number>(0); // Carryover amount
+  const [tokensUsed, setTokensUsed] = useState<number>(0); // Displayed tokens used (capped for non-admin)
   const [papersRemaining, setPapersRemaining] = useState<number | null>(null);
   const [papersLimit, setPapersLimit] = useState<number | null>(null);
   const [cycleStart, setCycleStart] = useState<string | null>(null);
@@ -149,6 +150,9 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         const finalLimit = overrideLimit ?? tierLimit;
         const tokensRemaining = finalLimit === null ? null : finalLimit - tokensUsed;
 
+        // For non-admin users, cap displayed usage at the limit
+        const displayedTokensUsed = isAdmin ? tokensUsed : (finalLimit !== null ? Math.min(tokensUsed, finalLimit) : tokensUsed);
+
         console.log('=== TOKEN CARRYOVER DEBUG ===');
         console.log('Raw data from DB:', {
           tier_name: data.subscription_tiers?.name,
@@ -157,12 +161,15 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
           carryover_calculated: carryover,
           final_limit: finalLimit,
           tokens_used: tokensUsed,
-          tokens_remaining: tokensRemaining
+          tokens_used_displayed: displayedTokensUsed,
+          tokens_remaining: tokensRemaining,
+          is_admin: isAdmin
         });
 
         setTokensTierLimit(tierLimit);
         setTokensCarryover(carryover);
         setTokensLimit(finalLimit);
+        setTokensUsed(displayedTokensUsed);
         setTokensRemaining(isAdmin ? tokensRemaining : Math.max(0, tokensRemaining || 0));
 
         console.log('Final state:', {
@@ -576,7 +583,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-medium text-gray-600">AI Tokens</span>
                           <span className="text-xs text-gray-500">
-                            {tokensLimit === null ? 'Unlimited' : `${(tokensLimit - (tokensRemaining || 0)).toLocaleString()} / ${tokensLimit.toLocaleString()}`}
+                            {tokensLimit === null ? 'Unlimited' : `${tokensUsed.toLocaleString()} / ${tokensLimit.toLocaleString()}`}
                           </span>
                         </div>
                         {tokensLimit !== null && (
