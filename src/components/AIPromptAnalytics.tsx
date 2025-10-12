@@ -52,36 +52,52 @@ export function AIPromptAnalytics() {
         dateFilter = new Date('2000-01-01');
       }
 
-      // Fetch token usage logs
+      // Fetch token usage logs with AI prompt information
       const { data: logs, error } = await supabase
         .from('token_usage_logs')
-        .select('*')
+        .select(`
+          *,
+          exam_papers (
+            id,
+            title,
+            ai_prompts (
+              id,
+              prompt_name,
+              system_prompt
+            )
+          )
+        `)
         .gte('created_at', dateFilter.toISOString())
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
       if (logs && logs.length > 0) {
-        // Group by prompt type
+        // Group by AI prompt
         const promptMap = new Map<string, PromptUsage>();
 
-        logs.forEach(log => {
-          const key = `${log.prompt_type}:${log.prompt_name}`;
+        logs.forEach((log: any) => {
+          // Get prompt information from the related exam paper
+          const aiPrompt = log.exam_papers?.ai_prompts;
+          const promptName = aiPrompt?.prompt_name || log.exam_papers?.title || 'Default Prompt';
+          const promptId = aiPrompt?.id || 'default';
+
+          const key = promptId;
           const existing = promptMap.get(key);
 
           if (existing) {
             existing.total_requests += 1;
-            existing.total_input_tokens += log.input_tokens;
-            existing.total_output_tokens += log.output_tokens;
+            existing.total_input_tokens += log.prompt_tokens;
+            existing.total_output_tokens += log.completion_tokens;
             existing.total_tokens += log.total_tokens;
             existing.total_cost += parseFloat(log.estimated_cost);
           } else {
             promptMap.set(key, {
-              prompt_type: log.prompt_type,
-              prompt_name: log.prompt_name,
+              prompt_type: aiPrompt ? 'custom' : 'default',
+              prompt_name: promptName,
               total_requests: 1,
-              total_input_tokens: log.input_tokens,
-              total_output_tokens: log.output_tokens,
+              total_input_tokens: log.prompt_tokens,
+              total_output_tokens: log.completion_tokens,
               total_tokens: log.total_tokens,
               total_cost: parseFloat(log.estimated_cost),
               avg_input_tokens: 0,
@@ -106,9 +122,12 @@ export function AIPromptAnalytics() {
         // Create time series data
         const dailyMap = new Map<string, Map<string, TimeSeriesData>>();
 
-        logs.forEach(log => {
+        logs.forEach((log: any) => {
           const date = new Date(log.created_at).toISOString().split('T')[0];
-          const promptKey = `${log.prompt_type}:${log.prompt_name}`;
+          const aiPrompt = log.exam_papers?.ai_prompts;
+          const promptName = aiPrompt?.prompt_name || log.exam_papers?.title || 'Default Prompt';
+          const promptId = aiPrompt?.id || 'default';
+          const promptKey = promptId;
 
           if (!dailyMap.has(date)) {
             dailyMap.set(date, new Map());
@@ -119,17 +138,17 @@ export function AIPromptAnalytics() {
 
           if (existing) {
             existing.requests += 1;
-            existing.input_tokens += log.input_tokens;
-            existing.output_tokens += log.output_tokens;
+            existing.input_tokens += log.prompt_tokens;
+            existing.output_tokens += log.completion_tokens;
             existing.total_tokens += log.total_tokens;
             existing.cost += parseFloat(log.estimated_cost);
           } else {
             dayData.set(promptKey, {
               date,
-              prompt_type: log.prompt_type,
+              prompt_type: promptName,
               requests: 1,
-              input_tokens: log.input_tokens,
-              output_tokens: log.output_tokens,
+              input_tokens: log.prompt_tokens,
+              output_tokens: log.completion_tokens,
               total_tokens: log.total_tokens,
               cost: parseFloat(log.estimated_cost),
             });
@@ -194,10 +213,9 @@ export function AIPromptAnalytics() {
 
   const getPromptTypeColor = (type: string) => {
     switch (type) {
-      case 'upload': return 'bg-purple-100 text-purple-800';
-      case 'chat': return 'bg-blue-100 text-blue-800';
-      case 'system': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'custom': return 'bg-purple-100 text-purple-800';
+      case 'default': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-blue-100 text-blue-800';
     }
   };
 
