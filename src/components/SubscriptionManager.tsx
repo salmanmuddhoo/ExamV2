@@ -20,6 +20,13 @@ export function SubscriptionManager() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string>('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    tierName: string;
+    tokens: number | null;
+    grade?: string;
+    subjects?: string[];
+  } | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -133,14 +140,62 @@ export function SubscriptionManager() {
     setShowPayment(true);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
     setShowPayment(false);
     setPaymentData(null);
     setShowStudentSelector(false);
     setSelectedStudentTier(null);
 
     // Refresh subscription data
-    fetchData();
+    await fetchData();
+
+    // Fetch the updated subscription to show in success modal
+    try {
+      const { data: subscriptionData } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          *,
+          subscription_tiers (*),
+          grades (name),
+          subjects (name)
+        `)
+        .eq('user_id', user!.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscriptionData) {
+        const tier = subscriptionData.subscription_tiers as any;
+        const tokenLimit = (subscriptionData as any).token_limit_override ?? tier.token_limit;
+
+        // Get grade and subjects if student package
+        let grade: string | undefined;
+        let subjects: string[] | undefined;
+
+        if (tier.name === 'student' && subscriptionData.selected_grade_id) {
+          const gradeData = subscriptionData.grades as any;
+          grade = gradeData?.name;
+
+          if (subscriptionData.selected_subject_ids && subscriptionData.selected_subject_ids.length > 0) {
+            const { data: subjectsData } = await supabase
+              .from('subjects')
+              .select('name')
+              .in('id', subscriptionData.selected_subject_ids);
+
+            subjects = subjectsData?.map((s: any) => s.name) || [];
+          }
+        }
+
+        setSuccessData({
+          tierName: tier.display_name || tier.name,
+          tokens: tokenLimit,
+          grade,
+          subjects
+        });
+        setShowSuccessModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching subscription for success modal:', error);
+    }
   };
 
   const handleBackFromPayment = () => {
@@ -561,6 +616,88 @@ export function SubscriptionManager() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && successData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            {/* Success Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <Check className="w-10 h-10 text-green-600" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-center text-gray-900 mb-4">
+              Purchase Successful!
+            </h2>
+
+            {/* Subscription Details */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Plan:</p>
+                <p className="text-lg font-semibold text-gray-900">{successData.tierName}</p>
+              </div>
+
+              {successData.grade && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Grade:</p>
+                  <p className="font-medium text-gray-900">{successData.grade}</p>
+                </div>
+              )}
+
+              {successData.subjects && successData.subjects.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Subjects:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {successData.subjects.map((subject, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                      >
+                        {subject}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!successData.grade && !successData.subjects && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Access:</p>
+                  <p className="font-medium text-gray-900">All Subjects & Grades</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm text-gray-600 mb-1">AI Tokens:</p>
+                <p className="text-lg font-bold text-gray-900">
+                  {successData.tokens === null ? 'Unlimited' : successData.tokens.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Info Message */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-800">
+                You can view your token balance in the chat interface or in your profile settings.
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                setSuccessData(null);
+              }}
+              className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+            >
+              Got it!
+            </button>
           </div>
         </div>
       )}
