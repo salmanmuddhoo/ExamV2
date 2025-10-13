@@ -78,14 +78,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
 
     if (data.user) {
+      // Wait a bit for the trigger to create the profile
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Upsert the profile to ensure first_name and last_name are set
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: data.user.id,
+          email: data.user.email,
           role,
           first_name: firstName,
-          last_name: lastName
-        })
-        .eq('id', data.user.id);
+          last_name: lastName,
+          is_active: true
+        }, {
+          onConflict: 'id'
+        });
 
       if (profileError) throw profileError;
     }
