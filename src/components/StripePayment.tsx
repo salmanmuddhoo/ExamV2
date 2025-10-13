@@ -40,11 +40,28 @@ function StripeCheckoutForm({
     setProcessing(true);
     setError('');
 
+    let transactionId: string | null = null;
+
     try {
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) throw new Error('Card element not found');
 
-      // Create payment transaction in database
+      // Create a payment method with Stripe FIRST
+      // NOTE: In production, you should create a Payment Intent via your backend API
+      // For test mode, we'll create a payment method and simulate successful payment
+      const { error: paymentMethodError, paymentMethod: stripePaymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          email: user.email,
+        },
+      });
+
+      if (paymentMethodError) {
+        throw new Error(paymentMethodError.message);
+      }
+
+      // Only create transaction AFTER Stripe payment method is successful
       const { data: transaction, error: transactionError } = await supabase
         .from('payment_transactions')
         .insert({
@@ -65,21 +82,7 @@ function StripeCheckoutForm({
         .single();
 
       if (transactionError) throw transactionError;
-
-      // Create a payment method with Stripe
-      // NOTE: In production, you should create a Payment Intent via your backend API
-      // For test mode, we'll create a payment method and simulate successful payment
-      const { error: paymentMethodError, paymentMethod: stripePaymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          email: user.email,
-        },
-      });
-
-      if (paymentMethodError) {
-        throw new Error(paymentMethodError.message);
-      }
+      transactionId = transaction.id;
 
       // Simulate successful payment for test mode
       // In production, you would call your backend API here to create a Payment Intent:
@@ -119,6 +122,19 @@ function StripeCheckoutForm({
     } catch (err: any) {
       console.error('Stripe payment error:', err);
       setError(err.message || 'Payment failed. Please try again.');
+
+      // Clean up: Delete the pending transaction if it was created
+      if (transactionId) {
+        try {
+          await supabase
+            .from('payment_transactions')
+            .delete()
+            .eq('id', transactionId);
+          console.log('Cleaned up failed transaction:', transactionId);
+        } catch (deleteError) {
+          console.error('Failed to clean up transaction:', deleteError);
+        }
+      }
     } finally {
       setProcessing(false);
     }
