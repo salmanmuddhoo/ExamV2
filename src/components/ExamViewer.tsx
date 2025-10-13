@@ -1184,13 +1184,23 @@ You can still view and download this exam paper!`
 
           {user && (
             <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
-              {/* Token Display - Show used/total */}
+              {/* Token Display with Upgrade button for free and student tiers */}
               {tokensLimit !== null && (
                 <div className="mb-2 flex items-center justify-between px-1">
-                  <span className="text-xs text-gray-600">AI Tokens:</span>
-                  <span className="text-xs font-semibold text-gray-900">
-                    {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-600">AI Tokens:</span>
+                    <span className="text-xs font-semibold text-gray-900">
+                      {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
+                    </span>
+                  </div>
+                  {(tierName === 'free' || tierName === 'student') && (
+                    <button
+                      onClick={onOpenSubscriptions || onBack}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                    >
+                      Upgrade
+                    </button>
+                  )}
                 </div>
               )}
 
