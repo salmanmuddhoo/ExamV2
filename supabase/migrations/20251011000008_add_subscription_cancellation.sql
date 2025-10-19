@@ -102,7 +102,6 @@ CREATE OR REPLACE FUNCTION expire_cancelled_subscriptions()
 RETURNS void AS $$
 DECLARE
   v_free_tier_id UUID;
-  v_expired_count INTEGER := 0;
 BEGIN
   -- Get free tier ID
   SELECT id INTO v_free_tier_id
@@ -110,52 +109,30 @@ BEGIN
   WHERE name = 'free' AND is_active = TRUE
   LIMIT 1;
 
-  -- Expire subscriptions that are marked for cancellation and have passed their end date
-  WITH expired_subs AS (
-    UPDATE user_subscriptions
-    SET
-      status = 'cancelled',
-      updated_at = NOW()
-    WHERE
-      status = 'active'
-      AND cancel_at_period_end = TRUE
-      AND period_end_date <= NOW()
-    RETURNING user_id
-  )
-  SELECT COUNT(*) INTO v_expired_count FROM expired_subs;
+  -- Downgrade subscriptions that are marked for cancellation and have passed their end date to free tier
+  UPDATE user_subscriptions
+  SET
+    tier_id = v_free_tier_id,
+    status = 'active',
+    billing_cycle = 'monthly',
+    is_recurring = FALSE,
+    period_start_date = NOW(),
+    period_end_date = NOW() + INTERVAL '30 days',
+    tokens_used_current_period = 0,
+    papers_accessed_current_period = 0,
+    accessed_paper_ids = ARRAY[]::uuid[],
+    token_limit_override = NULL,
+    cancel_at_period_end = FALSE,
+    cancellation_reason = NULL,
+    cancellation_requested_at = NULL,
+    updated_at = NOW()
+  WHERE
+    status = 'active'
+    AND cancel_at_period_end = TRUE
+    AND period_end_date <= NOW()
+    AND v_free_tier_id IS NOT NULL;
 
-  -- Create free tier subscriptions for users whose subscriptions were cancelled
-  INSERT INTO user_subscriptions (
-    user_id,
-    tier_id,
-    status,
-    billing_cycle,
-    is_recurring,
-    period_start_date,
-    period_end_date
-  )
-  SELECT
-    es.user_id,
-    v_free_tier_id,
-    'active',
-    'monthly',
-    FALSE,
-    NOW(),
-    NOW() + INTERVAL '30 days'
-  FROM (
-    SELECT DISTINCT user_id
-    FROM user_subscriptions
-    WHERE status = 'cancelled'
-      AND user_id NOT IN (
-        SELECT user_id
-        FROM user_subscriptions
-        WHERE status = 'active'
-      )
-  ) es
-  WHERE v_free_tier_id IS NOT NULL
-  ON CONFLICT (user_id) DO NOTHING;
-
-  RAISE NOTICE 'Expired % cancelled subscriptions', v_expired_count;
+  RAISE NOTICE 'Downgraded cancelled subscriptions to free tier';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

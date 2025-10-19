@@ -9,6 +9,7 @@ interface PaymentOrchestratorProps {
   paymentData: PaymentSelectionData;
   onBack: () => void;
   onSuccess: () => void;
+  hideBackButton?: boolean;
 }
 
 type PaymentStep = 'select-method' | 'stripe' | 'paypal' | 'mcb_juice';
@@ -16,7 +17,8 @@ type PaymentStep = 'select-method' | 'stripe' | 'paypal' | 'mcb_juice';
 export function PaymentOrchestrator({
   paymentData,
   onBack,
-  onSuccess
+  onSuccess,
+  hideBackButton = false
 }: PaymentOrchestratorProps) {
   const [step, setStep] = useState<PaymentStep>('select-method');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -37,6 +39,7 @@ export function PaymentOrchestrator({
         paymentData={paymentData}
         onBack={onBack}
         onPaymentMethodSelected={handlePaymentMethodSelected}
+        hideBackButton={hideBackButton}
       />
     );
   }
@@ -48,6 +51,7 @@ export function PaymentOrchestrator({
         paymentMethod={selectedPaymentMethod}
         onBack={handleBackToMethods}
         onSuccess={onSuccess}
+        hideBackButton={hideBackButton}
       />
     );
   }
@@ -59,6 +63,7 @@ export function PaymentOrchestrator({
         paymentMethod={selectedPaymentMethod}
         onBack={handleBackToMethods}
         onSuccess={onSuccess}
+        hideBackButton={hideBackButton}
       />
     );
   }
@@ -70,6 +75,7 @@ export function PaymentOrchestrator({
         paymentMethod={selectedPaymentMethod}
         onBack={handleBackToMethods}
         onSuccess={onSuccess}
+        hideBackButton={hideBackButton}
       />
     );
   }

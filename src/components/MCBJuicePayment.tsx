@@ -9,13 +9,15 @@ interface MCBJuicePaymentProps {
   paymentMethod: PaymentMethod;
   onBack: () => void;
   onSuccess: () => void;
+  hideBackButton?: boolean;
 }
 
 export function MCBJuicePayment({
   paymentData,
   paymentMethod,
   onBack,
-  onSuccess
+  onSuccess,
+  hideBackButton = false
 }: MCBJuicePaymentProps) {
   const { user } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -116,15 +118,43 @@ export function MCBJuicePayment({
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* MCB Juice Header Banner */}
+      <div className="mb-6 bg-gradient-to-r from-red-600 to-red-700 rounded-lg p-6 text-white">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-3">
+            <div className="bg-white rounded-lg p-3 flex items-center justify-center">
+              <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                <line x1="12" y1="18" x2="12.01" y2="18"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold flex items-center">
+                <span>MCB Juice Payment</span>
+              </h3>
+              <p className="text-sm text-red-100">Pay securely via mobile banking</p>
+            </div>
+          </div>
+          {!hideBackButton && (
+            <button
+              onClick={onBack}
+              className="flex items-center space-x-2 text-white hover:text-red-100 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm">Back</span>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-red-100">
+            {paymentData.tierName} - {paymentData.billingCycle}
+          </span>
+          <span className="text-2xl font-bold">Rs {murAmount.toLocaleString()}</span>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={onBack}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to payment methods</span>
-        </button>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">MCB Juice Payment</h2>
         <p className="text-gray-600">
           Complete payment for <strong>{paymentData.tierName}</strong> ({paymentData.billingCycle})

@@ -11,24 +11,77 @@ interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onNavigateToPayment?: () => void;
 }
 
-export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionModalProps) {
+export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPayment }: SubscriptionModalProps) {
   const { user } = useAuth();
-  const [tiers, setTiers] = useState<SubscriptionTier[]>([]);
-  const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [showStudentSelector, setShowStudentSelector] = useState(false);
-  const [selectedStudentTier, setSelectedStudentTier] = useState<SubscriptionTier | null>(null);
-  const [showPayment, setShowPayment] = useState(false);
-  const [paymentData, setPaymentData] = useState<PaymentSelectionData | null>(null);
+  const [tiers, setTiers] = useState<SubscriptionTier[]>(() => {
+    const cached = sessionStorage.getItem('subscription_tiers');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(() => {
+    const cached = sessionStorage.getItem('subscription_current');
+    return cached ? JSON.parse(cached) : null;
+  });
+  const [loading, setLoading] = useState(() => {
+    const hasCachedTiers = sessionStorage.getItem('subscription_tiers');
+    const hasCachedSubscription = sessionStorage.getItem('subscription_current');
+    return !(hasCachedTiers && hasCachedSubscription);
+  });
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>(() => {
+    const saved = sessionStorage.getItem('subscription_billingCycle');
+    return (saved === 'yearly' ? 'yearly' : 'monthly') as 'monthly' | 'yearly';
+  });
+  const [showStudentSelector, setShowStudentSelector] = useState(() => {
+    return sessionStorage.getItem('subscription_showStudentSelector') === 'true';
+  });
+  const [selectedStudentTier, setSelectedStudentTier] = useState<SubscriptionTier | null>(() => {
+    const saved = sessionStorage.getItem('subscription_selectedStudentTier');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [showPayment, setShowPayment] = useState(() => {
+    return sessionStorage.getItem('subscription_showPayment') === 'true';
+  });
+  const [paymentData, setPaymentData] = useState<PaymentSelectionData | null>(() => {
+    const saved = sessionStorage.getItem('subscription_paymentData');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   useEffect(() => {
     if (user && isOpen) {
       fetchData();
     }
   }, [user, isOpen]);
+
+  // Persist subscription modal state
+  useEffect(() => {
+    sessionStorage.setItem('subscription_billingCycle', selectedBillingCycle);
+  }, [selectedBillingCycle]);
+
+  useEffect(() => {
+    sessionStorage.setItem('subscription_showStudentSelector', showStudentSelector.toString());
+  }, [showStudentSelector]);
+
+  useEffect(() => {
+    if (selectedStudentTier) {
+      sessionStorage.setItem('subscription_selectedStudentTier', JSON.stringify(selectedStudentTier));
+    } else {
+      sessionStorage.removeItem('subscription_selectedStudentTier');
+    }
+  }, [selectedStudentTier]);
+
+  useEffect(() => {
+    sessionStorage.setItem('subscription_showPayment', showPayment.toString());
+  }, [showPayment]);
+
+  useEffect(() => {
+    if (paymentData) {
+      sessionStorage.setItem('subscription_paymentData', JSON.stringify(paymentData));
+    } else {
+      sessionStorage.removeItem('subscription_paymentData');
+    }
+  }, [paymentData]);
 
   const fetchData = async () => {
     try {
@@ -43,6 +96,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
 
       if (tiersError) throw tiersError;
       setTiers(tiersData || []);
+      sessionStorage.setItem('subscription_tiers', JSON.stringify(tiersData || []));
 
       // Fetch user's current subscription
       const { data: subscriptionData, error: subscriptionError } = await supabase
@@ -60,6 +114,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
       }
 
       setCurrentSubscription(subscriptionData || null);
+      sessionStorage.setItem('subscription_current', JSON.stringify(subscriptionData || null));
     } catch (error) {
       console.error('Error fetching subscription data:', error);
     } finally {
@@ -124,8 +179,21 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
       selectedSubjectIds: subjectIds
     };
 
+    // Save payment data to sessionStorage FIRST before any navigation
+    sessionStorage.setItem('subscription_paymentData', JSON.stringify(paymentData));
     setPaymentData(paymentData);
-    setShowPayment(true);
+
+    // Navigate to payment page instead of showing in modal
+    if (onNavigateToPayment) {
+      // Close the modal and student selector before navigating
+      setShowStudentSelector(false);
+      setSelectedStudentTier(null);
+      // Just hide the modal without calling onClose to prevent clearing payment data
+      onNavigateToPayment();
+    } else {
+      // Fallback to old modal behavior if callback not provided
+      setShowPayment(true);
+    }
   };
 
   const handleStudentSelectionComplete = (gradeId: string, subjectIds: string[]) => {
@@ -144,6 +212,15 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
     setPaymentData(null);
     setShowStudentSelector(false);
     setSelectedStudentTier(null);
+
+    // Clear subscription modal state from sessionStorage
+    sessionStorage.removeItem('subscription_billingCycle');
+    sessionStorage.removeItem('subscription_showStudentSelector');
+    sessionStorage.removeItem('subscription_selectedStudentTier');
+    sessionStorage.removeItem('subscription_showPayment');
+    sessionStorage.removeItem('subscription_paymentData');
+    sessionStorage.removeItem('subscription_tiers');
+    sessionStorage.removeItem('subscription_current');
 
     // Refresh subscription data
     fetchData();
@@ -166,11 +243,10 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
     }
   };
 
-  if (!isOpen) return null;
-
+  // Keep modal mounted but hidden using CSS
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="bg-white rounded-lg p-8">
           <Loader2 className="w-8 h-8 animate-spin text-gray-400 mx-auto" />
         </div>
@@ -181,7 +257,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
   // Show payment orchestrator if payment is initiated
   if (showPayment && paymentData) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="bg-white rounded-lg w-full max-w-3xl my-8">
           <PaymentOrchestrator
             paymentData={paymentData}
@@ -196,7 +272,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
   // Show student package selector if student tier selected
   if (showStudentSelector && selectedStudentTier) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="bg-white rounded-lg w-full max-w-4xl my-8">
           <StudentPackageSelector
             onComplete={handleStudentSelectionComplete}
@@ -209,7 +285,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
       <div className="bg-white rounded-lg w-full max-w-5xl my-4 sm:my-8">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-lg">
@@ -234,6 +310,34 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
                   <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-0.5 truncate">
                     Current Plan: {currentSubscription.subscription_tiers?.display_name}
                   </h3>
+
+                  {/* Billing Cycle and Renewal Info */}
+                  {currentSubscription.billing_cycle && currentSubscription.billing_cycle !== 'lifetime' && (
+                    <div className="mb-1.5 text-[10px] sm:text-xs text-gray-700">
+                      <span className="font-medium">
+                        {currentSubscription.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'} Plan
+                      </span>
+                      {currentSubscription.is_recurring && currentSubscription.period_end_date && (
+                        <span className="ml-1">
+                          • Renews on {new Date(currentSubscription.period_end_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      )}
+                      {!currentSubscription.is_recurring && currentSubscription.end_date && (
+                        <span className="ml-1 text-orange-600">
+                          • Expires on {new Date(currentSubscription.end_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:gap-4 gap-1 text-[10px] sm:text-xs text-gray-600">
                     <p className="truncate">
                       Tokens: {currentSubscription.subscription_tiers?.token_limit === null
@@ -295,11 +399,12 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
               const isCurrent = isCurrentTier(tier.id);
               const canUp = canUpgrade(tier);
               const canDown = canDowngrade(tier);
+              const isFree = tier.name === 'free';
 
               return (
                 <div
                   key={tier.id}
-                  className={`relative bg-white border-2 rounded-lg p-3 ${
+                  className={`relative bg-white border-2 rounded-lg p-3 flex flex-col ${
                     isCurrent
                       ? 'border-black shadow-lg'
                       : tier.name === 'student'
@@ -332,7 +437,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
                   </div>
 
                   {/* Features */}
-                  <ul className="space-y-1 mb-3">
+                  <ul className="space-y-1 mb-3 flex-grow">
                     <li className="flex items-start">
                       <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
                       <span className="text-[11px] text-gray-700">
@@ -382,9 +487,11 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
                   {/* CTA Button */}
                   <button
                     onClick={() => handleSelectPlan(tier)}
-                    disabled={isCurrent || canDown}
+                    disabled={isCurrent || canDown || isFree}
                     className={`w-full py-1.5 text-xs rounded-md font-medium transition-colors ${
                       isCurrent
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                        : isFree
                         ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                         : canDown
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -395,6 +502,8 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess }: SubscriptionMo
                   >
                     {isCurrent
                       ? 'Current Plan'
+                      : isFree
+                      ? 'Free Tier'
                       : canUp
                       ? 'Upgrade'
                       : canDown

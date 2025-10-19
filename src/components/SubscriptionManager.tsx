@@ -9,14 +9,40 @@ import type { PaymentSelectionData } from '../types/payment';
 
 export function SubscriptionManager() {
   const { user } = useAuth();
-  const [tiers, setTiers] = useState<SubscriptionTier[]>([]);
-  const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [showStudentSelector, setShowStudentSelector] = useState(false);
-  const [selectedStudentTier, setSelectedStudentTier] = useState<SubscriptionTier | null>(null);
-  const [showPayment, setShowPayment] = useState(false);
-  const [paymentData, setPaymentData] = useState<PaymentSelectionData | null>(null);
+  const [tiers, setTiers] = useState<SubscriptionTier[]>(() => {
+    // Restore cached tiers to avoid loading screen
+    const cached = sessionStorage.getItem('subscription_tiers');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(() => {
+    // Restore cached subscription to avoid loading screen
+    const cached = sessionStorage.getItem('subscription_current');
+    return cached ? JSON.parse(cached) : null;
+  });
+  const [loading, setLoading] = useState(() => {
+    // Only show loading if we don't have cached data
+    const hasCachedTiers = sessionStorage.getItem('subscription_tiers');
+    const hasCachedSubscription = sessionStorage.getItem('subscription_current');
+    return !(hasCachedTiers && hasCachedSubscription);
+  });
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>(() => {
+    const saved = sessionStorage.getItem('subscription_billingCycle');
+    return (saved === 'yearly' ? 'yearly' : 'monthly') as 'monthly' | 'yearly';
+  });
+  const [showStudentSelector, setShowStudentSelector] = useState(() => {
+    return sessionStorage.getItem('subscription_showStudentSelector') === 'true';
+  });
+  const [selectedStudentTier, setSelectedStudentTier] = useState<SubscriptionTier | null>(() => {
+    const saved = sessionStorage.getItem('subscription_selectedStudentTier');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [showPayment, setShowPayment] = useState(() => {
+    return sessionStorage.getItem('subscription_showPayment') === 'true';
+  });
+  const [paymentData, setPaymentData] = useState<PaymentSelectionData | null>(() => {
+    const saved = sessionStorage.getItem('subscription_paymentData');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string>('');
@@ -34,6 +60,35 @@ export function SubscriptionManager() {
     }
   }, [user]);
 
+  // Persist subscription modal state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('subscription_billingCycle', selectedBillingCycle);
+  }, [selectedBillingCycle]);
+
+  useEffect(() => {
+    sessionStorage.setItem('subscription_showStudentSelector', showStudentSelector.toString());
+  }, [showStudentSelector]);
+
+  useEffect(() => {
+    if (selectedStudentTier) {
+      sessionStorage.setItem('subscription_selectedStudentTier', JSON.stringify(selectedStudentTier));
+    } else {
+      sessionStorage.removeItem('subscription_selectedStudentTier');
+    }
+  }, [selectedStudentTier]);
+
+  useEffect(() => {
+    sessionStorage.setItem('subscription_showPayment', showPayment.toString());
+  }, [showPayment]);
+
+  useEffect(() => {
+    if (paymentData) {
+      sessionStorage.setItem('subscription_paymentData', JSON.stringify(paymentData));
+    } else {
+      sessionStorage.removeItem('subscription_paymentData');
+    }
+  }, [paymentData]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -47,6 +102,8 @@ export function SubscriptionManager() {
 
       if (tiersError) throw tiersError;
       setTiers(tiersData || []);
+      // Cache tiers data
+      sessionStorage.setItem('subscription_tiers', JSON.stringify(tiersData || []));
 
       // Fetch user's current subscription
       const { data: subscriptionData, error: subscriptionError } = await supabase
@@ -64,6 +121,8 @@ export function SubscriptionManager() {
       }
 
       setCurrentSubscription(subscriptionData || null);
+      // Cache subscription data
+      sessionStorage.setItem('subscription_current', JSON.stringify(subscriptionData || null));
     } catch (error) {
       console.error('Error fetching subscription data:', error);
     } finally {
@@ -145,6 +204,15 @@ export function SubscriptionManager() {
     setPaymentData(null);
     setShowStudentSelector(false);
     setSelectedStudentTier(null);
+
+    // Clear subscription modal state from sessionStorage
+    sessionStorage.removeItem('subscription_billingCycle');
+    sessionStorage.removeItem('subscription_showStudentSelector');
+    sessionStorage.removeItem('subscription_selectedStudentTier');
+    sessionStorage.removeItem('subscription_showPayment');
+    sessionStorage.removeItem('subscription_paymentData');
+    sessionStorage.removeItem('subscription_tiers');
+    sessionStorage.removeItem('subscription_current');
 
     // Refresh subscription data
     await fetchData();

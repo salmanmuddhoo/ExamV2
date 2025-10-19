@@ -96,6 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
       if (profileError) throw profileError;
+
+      // Immediately fetch the profile to update the context
+      await fetchProfile(data.user.id);
     }
   };
 

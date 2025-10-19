@@ -51,7 +51,10 @@ export function ChatHub({
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [showPaperModal, setShowPaperModal] = useState(false);
-  const [showSubscription, setShowSubscription] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(() => {
+    // Persist subscription modal state across page navigation
+    return sessionStorage.getItem('showSubscriptionModal') === 'true';
+  });
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileModalTab, setProfileModalTab] = useState<'general' | 'subscription' | 'payment-history' | 'settings'>('general');
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
@@ -68,6 +71,11 @@ export function ChatHub({
       fetchUserTier();
     }
   }, [user]);
+
+  // Persist subscription modal state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('showSubscriptionModal', showSubscription.toString());
+  }, [showSubscription]);
 
   const fetchUserTier = async () => {
     if (!user) return;
