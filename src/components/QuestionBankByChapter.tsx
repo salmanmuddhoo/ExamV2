@@ -162,8 +162,7 @@ export function QuestionBankByChapter() {
             )
           )
         `)
-        .eq('chapter_id', selectedChapter)
-        .order('confidence_score', { ascending: false });
+        .eq('chapter_id', selectedChapter);
 
       if (error) throw error;
 
@@ -180,6 +179,20 @@ export function QuestionBankByChapter() {
         is_primary: item.is_primary,
         match_reasoning: item.match_reasoning,
       }));
+
+      // Sort by year (most recent first), then by month, then by question number
+      formattedQuestions.sort((a, b) => {
+        // First sort by year (descending - most recent first)
+        if (a.exam_year !== b.exam_year) {
+          return b.exam_year - a.exam_year;
+        }
+        // Then by month (descending - most recent first)
+        if (a.exam_month !== b.exam_month) {
+          return (b.exam_month || 0) - (a.exam_month || 0);
+        }
+        // Then by question number (ascending)
+        return parseInt(a.question_number) - parseInt(b.question_number);
+      });
 
       setQuestions(formattedQuestions);
     } catch (error) {
@@ -321,67 +334,144 @@ export function QuestionBankByChapter() {
                         No questions found for this chapter.
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {questions.map((question) => (
-                          <div
-                            key={question.id}
-                            className="bg-white p-4 rounded-lg border border-gray-200"
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h4 className="font-semibold text-gray-900">
-                                  Question {question.question_number}
-                                </h4>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  {question.exam_title} • {getMonthName(question.exam_month)} {question.exam_year}
-                                </p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {question.is_primary && (
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-                                    Primary
-                                  </span>
-                                )}
-                                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                                  {Math.round(question.confidence_score * 100)}% match
-                                </span>
-                              </div>
-                            </div>
-
-                            {question.match_reasoning && (
-                              <div className="flex items-start space-x-2 mb-3 p-2 bg-blue-50 rounded">
-                                <Tag className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                                <p className="text-sm text-blue-900">{question.match_reasoning}</p>
-                              </div>
-                            )}
-
-                            {/* Question Images */}
-                            <div className="space-y-2">
-                              {(question.image_urls && question.image_urls.length > 0
-                                ? question.image_urls
-                                : [question.image_url]
-                              ).map((imageUrl, idx) => (
-                                <img
-                                  key={idx}
-                                  src={imageUrl}
-                                  alt={`Question ${question.question_number} - Page ${idx + 1}`}
-                                  className="w-full border border-gray-300 rounded-lg"
-                                />
+                      <div className="space-y-3">
+                        {/* Summary Table */}
+                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                  Question
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                  Year
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                  Exam Paper
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                  Match
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {questions.map((question, idx) => (
+                                <tr key={question.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                      <span className="font-medium text-gray-900">Q{question.question_number}</span>
+                                      {question.is_primary && (
+                                        <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">
+                                          Primary
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {question.exam_year}
+                                    </span>
+                                    {question.exam_month && (
+                                      <span className="ml-1 text-sm text-gray-600">
+                                        ({getMonthName(question.exam_month)})
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-sm text-gray-900">{question.exam_title}</span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                                      {Math.round(question.confidence_score * 100)}%
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                    <button
+                                      onClick={() => {
+                                        const element = document.getElementById(`question-detail-${idx}`);
+                                        element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                      }}
+                                      className="text-black hover:text-gray-700 font-medium"
+                                    >
+                                      View
+                                    </button>
+                                  </td>
+                                </tr>
                               ))}
-                            </div>
+                            </tbody>
+                          </table>
+                        </div>
 
-                            {/* OCR Text Preview */}
-                            {question.ocr_text && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
-                                <p className="text-xs text-gray-600 font-medium mb-1">Question Text:</p>
-                                <p className="text-sm text-gray-800">
-                                  {question.ocr_text.substring(0, 200)}
-                                  {question.ocr_text.length > 200 ? '...' : ''}
-                                </p>
+                        {/* Detailed Questions View */}
+                        <div className="space-y-4 mt-6">
+                          <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                            Question Details
+                          </h4>
+                          {questions.map((question, idx) => (
+                            <div
+                              id={`question-detail-${idx}`}
+                              key={question.id}
+                              className="bg-white p-4 rounded-lg border border-gray-200 scroll-mt-4"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">
+                                    Question {question.question_number}
+                                  </h4>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {question.exam_title} • {getMonthName(question.exam_month)} {question.exam_year}
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {question.is_primary && (
+                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                                      Primary
+                                    </span>
+                                  )}
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                                    {Math.round(question.confidence_score * 100)}% match
+                                  </span>
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
+
+                              {question.match_reasoning && (
+                                <div className="flex items-start space-x-2 mb-3 p-2 bg-blue-50 rounded">
+                                  <Tag className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                  <p className="text-sm text-blue-900">{question.match_reasoning}</p>
+                                </div>
+                              )}
+
+                              {/* Question Images */}
+                              <div className="space-y-2">
+                                {(question.image_urls && question.image_urls.length > 0
+                                  ? question.image_urls
+                                  : [question.image_url]
+                                ).map((imageUrl, imageIdx) => (
+                                  <img
+                                    key={imageIdx}
+                                    src={imageUrl}
+                                    alt={`Question ${question.question_number} - Page ${imageIdx + 1}`}
+                                    className="w-full border border-gray-300 rounded-lg"
+                                  />
+                                ))}
+                              </div>
+
+                              {/* OCR Text Preview */}
+                              {question.ocr_text && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
+                                  <p className="text-xs text-gray-600 font-medium mb-1">Question Text:</p>
+                                  <p className="text-sm text-gray-800">
+                                    {question.ocr_text.substring(0, 200)}
+                                    {question.ocr_text.length > 200 ? '...' : ''}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
