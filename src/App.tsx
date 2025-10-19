@@ -10,9 +10,10 @@ import { ExamPapersBrowser } from './components/ExamPapersBrowser';
 import { WelcomeModal } from './components/WelcomeModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { PaymentPage } from './components/PaymentPage';
+import { ChapterPractice } from './components/ChapterPractice';
 import { supabase } from './lib/supabase';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'payment';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'chapter-practice' | 'payment';
 
 function App() {
   const { user, profile, loading } = useAuth();
@@ -158,6 +159,10 @@ function App() {
 
   const handleNavigateToChatHub = () => {
     setView('chat-hub');
+  };
+
+  const handleNavigateToChapterPractice = () => {
+    setView('chapter-practice');
   };
 
   const handleSelectGrade = (gradeId: string, gradeName: string) => {
@@ -323,6 +328,20 @@ function App() {
           currentView={view}
         />
         <ExamPapersBrowser onSelectPaper={handleSelectPaper} />
+      </>
+    );
+  }
+
+  if (view === 'chapter-practice' && user) {
+    return (
+      <>
+        <ChapterPractice />
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
+        />
       </>
     );
   }
