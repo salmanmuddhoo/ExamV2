@@ -60,47 +60,6 @@ Deno.serve(async (req: Request) => {
       examPaperId
     );
 
-    // Get exam paper details to find matching syllabus
-    const { data: examPaper } = await supabase
-      .from('exam_papers')
-      .select('subject_id, grade_level_id')
-      .eq('id', examPaperId)
-      .single();
-
-    let chapterTaggingTokens = null;
-    let taggedQuestionsCount = 0;
-
-    // Check if there's a syllabus for this subject and grade
-    if (examPaper) {
-      const { data: syllabus } = await supabase
-        .from('syllabus')
-        .select('id, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
-        .eq('subject_id', examPaper.subject_id)
-        .eq('grade_id', examPaper.grade_level_id)
-        .eq('processing_status', 'completed')
-        .single();
-
-      if (syllabus && syllabus.syllabus_chapters && syllabus.syllabus_chapters.length > 0) {
-        console.log(`Found syllabus with ${syllabus.syllabus_chapters.length} chapters. Starting chapter tagging...`);
-
-        // Tag questions with chapters using AI
-        const taggingResult = await tagQuestionsWithChapters(
-          savedQuestions,
-          syllabus.syllabus_chapters,
-          syllabus.id,
-          supabase,
-          geminiApiKey
-        );
-
-        chapterTaggingTokens = taggingResult.tokenUsage;
-        taggedQuestionsCount = taggingResult.taggedCount;
-
-        console.log(`Successfully tagged ${taggedQuestionsCount} questions with chapters`);
-      } else {
-        console.log('No completed syllabus found for this subject/grade. Skipping chapter tagging.');
-      }
-    }
-
     // Extract marking scheme answers if marking scheme is provided
     let markingSchemeData: Map<string, string> = new Map();
     let markingSchemeTokens = null;
@@ -150,6 +109,49 @@ Deno.serve(async (req: Request) => {
     }
     
     console.log(`Database save complete: ${savedCount} saved, ${errorCount} errors`);
+
+    // NOW tag questions with chapters (after they're saved to database)
+    let chapterTaggingTokens = null;
+    let taggedQuestionsCount = 0;
+
+    // Get exam paper details to find matching syllabus
+    const { data: examPaper } = await supabase
+      .from('exam_papers')
+      .select('subject_id, grade_level_id')
+      .eq('id', examPaperId)
+      .single();
+
+    // Check if there's a syllabus for this subject and grade
+    if (examPaper) {
+      const { data: syllabus } = await supabase
+        .from('syllabus')
+        .select('id, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
+        .eq('subject_id', examPaper.subject_id)
+        .eq('grade_id', examPaper.grade_level_id)
+        .eq('processing_status', 'completed')
+        .single();
+
+      if (syllabus && syllabus.syllabus_chapters && syllabus.syllabus_chapters.length > 0) {
+        console.log(`Found syllabus with ${syllabus.syllabus_chapters.length} chapters. Starting chapter tagging...`);
+
+        // Tag questions with chapters using AI
+        const taggingResult = await tagQuestionsWithChapters(
+          examPaperId,
+          questions,
+          syllabus.syllabus_chapters,
+          syllabus.id,
+          supabase,
+          geminiApiKey
+        );
+
+        chapterTaggingTokens = taggingResult.tokenUsage;
+        taggedQuestionsCount = taggingResult.taggedCount;
+
+        console.log(`Successfully tagged ${taggedQuestionsCount} questions with chapters`);
+      } else {
+        console.log('No completed syllabus found for this subject/grade. Skipping chapter tagging.');
+      }
+    }
 
     // Calculate total token usage and cost
     const totalPromptTokens = extractTokens.promptTokens + (markingSchemeTokens?.promptTokens || 0) + (chapterTaggingTokens?.promptTokens || 0);
@@ -638,6 +640,7 @@ Return ONLY the JSON object.`;
  * Tag questions with syllabus chapters using AI analysis
  */
 async function tagQuestionsWithChapters(
+  examPaperId: string,
   questions: any[],
   chapters: any[],
   syllabusId: string,
@@ -654,7 +657,7 @@ async function tagQuestionsWithChapters(
     subtopics: Array.isArray(ch.subtopics) ? ch.subtopics.join(', ') : ''
   }));
 
-  // Build question information for AI
+  // Build question information for AI (using the extracted questions data)
   const questionInfo = questions.map(q => ({
     number: q.questionNumber,
     text: q.fullText
@@ -782,31 +785,30 @@ Return ONLY the JSON array.`;
         continue;
       }
 
-      // Find the question in our saved questions
-      const question = questions.find(q => String(q.questionNumber) === String(result.questionNumber));
-      if (!question) {
-        console.warn(`Could not find saved question ${result.questionNumber}`);
-        continue;
-      }
-
-      // Get the question ID from database
+      // Get the question ID from database using exam_paper_id and question_number
       const { data: dbQuestion } = await supabase
         .from('exam_questions')
         .select('id')
+        .eq('exam_paper_id', examPaperId)
         .eq('question_number', String(result.questionNumber))
-        .eq('image_url', question.imageUrl)
         .single();
 
       if (!dbQuestion) {
-        console.warn(`Could not find database record for question ${result.questionNumber}`);
+        console.warn(`Could not find database record for question ${result.questionNumber} in exam ${examPaperId}`);
         continue;
       }
 
+      console.log(`Found question ${result.questionNumber} with ID: ${dbQuestion.id}`);
+
       // Update syllabus_id on the question
-      await supabase
+      const { error: updateError } = await supabase
         .from('exam_questions')
         .update({ syllabus_id: syllabusId })
         .eq('id', dbQuestion.id);
+
+      if (updateError) {
+        console.error(`Failed to update syllabus_id for question ${result.questionNumber}:`, updateError);
+      }
 
       // Insert chapter tags
       for (const match of result.matches) {
