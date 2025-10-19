@@ -663,10 +663,16 @@ async function tagQuestionsWithChapters(
     text: q.fullText
   }));
 
+  console.log('Chapter info being sent to AI:');
+  chapterInfo.forEach(ch => {
+    console.log(`  - ID: ${ch.id}, Chapter ${ch.number}: ${ch.title}`);
+  });
+
   const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters.
 
 **CHAPTERS:**
-${chapterInfo.map(ch => `Chapter ${ch.number}: ${ch.title}
+${chapterInfo.map(ch => `ID: ${ch.id}
+Chapter ${ch.number}: ${ch.title}
 Description: ${ch.description}
 Subtopics: ${ch.subtopics || 'None listed'}`).join('\n\n')}
 
@@ -676,13 +682,15 @@ ${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
 **Task:**
 For each question, identify which chapter(s) it belongs to. A question may relate to multiple chapters.
 
+**IMPORTANT:** Use the EXACT chapter IDs provided above. Copy them exactly as shown in the "ID:" field.
+
 Return a JSON array with this format:
 [
   {
     "questionNumber": "1",
     "matches": [
       {
-        "chapterId": "chapter-uuid-here",
+        "chapterId": "<exact-uuid-from-ID-field>",
         "chapterNumber": 1,
         "confidence": 0.95,
         "isPrimary": true,
@@ -693,14 +701,15 @@ Return a JSON array with this format:
 ]
 
 **Rules:**
-1. confidence should be 0.00 to 1.00 (1.00 = perfect match)
+1. confidence should be a number from 0.00 to 1.00 (1.00 = perfect match)
 2. Only include matches with confidence >= 0.60
 3. Mark ONE chapter as isPrimary: true (the best match)
-4. Use the actual chapter IDs from the list above
+4. **CRITICAL:** Use the EXACT chapter UUID from the "ID:" field above - copy it character-for-character
 5. reasoning should be brief (1 sentence)
 6. If a question doesn't match any chapter well, return empty matches array
+7. chapterNumber should be the integer chapter number
 
-Return ONLY the JSON array.`;
+Return ONLY the JSON array, no other text.`;
 
   try {
     console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using AI...`);
@@ -768,6 +777,8 @@ Return ONLY the JSON array.`;
 
     const taggingResults = JSON.parse(jsonText);
 
+    console.log('AI returned tagging results:', JSON.stringify(taggingResults, null, 2));
+
     if (!Array.isArray(taggingResults)) {
       console.error("AI response is not an array");
       return {
@@ -812,21 +823,41 @@ Return ONLY the JSON array.`;
 
       // Insert chapter tags
       for (const match of result.matches) {
+        // Validate and clean the data before insertion
+        const confidenceScore = parseFloat(String(match.confidence));
+
+        // Validate confidence score is a valid number between 0 and 1
+        if (isNaN(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
+          console.error(`Invalid confidence score for Q${result.questionNumber}: ${match.confidence}`);
+          continue;
+        }
+
+        // Validate chapter_id is a valid UUID
+        if (!match.chapterId || typeof match.chapterId !== 'string') {
+          console.error(`Invalid chapter ID for Q${result.questionNumber}: ${match.chapterId}`);
+          continue;
+        }
+
+        const insertData = {
+          question_id: dbQuestion.id,
+          chapter_id: match.chapterId,
+          confidence_score: confidenceScore,
+          is_primary: Boolean(match.isPrimary),
+          match_reasoning: match.reasoning ? String(match.reasoning) : null,
+          is_manually_set: false
+        };
+
+        console.log(`Inserting tag for Q${result.questionNumber}:`, JSON.stringify(insertData));
+
         const { error } = await supabase
           .from('question_chapter_tags')
-          .insert({
-            question_id: dbQuestion.id,
-            chapter_id: match.chapterId,
-            confidence_score: match.confidence,
-            is_primary: match.isPrimary || false,
-            match_reasoning: match.reasoning,
-            is_manually_set: false
-          });
+          .insert(insertData);
 
         if (error) {
           console.error(`Failed to tag question ${result.questionNumber} with chapter:`, error);
+          console.error(`Match data was:`, JSON.stringify(match));
         } else {
-          console.log(`Tagged Q${result.questionNumber} with Chapter ${match.chapterNumber} (confidence: ${match.confidence})`);
+          console.log(`Tagged Q${result.questionNumber} with Chapter ${match.chapterNumber} (confidence: ${confidenceScore})`);
         }
       }
 
