@@ -9,9 +9,10 @@ import { Navbar } from './components/Navbar';
 import { ExamPapersBrowser } from './components/ExamPapersBrowser';
 import { WelcomeModal } from './components/WelcomeModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
+import { PaymentPage } from './components/PaymentPage';
 import { supabase } from './lib/supabase';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'payment';
 
 function App() {
   const { user, profile, loading } = useAuth();
@@ -22,7 +23,10 @@ function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
   const [papersRemaining, setPapersRemaining] = useState(0);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(() => {
+    // Persist subscription modal state across page navigation
+    return sessionStorage.getItem('showSubscriptionModal') === 'true';
+  });
 
   useEffect(() => {
     if (!loading && !initialLoadComplete) {
@@ -33,6 +37,11 @@ function App() {
       setInitialLoadComplete(true);
     }
   }, [loading, user, profile, initialLoadComplete]);
+
+  // Persist subscription modal state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('showSubscriptionModal', showSubscriptionModal.toString());
+  }, [showSubscriptionModal]);
 
   const checkFirstTimeUser = async () => {
     if (!user) {
@@ -159,12 +168,56 @@ function App() {
     setShowSubscriptionModal(true);
   };
 
+  const handleNavigateToPayment = () => {
+    setShowSubscriptionModal(false);
+    setView('payment');
+  };
+
+  const handleBackFromPayment = () => {
+    setShowSubscriptionModal(true);
+    setView(user && profile?.role !== 'admin' ? 'chat-hub' : 'home');
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowSubscriptionModal(false);
+    // Clear subscription modal state from sessionStorage
+    sessionStorage.removeItem('subscription_billingCycle');
+    sessionStorage.removeItem('subscription_showStudentSelector');
+    sessionStorage.removeItem('subscription_selectedStudentTier');
+    sessionStorage.removeItem('subscription_showPayment');
+    sessionStorage.removeItem('subscription_paymentData');
+    sessionStorage.removeItem('subscription_tiers');
+    sessionStorage.removeItem('subscription_current');
+    // Refresh subscription data if needed
+    if (user) {
+      checkFirstTimeUser();
+    }
+    // Navigate back to appropriate view
+    setView(user && profile?.role !== 'admin' ? 'chat-hub' : 'home');
+  };
+
   const handleCloseSubscriptionModal = () => {
     setShowSubscriptionModal(false);
+    // Clear subscription modal state from sessionStorage
+    sessionStorage.removeItem('subscription_billingCycle');
+    sessionStorage.removeItem('subscription_showStudentSelector');
+    sessionStorage.removeItem('subscription_selectedStudentTier');
+    sessionStorage.removeItem('subscription_showPayment');
+    sessionStorage.removeItem('subscription_paymentData');
+    sessionStorage.removeItem('subscription_tiers');
+    sessionStorage.removeItem('subscription_current');
   };
 
   const handleSubscriptionSuccess = () => {
     setShowSubscriptionModal(false);
+    // Clear subscription modal state from sessionStorage
+    sessionStorage.removeItem('subscription_billingCycle');
+    sessionStorage.removeItem('subscription_showStudentSelector');
+    sessionStorage.removeItem('subscription_selectedStudentTier');
+    sessionStorage.removeItem('subscription_showPayment');
+    sessionStorage.removeItem('subscription_paymentData');
+    sessionStorage.removeItem('subscription_tiers');
+    sessionStorage.removeItem('subscription_current');
     // Refresh subscription data if needed
     if (user) {
       checkFirstTimeUser();
@@ -232,6 +285,7 @@ function App() {
           isOpen={showSubscriptionModal}
           onClose={handleCloseSubscriptionModal}
           onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
         />
       </>
     );
@@ -251,6 +305,7 @@ function App() {
           isOpen={showSubscriptionModal}
           onClose={handleCloseSubscriptionModal}
           onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
         />
       </>
     );
@@ -269,6 +324,15 @@ function App() {
         />
         <ExamPapersBrowser onSelectPaper={handleSelectPaper} />
       </>
+    );
+  }
+
+  if (view === 'payment') {
+    return (
+      <PaymentPage
+        onBack={handleBackFromPayment}
+        onSuccess={handlePaymentSuccess}
+      />
     );
   }
 
@@ -302,6 +366,7 @@ function App() {
         isOpen={showSubscriptionModal}
         onClose={handleCloseSubscriptionModal}
         onSuccess={handleSubscriptionSuccess}
+        onNavigateToPayment={handleNavigateToPayment}
       />
     </>
   );
