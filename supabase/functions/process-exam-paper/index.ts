@@ -60,6 +60,47 @@ Deno.serve(async (req: Request) => {
       examPaperId
     );
 
+    // Get exam paper details to find matching syllabus
+    const { data: examPaper } = await supabase
+      .from('exam_papers')
+      .select('subject_id, grade_level_id')
+      .eq('id', examPaperId)
+      .single();
+
+    let chapterTaggingTokens = null;
+    let taggedQuestionsCount = 0;
+
+    // Check if there's a syllabus for this subject and grade
+    if (examPaper) {
+      const { data: syllabus } = await supabase
+        .from('syllabus')
+        .select('id, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
+        .eq('subject_id', examPaper.subject_id)
+        .eq('grade_id', examPaper.grade_level_id)
+        .eq('processing_status', 'completed')
+        .single();
+
+      if (syllabus && syllabus.syllabus_chapters && syllabus.syllabus_chapters.length > 0) {
+        console.log(`Found syllabus with ${syllabus.syllabus_chapters.length} chapters. Starting chapter tagging...`);
+
+        // Tag questions with chapters using AI
+        const taggingResult = await tagQuestionsWithChapters(
+          savedQuestions,
+          syllabus.syllabus_chapters,
+          syllabus.id,
+          supabase,
+          geminiApiKey
+        );
+
+        chapterTaggingTokens = taggingResult.tokenUsage;
+        taggedQuestionsCount = taggingResult.taggedCount;
+
+        console.log(`Successfully tagged ${taggedQuestionsCount} questions with chapters`);
+      } else {
+        console.log('No completed syllabus found for this subject/grade. Skipping chapter tagging.');
+      }
+    }
+
     // Extract marking scheme answers if marking scheme is provided
     let markingSchemeData: Map<string, string> = new Map();
     let markingSchemeTokens = null;
@@ -111,15 +152,18 @@ Deno.serve(async (req: Request) => {
     console.log(`Database save complete: ${savedCount} saved, ${errorCount} errors`);
 
     // Calculate total token usage and cost
-    const totalPromptTokens = extractTokens.promptTokens + (markingSchemeTokens?.promptTokens || 0);
-    const totalCompletionTokens = extractTokens.completionTokens + (markingSchemeTokens?.completionTokens || 0);
+    const totalPromptTokens = extractTokens.promptTokens + (markingSchemeTokens?.promptTokens || 0) + (chapterTaggingTokens?.promptTokens || 0);
+    const totalCompletionTokens = extractTokens.completionTokens + (markingSchemeTokens?.completionTokens || 0) + (chapterTaggingTokens?.completionTokens || 0);
     const totalTokens = totalPromptTokens + totalCompletionTokens;
-    const totalCost = extractTokens.cost + (markingSchemeTokens?.cost || 0);
+    const totalCost = extractTokens.cost + (markingSchemeTokens?.cost || 0) + (chapterTaggingTokens?.cost || 0);
 
     console.log('=== Processing Token Usage ===');
     console.log(`Question extraction: ${extractTokens.totalTokens} tokens, $${extractTokens.cost.toFixed(6)}`);
     if (markingSchemeTokens) {
       console.log(`Marking scheme extraction: ${markingSchemeTokens.totalTokens} tokens, $${markingSchemeTokens.cost.toFixed(6)}`);
+    }
+    if (chapterTaggingTokens) {
+      console.log(`Chapter tagging: ${chapterTaggingTokens.totalTokens} tokens, $${chapterTaggingTokens.cost.toFixed(6)}`);
     }
     console.log(`Total: ${totalTokens} tokens, $${totalCost.toFixed(6)}`);
 
@@ -145,6 +189,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         questionsCount: savedQuestions.length,
+        taggedQuestionsCount,
         questions: savedQuestions.map(q => ({
           number: q.questionNumber,
           pages: q.pageNumbers,
@@ -162,6 +207,10 @@ Deno.serve(async (req: Request) => {
             markingScheme: markingSchemeTokens ? {
               tokens: markingSchemeTokens.totalTokens,
               cost: parseFloat(markingSchemeTokens.cost.toFixed(6))
+            } : null,
+            chapterTagging: chapterTaggingTokens ? {
+              tokens: chapterTaggingTokens.totalTokens,
+              cost: parseFloat(chapterTaggingTokens.cost.toFixed(6))
             } : null
           }
         }
@@ -580,6 +629,222 @@ Return ONLY the JSON object.`;
     console.error("Failed to extract marking scheme:", error);
     return {
       markingScheme: new Map(),
+      tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+    };
+  }
+}
+
+/**
+ * Tag questions with syllabus chapters using AI analysis
+ */
+async function tagQuestionsWithChapters(
+  questions: any[],
+  chapters: any[],
+  syllabusId: string,
+  supabase: any,
+  geminiApiKey: string
+): Promise<{ taggedCount: number; tokenUsage: any }> {
+
+  // Build chapter information for AI
+  const chapterInfo = chapters.map(ch => ({
+    id: ch.id,
+    number: ch.chapter_number,
+    title: ch.chapter_title,
+    description: ch.chapter_description || '',
+    subtopics: Array.isArray(ch.subtopics) ? ch.subtopics.join(', ') : ''
+  }));
+
+  // Build question information for AI
+  const questionInfo = questions.map(q => ({
+    number: q.questionNumber,
+    text: q.fullText
+  }));
+
+  const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters.
+
+**CHAPTERS:**
+${chapterInfo.map(ch => `Chapter ${ch.number}: ${ch.title}
+Description: ${ch.description}
+Subtopics: ${ch.subtopics || 'None listed'}`).join('\n\n')}
+
+**QUESTIONS:**
+${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
+
+**Task:**
+For each question, identify which chapter(s) it belongs to. A question may relate to multiple chapters.
+
+Return a JSON array with this format:
+[
+  {
+    "questionNumber": "1",
+    "matches": [
+      {
+        "chapterId": "chapter-uuid-here",
+        "chapterNumber": 1,
+        "confidence": 0.95,
+        "isPrimary": true,
+        "reasoning": "Question directly tests concepts from this chapter"
+      }
+    ]
+  }
+]
+
+**Rules:**
+1. confidence should be 0.00 to 1.00 (1.00 = perfect match)
+2. Only include matches with confidence >= 0.60
+3. Mark ONE chapter as isPrimary: true (the best match)
+4. Use the actual chapter IDs from the list above
+5. reasoning should be brief (1 sentence)
+6. If a question doesn't match any chapter well, return empty matches array
+
+Return ONLY the JSON array.`;
+
+  try {
+    console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using AI...`);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [{ text: CHAPTER_TAGGING_PROMPT }]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            topP: 0.8,
+            topK: 40,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+          }
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Chapter tagging AI failed:", response.status);
+      return {
+        taggedCount: 0,
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+      };
+    }
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!rawText) {
+      console.error("No response from chapter tagging AI");
+      return {
+        taggedCount: 0,
+        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+      };
+    }
+
+    // Extract token usage
+    const usageMetadata = data?.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount || 0;
+    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
+
+    // Calculate cost
+    const inputCost = (promptTokens / 1000000) * 0.075;
+    const outputCost = (completionTokens / 1000000) * 0.30;
+    const totalCost = inputCost + outputCost;
+
+    let jsonText = rawText.trim();
+
+    // Clean markdown if present
+    if (jsonText.includes('```')) {
+      const match = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      if (match) {
+        jsonText = match[1].trim();
+      }
+    }
+
+    const taggingResults = JSON.parse(jsonText);
+
+    if (!Array.isArray(taggingResults)) {
+      console.error("AI response is not an array");
+      return {
+        taggedCount: 0,
+        tokenUsage: { promptTokens, completionTokens, totalTokens: totalTokensUsed, cost: totalCost }
+      };
+    }
+
+    // Save tags to database
+    let taggedCount = 0;
+
+    for (const result of taggingResults) {
+      if (!result.matches || result.matches.length === 0) {
+        console.log(`No chapter matches for question ${result.questionNumber}`);
+        continue;
+      }
+
+      // Find the question in our saved questions
+      const question = questions.find(q => String(q.questionNumber) === String(result.questionNumber));
+      if (!question) {
+        console.warn(`Could not find saved question ${result.questionNumber}`);
+        continue;
+      }
+
+      // Get the question ID from database
+      const { data: dbQuestion } = await supabase
+        .from('exam_questions')
+        .select('id')
+        .eq('question_number', String(result.questionNumber))
+        .eq('image_url', question.imageUrl)
+        .single();
+
+      if (!dbQuestion) {
+        console.warn(`Could not find database record for question ${result.questionNumber}`);
+        continue;
+      }
+
+      // Update syllabus_id on the question
+      await supabase
+        .from('exam_questions')
+        .update({ syllabus_id: syllabusId })
+        .eq('id', dbQuestion.id);
+
+      // Insert chapter tags
+      for (const match of result.matches) {
+        const { error } = await supabase
+          .from('question_chapter_tags')
+          .insert({
+            question_id: dbQuestion.id,
+            chapter_id: match.chapterId,
+            confidence_score: match.confidence,
+            is_primary: match.isPrimary || false,
+            match_reasoning: match.reasoning,
+            is_manually_set: false
+          });
+
+        if (error) {
+          console.error(`Failed to tag question ${result.questionNumber} with chapter:`, error);
+        } else {
+          console.log(`Tagged Q${result.questionNumber} with Chapter ${match.chapterNumber} (confidence: ${match.confidence})`);
+        }
+      }
+
+      taggedCount++;
+    }
+
+    return {
+      taggedCount,
+      tokenUsage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: totalTokensUsed,
+        cost: totalCost
+      }
+    };
+
+  } catch (error) {
+    console.error("Failed to tag questions with chapters:", error);
+    return {
+      taggedCount: 0,
       tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
     };
   }

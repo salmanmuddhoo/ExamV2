@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -12,8 +12,9 @@ import { AdminPaymentApproval } from './AdminPaymentApproval';
 import { UserManagement } from './UserManagement';
 import { PaymentMethodManager } from './PaymentMethodManager';
 import { SyllabusManager } from './SyllabusManager';
+import { QuestionBankByChapter } from './QuestionBankByChapter';
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'syllabus' | 'users';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'syllabus' | 'question-bank' | 'users';
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('exams');
@@ -22,6 +23,7 @@ export function AdminDashboard() {
   const tabs = [
     { id: 'exams' as Tab, label: 'Exam Papers', icon: FileText },
     { id: 'syllabus' as Tab, label: 'Syllabus', icon: BookMarked },
+    { id: 'question-bank' as Tab, label: 'Question Bank', icon: Library },
     { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
     { id: 'users' as Tab, label: 'User Management', icon: UserCog },
     { id: 'subscriptions' as Tab, label: 'Subscriptions', icon: Users },
@@ -71,11 +73,12 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`bg-white rounded-lg border border-gray-200 ${activeTab === 'analytics' || activeTab === 'payments' || activeTab === 'users' || activeTab === 'payment-methods' || activeTab === 'syllabus' ? 'p-6' : 'p-6'}`}>
+        <div className={`bg-white rounded-lg border border-gray-200 ${activeTab === 'analytics' || activeTab === 'payments' || activeTab === 'users' || activeTab === 'payment-methods' || activeTab === 'syllabus' || activeTab === 'question-bank' ? 'p-6' : 'p-6'}`}>
           {activeTab === 'subjects' && <SubjectManager />}
           {activeTab === 'grades' && <GradeLevelManager />}
           {activeTab === 'exams' && <ExamPaperManager />}
           {activeTab === 'syllabus' && <SyllabusManager />}
+          {activeTab === 'question-bank' && <QuestionBankByChapter />}
           {activeTab === 'prompts' && <AIPromptManager />}
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
