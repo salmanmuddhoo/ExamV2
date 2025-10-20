@@ -132,7 +132,7 @@ export function UnifiedPracticeViewer({
       const { data: syllabusData, error: syllabusError } = await supabase
         .from('syllabus')
         .select('id')
-        .eq('grade_level_id', gradeId)
+        .eq('grade_id', gradeId)
         .eq('subject_id', subjectId)
         .maybeSingle();
 
