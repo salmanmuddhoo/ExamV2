@@ -280,6 +280,7 @@ function App() {
           onSelectConversation={handleSelectConversation}
           onSelectPaper={handleSelectPaper}
           onNavigateHome={handleNavigateToHomepage}
+          onNavigateChapterPractice={handleNavigateToChapterPractice}
           showWelcomeModal={showWelcomeModal}
           tokensRemaining={tokensRemaining}
           papersRemaining={papersRemaining}

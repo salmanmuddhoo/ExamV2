@@ -29,6 +29,7 @@ interface Props {
   onSelectConversation: (conversationId: string, paperId: string) => void;
   onSelectPaper: (paperId: string) => void;
   onNavigateHome: () => void;
+  onNavigateChapterPractice?: () => void;
   showWelcomeModal?: boolean;
   tokensRemaining?: number;
   papersRemaining?: number;
@@ -40,6 +41,7 @@ export function ChatHub({
   onSelectConversation,
   onSelectPaper,
   onNavigateHome,
+  onNavigateChapterPractice,
   showWelcomeModal = false,
   tokensRemaining = 0,
   papersRemaining = 0,
@@ -320,13 +322,27 @@ export function ChatHub({
                 </button>
               </div>
             </div>
-            <button
-              onClick={handleNewConversation}
-              className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Conversation</span>
-            </button>
+
+            {/* Practice Mode Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={handleNewConversation}
+                className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Practice by Year</span>
+              </button>
+
+              {onNavigateChapterPractice && (
+                <button
+                  onClick={onNavigateChapterPractice}
+                  className="w-full px-4 py-2.5 bg-white border-2 border-black text-black rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Practice by Chapter</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Conversations List */}
