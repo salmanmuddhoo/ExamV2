@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
@@ -14,15 +14,24 @@ interface ConversationWithPaper {
   created_at: string;
   updated_at: string;
   exam_paper_id: string;
+  practice_mode: 'year' | 'chapter';
+  chapter_id?: string | null;
   exam_papers: {
     title: string;
     subjects: { name: string };
     grade_levels: { name: string };
   };
+  syllabus_chapters?: {
+    chapter_number: number;
+    chapter_title: string;
+  } | null;
 }
 
 interface GroupedConversations {
-  [subjectName: string]: ConversationWithPaper[];
+  [subjectName: string]: {
+    year: ConversationWithPaper[];
+    chapter: ConversationWithPaper[];
+  };
 }
 
 interface Props {
@@ -60,6 +69,7 @@ export function ChatHub({
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileModalTab, setProfileModalTab] = useState<'general' | 'subscription' | 'payment-history' | 'settings'>('general');
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set()); // Format: "subject:mode"
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; conversationId: string | null }>({
     show: false,
@@ -142,10 +152,16 @@ export function ChatHub({
           created_at,
           updated_at,
           exam_paper_id,
+          practice_mode,
+          chapter_id,
           exam_papers (
             title,
             subjects (name),
             grade_levels (name)
+          ),
+          syllabus_chapters (
+            chapter_number,
+            chapter_title
           )
         `)
         .eq('user_id', user.id)
@@ -154,10 +170,20 @@ export function ChatHub({
       if (error) throw error;
       setConversations(data || []);
 
-      // On initial load, collapse all subjects
+      // On initial load, collapse all subjects and folders
       if (isInitialLoad && data && data.length > 0) {
         const subjects = new Set(data.map(conv => conv.exam_papers.subjects.name));
         setCollapsedSubjects(subjects);
+
+        // Also collapse all folders (subject:mode combinations)
+        const folders = new Set<string>();
+        data.forEach(conv => {
+          const subjectName = conv.exam_papers.subjects.name;
+          folders.add(`${subjectName}:year`);
+          folders.add(`${subjectName}:chapter`);
+        });
+        setCollapsedFolders(folders);
+
         setIsInitialLoad(false);
       }
     } catch (error) {
@@ -174,6 +200,18 @@ export function ChatHub({
         newSet.delete(subjectName);
       } else {
         newSet.add(subjectName);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleFolder = (folderKey: string) => {
+    setCollapsedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderKey)) {
+        newSet.delete(folderKey);
+      } else {
+        newSet.add(folderKey);
       }
       return newSet;
     });
@@ -220,10 +258,17 @@ export function ChatHub({
       const subjectName = conv.exam_papers.subjects.name;
 
       if (!grouped[subjectName]) {
-        grouped[subjectName] = [];
+        grouped[subjectName] = {
+          year: [],
+          chapter: []
+        };
       }
 
-      grouped[subjectName].push(conv);
+      if (conv.practice_mode === 'year') {
+        grouped[subjectName].year.push(conv);
+      } else {
+        grouped[subjectName].chapter.push(conv);
+      }
     });
 
     return grouped;
@@ -348,9 +393,10 @@ export function ChatHub({
               </div>
             ) : (
               <div className="p-3 space-y-2">
-                {Object.entries(groupedConversations).map(([subjectName, convs]) => {
-                  const isCollapsed = collapsedSubjects.has(subjectName);
-                  
+                {Object.entries(groupedConversations).map(([subjectName, modes]) => {
+                  const isSubjectCollapsed = collapsedSubjects.has(subjectName);
+                  const totalConvs = modes.year.length + modes.chapter.length;
+
                   return (
                     <div key={subjectName} className="mb-2">
                       {/* Subject Header - Clickable */}
@@ -367,13 +413,13 @@ export function ChatHub({
                               {subjectName}
                             </h3>
                             <p className="text-xs text-gray-500">
-                              {convs.length} conversation{convs.length !== 1 ? 's' : ''}
+                              {totalConvs} conversation{totalConvs !== 1 ? 's' : ''}
                             </p>
                           </div>
                         </div>
                         <svg
                           className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
-                            isCollapsed ? '' : 'rotate-180'
+                            isSubjectCollapsed ? '' : 'rotate-180'
                           }`}
                           fill="none"
                           stroke="currentColor"
@@ -383,45 +429,148 @@ export function ChatHub({
                         </svg>
                       </button>
 
-                      {/* Exam papers under this subject - Collapsible */}
-                      {!isCollapsed && (
+                      {/* Folders (Year/Chapter) under this subject */}
+                      {!isSubjectCollapsed && (
                         <div className="mt-1 ml-2 pl-3 border-l-2 border-gray-200 space-y-1">
-                          {convs.map((conv) => (
-                            <div
-                              key={conv.id}
-                              onClick={() => {
-                                setSelectedConversation(conv.id);
-                                onSelectConversation(conv.id, conv.exam_paper_id);
-                              }}
-                              className={`group px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
-                                selectedConversation === conv.id 
-                                  ? 'bg-blue-50 border border-blue-200 shadow-sm' 
-                                  : 'hover:bg-gray-50 border border-transparent'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0 pr-2">
-                                  <div className="flex items-center space-x-2">
-                                    <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
-                                      selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
-                                    }`} />
-                                    <p className={`text-sm truncate font-medium ${
-                                      selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
-                                    }`}>
-                                      {conv.exam_papers.title}
-                                    </p>
-                                  </div>
+                          {/* Year Folder */}
+                          {modes.year.length > 0 && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => toggleFolder(`${subjectName}:year`)}
+                                className="w-full flex items-center justify-between px-2 py-2 bg-gray-50 hover:bg-gray-100 rounded-md transition-all"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <Calendar className="w-4 h-4 text-gray-600" />
+                                  <span className="text-xs font-semibold text-gray-700">Practice by Year</span>
                                 </div>
-                                <button
-                                  onClick={(e) => deleteConversation(conv.id, e)}
-                                  className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 rounded transition-all flex-shrink-0"
-                                  title="Delete conversation"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                                </button>
-                              </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500">{modes.year.length}</span>
+                                  <svg
+                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                                      collapsedFolders.has(`${subjectName}:year`) ? '' : 'rotate-180'
+                                    }`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </button>
+
+                              {!collapsedFolders.has(`${subjectName}:year`) && (
+                                <div className="mt-1 ml-4 space-y-1">
+                                  {modes.year.map((conv) => (
+                                    <div
+                                      key={conv.id}
+                                      onClick={() => {
+                                        setSelectedConversation(conv.id);
+                                        onSelectConversation(conv.id, conv.exam_paper_id);
+                                      }}
+                                      className={`group px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
+                                        selectedConversation === conv.id
+                                          ? 'bg-blue-50 border border-blue-200 shadow-sm'
+                                          : 'hover:bg-gray-50 border border-transparent'
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1 min-w-0 pr-2">
+                                          <div className="flex items-center space-x-2">
+                                            <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                              selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
+                                            }`} />
+                                            <p className={`text-sm truncate font-medium ${
+                                              selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
+                                            }`}>
+                                              {conv.exam_papers.title}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={(e) => deleteConversation(conv.id, e)}
+                                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 rounded transition-all flex-shrink-0"
+                                          title="Delete conversation"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          ))}
+                          )}
+
+                          {/* Chapter Folder */}
+                          {modes.chapter.length > 0 && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => toggleFolder(`${subjectName}:chapter`)}
+                                className="w-full flex items-center justify-between px-2 py-2 bg-gray-50 hover:bg-gray-100 rounded-md transition-all"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <BookOpen className="w-4 h-4 text-gray-600" />
+                                  <span className="text-xs font-semibold text-gray-700">Practice by Chapter</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500">{modes.chapter.length}</span>
+                                  <svg
+                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                                      collapsedFolders.has(`${subjectName}:chapter`) ? '' : 'rotate-180'
+                                    }`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </button>
+
+                              {!collapsedFolders.has(`${subjectName}:chapter`) && (
+                                <div className="mt-1 ml-4 space-y-1">
+                                  {modes.chapter.map((conv) => (
+                                    <div
+                                      key={conv.id}
+                                      onClick={() => {
+                                        setSelectedConversation(conv.id);
+                                        onSelectConversation(conv.id, conv.exam_paper_id);
+                                      }}
+                                      className={`group px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
+                                        selectedConversation === conv.id
+                                          ? 'bg-blue-50 border border-blue-200 shadow-sm'
+                                          : 'hover:bg-gray-50 border border-transparent'
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1 min-w-0 pr-2">
+                                          <div className="flex items-center space-x-2">
+                                            <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                              selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
+                                            }`} />
+                                            <p className={`text-sm truncate font-medium ${
+                                              selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
+                                            }`}>
+                                              {conv.syllabus_chapters
+                                                ? `Ch ${conv.syllabus_chapters.chapter_number}: ${conv.syllabus_chapters.chapter_title}`
+                                                : conv.title}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={(e) => deleteConversation(conv.id, e)}
+                                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 rounded transition-all flex-shrink-0"
+                                          title="Delete conversation"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
