@@ -236,12 +236,11 @@ export function UnifiedPracticeViewer({
             )
           )
         `)
-        .eq('chapter_id', chapterId)
-        .order('exam_questions.exam_papers.year', { ascending: false });
+        .eq('chapter_id', chapterId);
 
       if (error) throw error;
 
-      // Format questions and sort by year
+      // Format questions and sort by year (in JavaScript)
       const formattedQuestions = (data || [])
         .map((tag: any) => ({
           id: tag.exam_questions.id,
