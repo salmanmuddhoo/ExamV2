@@ -133,10 +133,40 @@ function App() {
     setView('exam-viewer');
   };
 
-  const handleSelectConversation = (conversationId: string, paperId: string) => {
-    setSelectedConversationId(conversationId);
-    setSelectedPaperId(paperId);
-    setView('exam-viewer');
+  const handleSelectConversation = async (conversationId: string, paperId: string) => {
+    // Check if this is a chapter-based conversation
+    try {
+      const { data: conv, error } = await supabase
+        .from('conversations')
+        .select('practice_mode, chapter_id, exam_papers(subjects(id), grade_levels(id))')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) throw error;
+
+      if (conv && conv.practice_mode === 'chapter' && conv.chapter_id) {
+        // Route to unified viewer in chapter mode
+        const gradeId = (conv.exam_papers as any).grade_levels.id;
+        const subjectId = (conv.exam_papers as any).subjects.id;
+
+        setSelectedMode('chapter');
+        setSelectedGradeId(gradeId);
+        setSelectedSubjectId(subjectId);
+        setSelectedChapterId(conv.chapter_id);
+        setView('unified-viewer');
+      } else {
+        // Route to exam viewer for year mode
+        setSelectedConversationId(conversationId);
+        setSelectedPaperId(paperId);
+        setView('exam-viewer');
+      }
+    } catch (error) {
+      console.error('Error checking conversation type:', error);
+      // Fallback to exam viewer
+      setSelectedConversationId(conversationId);
+      setSelectedPaperId(paperId);
+      setView('exam-viewer');
+    }
   };
 
   const handleBackToHome = () => {

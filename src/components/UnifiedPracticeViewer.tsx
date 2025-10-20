@@ -112,6 +112,7 @@ export function UnifiedPracticeViewer({
     } else if (mode === 'chapter' && chapterId) {
       fetchChapterInfo();
       fetchQuestionsForChapter(chapterId);
+      loadExistingConversation();
     }
 
     // Mobile detection
@@ -132,6 +133,51 @@ export function UnifiedPracticeViewer({
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  const loadExistingConversation = async () => {
+    if (!user || !chapterId) return;
+
+    try {
+      // Check if there's an existing conversation for this chapter
+      const { data: existingConv, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('chapter_id', chapterId)
+        .eq('practice_mode', 'chapter')
+        .maybeSingle();
+
+      if (convError) {
+        console.error('Error loading conversation:', convError);
+        return;
+      }
+
+      if (existingConv) {
+        setCurrentConversationId(existingConv.id);
+
+        // Load messages for this conversation
+        const { data: msgs, error: msgsError } = await supabase
+          .from('conversation_messages')
+          .select('role, content')
+          .eq('conversation_id', existingConv.id)
+          .order('created_at', { ascending: true });
+
+        if (msgsError) {
+          console.error('Error loading messages:', msgsError);
+          return;
+        }
+
+        if (msgs && msgs.length > 0) {
+          setMessages(msgs.map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content
+          })));
+        }
+      }
+    } catch (error) {
+      console.error('Error in loadExistingConversation:', error);
     }
   };
 
@@ -509,8 +555,58 @@ export function UnifiedPracticeViewer({
         await refreshTokenCounts();
 
         // Save to conversation (chapter mode)
-        // TODO: Create chapter_conversations and chapter_messages tables if needed
-        // For now, we'll skip saving to database
+        if (!currentConversationId && user && chapterId) {
+          // Create new conversation for this chapter
+          const conversationTitle = chapterInfo
+            ? `Ch ${chapterInfo.chapter_number}: ${chapterInfo.chapter_title}`
+            : 'Chapter Practice';
+
+          const { data: newConv, error: convError } = await supabase
+            .from('conversations')
+            .insert({
+              user_id: user.id,
+              exam_paper_id: questionData.exam_paper_id,
+              practice_mode: 'chapter',
+              chapter_id: chapterId,
+              title: conversationTitle
+            })
+            .select()
+            .single();
+
+          if (convError) {
+            console.error('Error creating conversation:', convError);
+          } else if (newConv) {
+            setCurrentConversationId(newConv.id);
+
+            // Save user message
+            await supabase.from('conversation_messages').insert({
+              conversation_id: newConv.id,
+              role: 'user',
+              content: userMessage
+            });
+
+            // Save assistant message
+            await supabase.from('conversation_messages').insert({
+              conversation_id: newConv.id,
+              role: 'assistant',
+              content: assistantMessage
+            });
+          }
+        } else if (currentConversationId) {
+          // Save messages to existing conversation
+          await supabase.from('conversation_messages').insert([
+            {
+              conversation_id: currentConversationId,
+              role: 'user',
+              content: userMessage
+            },
+            {
+              conversation_id: currentConversationId,
+              role: 'assistant',
+              content: assistantMessage
+            }
+          ]);
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
