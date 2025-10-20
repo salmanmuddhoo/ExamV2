@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, ChevronRight, Loader2, FileText, ChevronLeft } from 'lucide-react';
+import { X, ChevronRight, Loader2, FileText, ChevronLeft, Calendar, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface GradeLevel {
@@ -25,11 +25,13 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSelectPaper: (paperId: string) => void;
+  onSelectMode?: (mode: 'year' | 'chapter', gradeId: string, subjectId: string) => void;
 }
 
-type Step = 'grade' | 'subject' | 'paper';
+type Step = 'grade' | 'subject' | 'mode' | 'paper';
+type PracticeMode = 'year' | 'chapter';
 
-export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
+export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMode }: Props) {
   const { user } = useAuth();
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -38,6 +40,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
   const [currentStep, setCurrentStep] = useState<Step>('grade');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
   const [existingConvs, setExistingConvs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -46,6 +49,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
       setCurrentStep('grade');
       setSelectedGrade(null);
       setSelectedSubject(null);
+      setSelectedMode(null);
     }
   }, [isOpen]);
 
@@ -106,12 +110,26 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
   const handleGradeClick = (grade: GradeLevel) => {
     setSelectedGrade(grade);
     setSelectedSubject(null);
+    setSelectedMode(null);
     setCurrentStep('subject');
   };
 
   const handleSubjectClick = (subject: Subject) => {
     setSelectedSubject(subject);
-    setCurrentStep('paper');
+    setSelectedMode(null);
+    setCurrentStep('mode');
+  };
+
+  const handleModeClick = (mode: PracticeMode) => {
+    setSelectedMode(mode);
+    if (mode === 'chapter' && onSelectMode && selectedGrade && selectedSubject) {
+      // For chapter mode, navigate to unified viewer with chapter mode
+      onSelectMode('chapter', selectedGrade.id, selectedSubject.id);
+      handleClose();
+    } else {
+      // For year mode, continue to paper selection
+      setCurrentStep('paper');
+    }
   };
 
   const handlePaperClick = (paper: ExamPaper) => {
@@ -121,6 +139,9 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
 
   const handleBack = () => {
     if (currentStep === 'paper') {
+      setSelectedMode(null);
+      setCurrentStep('mode');
+    } else if (currentStep === 'mode') {
       setSelectedSubject(null);
       setCurrentStep('subject');
     } else if (currentStep === 'subject') {
@@ -132,6 +153,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
   const handleClose = () => {
     setSelectedGrade(null);
     setSelectedSubject(null);
+    setSelectedMode(null);
     setCurrentStep('grade');
     onClose();
   };
@@ -158,7 +180,8 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
               <h2 className="text-xl font-bold text-gray-900">
                 {currentStep === 'grade' && 'Select Grade Level'}
                 {currentStep === 'subject' && `Grade ${selectedGrade?.name} - Select Subject`}
-                {currentStep === 'paper' && `${selectedSubject?.name} - Select Paper`}
+                {currentStep === 'mode' && `${selectedSubject?.name} - Choose Practice Mode`}
+                {currentStep === 'paper' && `Practice by Year - Select Paper`}
               </h2>
             </div>
           </div>
@@ -200,6 +223,42 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
                 </button>
               ))}
 
+              {currentStep === 'mode' && (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleModeClick('year')}
+                    className="w-full text-left px-5 py-5 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-start space-x-4 group"
+                  >
+                    <div className="p-3 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
+                      <Calendar className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 text-lg mb-1">Practice by Year</p>
+                      <p className="text-sm text-gray-600">
+                        Select an exam paper and practice with the full PDF. Perfect for doing complete past papers.
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors flex-shrink-0 mt-1" />
+                  </button>
+
+                  <button
+                    onClick={() => handleModeClick('chapter')}
+                    className="w-full text-left px-5 py-5 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-start space-x-4 group"
+                  >
+                    <div className="p-3 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900 text-lg mb-1">Practice by Chapter</p>
+                      <p className="text-sm text-gray-600">
+                        Focus on specific topics. View questions organized by syllabus chapters with AI assistance.
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors flex-shrink-0 mt-1" />
+                  </button>
+                </div>
+              )}
+
               {currentStep === 'paper' && availablePapers.map(paper => (
                 <button key={paper.id} onClick={() => handlePaperClick(paper)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
                   <div className="flex items-center space-x-2">
@@ -217,7 +276,8 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper }: Props) {
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
           <p className="text-xs text-gray-500">
             {currentStep === 'grade' && 'Select a grade level to view available subjects'}
-            {currentStep === 'subject' && 'Select a subject to view available exam papers'}
+            {currentStep === 'subject' && 'Select a subject to choose your practice mode'}
+            {currentStep === 'mode' && 'Choose how you want to practice - by year or by chapter'}
             {currentStep === 'paper' && 'Select an exam paper to start or continue a conversation'}
           </p>
         </div>

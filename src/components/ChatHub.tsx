@@ -28,8 +28,8 @@ interface GroupedConversations {
 interface Props {
   onSelectConversation: (conversationId: string, paperId: string) => void;
   onSelectPaper: (paperId: string) => void;
+  onSelectMode?: (mode: 'year' | 'chapter', gradeId: string, subjectId: string) => void;
   onNavigateHome: () => void;
-  onNavigateChapterPractice?: () => void;
   showWelcomeModal?: boolean;
   tokensRemaining?: number;
   papersRemaining?: number;
@@ -40,8 +40,8 @@ interface Props {
 export function ChatHub({
   onSelectConversation,
   onSelectPaper,
+  onSelectMode,
   onNavigateHome,
-  onNavigateChapterPractice,
   showWelcomeModal = false,
   tokensRemaining = 0,
   papersRemaining = 0,
@@ -282,6 +282,7 @@ export function ChatHub({
         isOpen={showPaperModal}
         onClose={() => setShowPaperModal(false)}
         onSelectPaper={handlePaperSelected}
+        onSelectMode={onSelectMode}
       />
 
       <UserProfileModal
@@ -322,27 +323,13 @@ export function ChatHub({
                 </button>
               </div>
             </div>
-
-            {/* Practice Mode Buttons */}
-            <div className="space-y-2">
-              <button
-                onClick={handleNewConversation}
-                className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
-              >
-                <FileText className="w-4 h-4" />
-                <span>Practice by Year</span>
-              </button>
-
-              {onNavigateChapterPractice && (
-                <button
-                  onClick={onNavigateChapterPractice}
-                  className="w-full px-4 py-2.5 bg-white border-2 border-black text-black rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  <span>Practice by Chapter</span>
-                </button>
-              )}
-            </div>
+            <button
+              onClick={handleNewConversation}
+              className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Conversation</span>
+            </button>
           </div>
 
           {/* Conversations List */}

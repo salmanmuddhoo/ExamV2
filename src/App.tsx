@@ -10,16 +10,19 @@ import { ExamPapersBrowser } from './components/ExamPapersBrowser';
 import { WelcomeModal } from './components/WelcomeModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { PaymentPage } from './components/PaymentPage';
-import { ChapterPractice } from './components/ChapterPractice';
+import { UnifiedPracticeViewer } from './components/UnifiedPracticeViewer';
 import { supabase } from './lib/supabase';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'chapter-practice' | 'payment';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment';
 
 function App() {
   const { user, profile, loading } = useAuth();
   const [view, setView] = useState<View>('home');
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<'year' | 'chapter' | null>(null);
+  const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
@@ -117,7 +120,7 @@ function App() {
 
   useEffect(() => {
     if (initialLoadComplete && !user && !loading) {
-      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer') {
+      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer') {
         setView('home');
       }
     }
@@ -138,6 +141,9 @@ function App() {
   const handleBackToHome = () => {
     setSelectedPaperId(null);
     setSelectedConversationId(null);
+    setSelectedMode(null);
+    setSelectedGradeId(null);
+    setSelectedSubjectId(null);
     if (user && profile?.role !== 'admin') {
       setView('chat-hub');
     } else {
@@ -161,8 +167,11 @@ function App() {
     setView('chat-hub');
   };
 
-  const handleNavigateToChapterPractice = () => {
-    setView('chapter-practice');
+  const handleSelectMode = (mode: 'year' | 'chapter', gradeId: string, subjectId: string) => {
+    setSelectedMode(mode);
+    setSelectedGradeId(gradeId);
+    setSelectedSubjectId(subjectId);
+    setView('unified-viewer');
   };
 
   const handleSelectGrade = (gradeId: string, gradeName: string) => {
@@ -279,8 +288,8 @@ function App() {
         <ChatHub
           onSelectConversation={handleSelectConversation}
           onSelectPaper={handleSelectPaper}
+          onSelectMode={handleSelectMode}
           onNavigateHome={handleNavigateToHomepage}
-          onNavigateChapterPractice={handleNavigateToChapterPractice}
           showWelcomeModal={showWelcomeModal}
           tokensRemaining={tokensRemaining}
           papersRemaining={papersRemaining}
@@ -333,10 +342,17 @@ function App() {
     );
   }
 
-  if (view === 'chapter-practice' && user) {
+  if (view === 'unified-viewer' && user && selectedMode && selectedGradeId && selectedSubjectId) {
     return (
       <>
-        <ChapterPractice />
+        <UnifiedPracticeViewer
+          mode={selectedMode}
+          gradeId={selectedGradeId}
+          subjectId={selectedSubjectId}
+          onBack={handleBackToHome}
+          onLoginRequired={handleNavigateToLogin}
+          onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+        />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
           onClose={handleCloseSubscriptionModal}
