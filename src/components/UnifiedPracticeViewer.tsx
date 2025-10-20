@@ -23,8 +23,8 @@ interface ExamPaper {
 
 interface Chapter {
   id: string;
-  chapter_number: string;
-  title: string;
+  chapter_number: number;
+  chapter_title: string;
   question_count?: number;
 }
 
@@ -151,7 +151,7 @@ export function UnifiedPracticeViewer({
         .select(`
           id,
           chapter_number,
-          title,
+          chapter_title,
           question_chapter_tags(count)
         `)
         .eq('syllabus_id', syllabusData.id)
@@ -163,7 +163,7 @@ export function UnifiedPracticeViewer({
       const formattedChapters = (chaptersData || []).map(ch => ({
         id: ch.id,
         chapter_number: ch.chapter_number,
-        title: ch.title,
+        chapter_title: ch.chapter_title,
         question_count: Array.isArray(ch.question_chapter_tags) ? ch.question_chapter_tags.length : 0
       }));
 
@@ -367,7 +367,7 @@ export function UnifiedPracticeViewer({
                           Chapter {chapter.chapter_number}
                         </p>
                         <p className="text-xs mt-0.5 truncate">
-                          {chapter.title}
+                          {chapter.chapter_title}
                         </p>
                         <p className={`text-xs mt-0.5 ${
                           selectedChapter?.id === chapter.id ? 'text-gray-300' : 'text-gray-500'
@@ -446,7 +446,7 @@ export function UnifiedPracticeViewer({
                     <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600 mb-2">No questions available</p>
                     <p className="text-sm text-gray-500">
-                      Chapter {selectedChapter.chapter_number} - {selectedChapter.title}
+                      Chapter {selectedChapter.chapter_number} - {selectedChapter.chapter_title}
                     </p>
                   </div>
                 </div>
