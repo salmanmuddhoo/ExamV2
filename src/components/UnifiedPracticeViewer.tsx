@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ChatMessage } from './ChatMessage';
 
@@ -81,6 +81,7 @@ export function UnifiedPracticeViewer({
   // Chapter mode state
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [chapterInfo, setChapterInfo] = useState<Chapter | null>(null);
 
@@ -91,14 +92,37 @@ export function UnifiedPracticeViewer({
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Subscription state (like ExamViewer)
+  const [chatLocked, setChatLocked] = useState(false);
+  const [tokensRemaining, setTokensRemaining] = useState<number>(-1);
+  const [tierName, setTierName] = useState<string>('');
+  const [tokensLimit, setTokensLimit] = useState<number | null>(null);
+  const [tokensUsed, setTokensUsed] = useState<number>(0);
+
+  // Mobile state
+  const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     fetchGradeAndSubject();
+    checkSubscription();
+
     if (mode === 'year') {
       fetchPapers();
     } else if (mode === 'chapter' && chapterId) {
       fetchChapterInfo();
       fetchQuestionsForChapter(chapterId);
     }
+
+    // Mobile detection
+    const checkMobile = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(mobile);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, [mode, gradeId, subjectId, chapterId]);
 
   useEffect(() => {
@@ -108,6 +132,86 @@ export function UnifiedPracticeViewer({
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
+
+  const checkSubscription = async () => {
+    if (!user) return;
+
+    try {
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('tokens_used_current_period, token_limit_override, subscription_tiers!inner(name, token_limit)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscription) {
+        const tierName = subscription.subscription_tiers?.name;
+        const tierTokenLimit = subscription.subscription_tiers?.token_limit;
+        const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
+        const actualUsed = subscription.tokens_used_current_period;
+
+        const displayedUsed = tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed;
+
+        setTokensLimit(tokenLimit);
+        setTokensUsed(displayedUsed);
+        setTierName(tierName);
+
+        if (tokenLimit !== null) {
+          const remaining = Math.max(0, tokenLimit - actualUsed);
+          setTokensRemaining(remaining);
+
+          if (remaining === 0) {
+            setChatLocked(true);
+          }
+        }
+
+        // Chapter mode is for paid tiers only (not free)
+        if (mode === 'chapter' && tierName === 'free') {
+          setChatLocked(true);
+          console.log('🔒 Chapter mode locked - Free tier users must upgrade');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+    }
+  };
+
+  const refreshTokenCounts = async () => {
+    if (!user) return;
+
+    try {
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('tokens_used_current_period, token_limit_override, subscription_tiers!inner(name, token_limit)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscription) {
+        const tierName = subscription.subscription_tiers?.name;
+        const tierTokenLimit = subscription.subscription_tiers?.token_limit;
+        const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
+        const actualUsed = subscription.tokens_used_current_period;
+
+        const displayedUsed = tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed;
+
+        setTokensLimit(tokenLimit);
+        setTokensUsed(displayedUsed);
+        setTierName(tierName);
+
+        if (tokenLimit !== null) {
+          const remaining = Math.max(0, tokenLimit - actualUsed);
+          setTokensRemaining(remaining);
+
+          if (remaining === 0) {
+            setChatLocked(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing token counts:', error);
     }
   };
 
@@ -246,6 +350,7 @@ export function UnifiedPracticeViewer({
 
       // Auto-select first question
       if (formattedQuestions.length > 0) {
+        setCurrentQuestionIndex(0);
         setSelectedQuestion(formattedQuestions[0]);
       }
     } catch (error) {
@@ -262,6 +367,26 @@ export function UnifiedPracticeViewer({
     // Clear messages when switching questions
     setMessages([]);
     setCurrentConversationId(null);
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      const newIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(newIndex);
+      setSelectedQuestion(questions[newIndex]);
+      setMessages([]);
+      setCurrentConversationId(null);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      const newIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(newIndex);
+      setSelectedQuestion(questions[newIndex]);
+      setMessages([]);
+      setCurrentConversationId(null);
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -380,6 +505,9 @@ export function UnifiedPracticeViewer({
           questionNumber: questionData.question_number
         }]);
 
+        // Refresh token counts after AI response
+        await refreshTokenCounts();
+
         // Save to conversation (chapter mode)
         // TODO: Create chapter_conversations and chapter_messages tables if needed
         // For now, we'll skip saving to database
@@ -422,27 +550,56 @@ export function UnifiedPracticeViewer({
           </button>
           <div>
             <h1 className="font-semibold text-gray-900">
-              {subject?.name} - Grade {grade?.name}
+              {mode === 'year'
+                ? (selectedPaper?.title || `${subject?.name} - Grade ${grade?.name}`)
+                : chapterInfo
+                  ? `Chapter ${chapterInfo.chapter_number}: ${chapterInfo.chapter_title}`
+                  : `${subject?.name} - Grade ${grade?.name}`}
             </h1>
             <p className="text-xs text-gray-500">
-              {mode === 'year' ? 'Practice by Year' : 'Practice by Chapter'}
+              {mode === 'year'
+                ? `${subject?.name} - Grade ${grade?.name}`
+                : selectedQuestion
+                  ? `Question ${selectedQuestion.question_number} of ${questions.length}`
+                  : 'Select a question'}
             </p>
+          </div>
+        </div>
+
+        {/* Mobile View Toggle */}
+        <div className="flex md:hidden">
+          <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
+            <div
+              className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
+                mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
+              }`}
+            />
+            <button
+              onClick={() => setMobileView('pdf')}
+              className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
+                mobileView === 'pdf' ? 'text-white' : 'text-gray-600'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setMobileView('chat')}
+              className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
+                mobileView === 'chat' ? 'text-white' : 'text-gray-600'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0">
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">
-              {mode === 'year' ? 'Exam Papers' : chapterInfo ? `Chapter ${chapterInfo.chapter_number}` : 'Questions'}
-            </h3>
-            {mode === 'chapter' && chapterInfo && (
-              <p className="text-xs text-gray-600 mb-3">{chapterInfo.chapter_title}</p>
-            )}
-
-            {mode === 'year' ? (
+        {/* Sidebar - Only for Year Mode */}
+        {mode === 'year' && (
+          <div className="w-64 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0 hidden md:block">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Exam Papers</h3>
               <div className="space-y-2">
                 {papers.map(paper => (
                   <button
@@ -468,60 +625,20 @@ export function UnifiedPracticeViewer({
                   </button>
                 ))}
               </div>
-            ) : (
-              <div className="space-y-2">
-                {questions.map((question, idx) => (
-                  <button
-                    key={question.id}
-                    onClick={() => handleQuestionSelect(question)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all ${
-                      selectedQuestion?.id === question.id
-                        ? 'bg-black text-white border-black'
-                        : 'bg-white text-gray-900 border-gray-200 hover:border-black'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                          Q{question.question_number}
-                        </p>
-                        <p className={`text-xs mt-0.5 truncate ${
-                          selectedQuestion?.id === question.id ? 'text-gray-300' : 'text-gray-500'
-                        }`}>
-                          {question.exam_papers.title}
-                        </p>
-                        <p className={`text-xs mt-0.5 ${
-                          selectedQuestion?.id === question.id ? 'text-gray-300' : 'text-gray-500'
-                        }`}>
-                          {question.exam_papers.year} {question.exam_papers.month}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {mode === 'year' && papers.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No exam papers available
-              </p>
-            )}
-
-            {mode === 'chapter' && questions.length === 0 && !questionsLoading && (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No questions available
-              </p>
-            )}
+              {papers.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No exam papers available
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Main Content Area with Mobile Support */}
+        <div className={`${mobileView === 'pdf' ? 'flex' : 'hidden md:flex'} flex-1 bg-gray-100 relative`}>
           {mode === 'year' ? (
             // Year Mode: PDF Viewer
-            <div className="flex-1 bg-gray-100 relative">
+            <>
               {pdfLoading ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
@@ -544,10 +661,10 @@ export function UnifiedPracticeViewer({
                   </div>
                 </div>
               )}
-            </div>
+            </>
           ) : (
-            // Chapter Mode: Question Image Viewer
-            <div className="flex-1 bg-gray-100">
+            // Chapter Mode: Question Image Viewer with Navigation
+            <>
               {questionsLoading ? (
                 <div className="flex-1 flex items-center justify-center h-full">
                   <div className="text-center">
@@ -559,11 +676,11 @@ export function UnifiedPracticeViewer({
                 <div className="flex-1 flex items-center justify-center h-full">
                   <div className="text-center max-w-md p-6">
                     <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Select a question to view</p>
+                    <p className="text-gray-600">No questions available</p>
                   </div>
                 </div>
               ) : (
-                <div className="h-full overflow-y-auto p-6">
+                <div className="h-full overflow-y-auto p-6 relative">
                   <div className="max-w-4xl mx-auto">
                     {/* Question Images */}
                     <div className="space-y-4">
@@ -580,13 +697,40 @@ export function UnifiedPracticeViewer({
                       ))}
                     </div>
                   </div>
+
+                  {/* Navigation Arrows */}
+                  {questions.length > 1 && (
+                    <>
+                      {/* Previous Button */}
+                      {currentQuestionIndex > 0 && (
+                        <button
+                          onClick={handlePrevQuestion}
+                          className="fixed left-4 top-1/2 transform -translate-y-1/2 bg-black text-white p-3 rounded-full shadow-lg hover:bg-gray-800 transition-colors z-10"
+                          title="Previous Question"
+                        >
+                          <ChevronLeft className="w-6 h-6" />
+                        </button>
+                      )}
+
+                      {/* Next Button */}
+                      {currentQuestionIndex < questions.length - 1 && (
+                        <button
+                          onClick={handleNextQuestion}
+                          className="fixed right-4 md:right-[calc(500px+1rem)] lg:right-[calc(600px+1rem)] top-1/2 transform -translate-y-1/2 bg-black text-white p-3 rounded-full shadow-lg hover:bg-gray-800 transition-colors z-10"
+                          title="Next Question"
+                        >
+                          <ChevronRight className="w-6 h-6" />
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Chat Assistant */}
-          <div className="w-full md:w-[500px] lg:w-[600px] flex flex-col bg-white border-l border-gray-200">
+          <div className={`${mobileView === 'chat' ? 'flex' : 'hidden md:flex'} w-full md:w-[500px] lg:w-[600px] flex-col bg-white border-l border-gray-200 h-full pb-safe`}>
             <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
               <h2 className="font-semibold text-gray-900">AI Study Assistant</h2>
               <p className="text-xs text-gray-500 mt-1">
@@ -598,7 +742,7 @@ export function UnifiedPracticeViewer({
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollBehavior: 'smooth' }}>
               {!user ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center max-w-sm">
@@ -645,24 +789,68 @@ export function UnifiedPracticeViewer({
             </div>
 
             {user && (
-              <div className="px-4 pt-4 pb-4 border-t border-gray-200 bg-white flex-shrink-0">
-                <form onSubmit={handleSendMessage} className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask a question..."
-                    disabled={sending || (mode === 'chapter' && !selectedQuestion)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sending || !input.trim() || (mode === 'chapter' && !selectedQuestion)}
-                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </form>
+              <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
+                {/* Token Display with Upgrade button */}
+                {tokensLimit !== null && (
+                  <div className="mb-2 flex items-center justify-between px-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-600">AI Tokens:</span>
+                      <span className="text-xs font-semibold text-gray-900">
+                        {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
+                      </span>
+                    </div>
+                    {(tierName === 'free' || tierName === 'student') && (
+                      <button
+                        onClick={onOpenSubscriptions || onBack}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                      >
+                        Upgrade
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {chatLocked ? (
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <Lock className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                      <h4 className="font-semibold text-gray-900">
+                        {mode === 'chapter' && tierName === 'free'
+                          ? 'Practice by Chapter - Premium Feature'
+                          : 'Chat Locked - Limit Reached'}
+                      </h4>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-3">
+                      {mode === 'chapter' && tierName === 'free'
+                        ? 'Practice by Chapter with AI assistance is available for Student and Professional tiers. Upgrade to unlock this feature!'
+                        : 'You\'ve reached your chat limit for this billing period. Upgrade to continue using AI chat assistance.'}
+                    </p>
+                    <button
+                      onClick={onOpenSubscriptions || onBack}
+                      className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+                    >
+                      Upgrade to Unlock Chat
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSendMessage} className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Ask a question..."
+                      disabled={sending || (mode === 'chapter' && !selectedQuestion)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sending || !input.trim() || (mode === 'chapter' && !selectedQuestion)}
+                      className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </div>
