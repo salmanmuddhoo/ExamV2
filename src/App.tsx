@@ -23,6 +23,7 @@ function App() {
   const [selectedMode, setSelectedMode] = useState<'year' | 'chapter' | null>(null);
   const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
@@ -144,6 +145,7 @@ function App() {
     setSelectedMode(null);
     setSelectedGradeId(null);
     setSelectedSubjectId(null);
+    setSelectedChapterId(null);
     if (user && profile?.role !== 'admin') {
       setView('chat-hub');
     } else {
@@ -167,10 +169,11 @@ function App() {
     setView('chat-hub');
   };
 
-  const handleSelectMode = (mode: 'year' | 'chapter', gradeId: string, subjectId: string) => {
+  const handleSelectMode = (mode: 'year' | 'chapter', gradeId: string, subjectId: string, chapterId?: string) => {
     setSelectedMode(mode);
     setSelectedGradeId(gradeId);
     setSelectedSubjectId(subjectId);
+    setSelectedChapterId(chapterId || null);
     setView('unified-viewer');
   };
 
@@ -349,6 +352,7 @@ function App() {
           mode={selectedMode}
           gradeId={selectedGradeId}
           subjectId={selectedSubjectId}
+          chapterId={selectedChapterId}
           onBack={handleBackToHome}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}

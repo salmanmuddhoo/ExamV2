@@ -7,6 +7,7 @@ interface Props {
   mode: 'year' | 'chapter';
   gradeId: string;
   subjectId: string;
+  chapterId?: string | null;
   onBack: () => void;
   onLoginRequired: () => void;
   onOpenSubscriptions?: () => void;
@@ -54,6 +55,7 @@ export function UnifiedPracticeViewer({
   mode,
   gradeId,
   subjectId,
+  chapterId,
   onBack,
   onLoginRequired,
   onOpenSubscriptions
@@ -70,20 +72,20 @@ export function UnifiedPracticeViewer({
   const [pdfLoading, setPdfLoading] = useState(false);
 
   // Chapter mode state
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [chapterInfo, setChapterInfo] = useState<Chapter | null>(null);
 
   useEffect(() => {
     fetchGradeAndSubject();
     if (mode === 'year') {
       fetchPapers();
-    } else {
-      fetchChapters();
+    } else if (mode === 'chapter' && chapterId) {
+      fetchChapterInfo();
+      fetchQuestionsForChapter(chapterId);
     }
-  }, [mode, gradeId, subjectId]);
+  }, [mode, gradeId, subjectId, chapterId]);
 
   const fetchGradeAndSubject = async () => {
     try {

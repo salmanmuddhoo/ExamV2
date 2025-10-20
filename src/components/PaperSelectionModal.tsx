@@ -25,22 +25,31 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSelectPaper: (paperId: string) => void;
-  onSelectMode?: (mode: 'year' | 'chapter', gradeId: string, subjectId: string) => void;
+  onSelectMode?: (mode: 'year' | 'chapter', gradeId: string, subjectId: string, chapterId?: string) => void;
 }
 
-type Step = 'grade' | 'subject' | 'mode' | 'paper';
+type Step = 'grade' | 'subject' | 'mode' | 'chapter' | 'paper';
 type PracticeMode = 'year' | 'chapter';
+
+interface Chapter {
+  id: string;
+  chapter_number: number;
+  chapter_title: string;
+  question_count?: number;
+}
 
 export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMode }: Props) {
   const { user } = useAuth();
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [papers, setPapers] = useState<ExamPaper[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState<Step>('grade');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [existingConvs, setExistingConvs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -50,6 +59,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setSelectedGrade(null);
       setSelectedSubject(null);
       setSelectedMode(null);
+      setSelectedChapter(null);
     }
   }, [isOpen]);
 
@@ -120,15 +130,72 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     setCurrentStep('mode');
   };
 
-  const handleModeClick = (mode: PracticeMode) => {
+  const handleModeClick = async (mode: PracticeMode) => {
     setSelectedMode(mode);
-    if (mode === 'chapter' && onSelectMode && selectedGrade && selectedSubject) {
-      // For chapter mode, navigate to unified viewer with chapter mode
-      onSelectMode('chapter', selectedGrade.id, selectedSubject.id);
-      handleClose();
+    if (mode === 'chapter') {
+      // For chapter mode, fetch chapters first
+      await fetchChaptersForSelection();
+      setCurrentStep('chapter');
     } else {
       // For year mode, continue to paper selection
       setCurrentStep('paper');
+    }
+  };
+
+  const fetchChaptersForSelection = async () => {
+    if (!selectedGrade || !selectedSubject) return;
+
+    try {
+      setLoading(true);
+
+      // Get syllabus for this grade/subject
+      const { data: syllabusData } = await supabase
+        .from('syllabus')
+        .select('id')
+        .eq('grade_id', selectedGrade.id)
+        .eq('subject_id', selectedSubject.id)
+        .maybeSingle();
+
+      if (!syllabusData) {
+        setChapters([]);
+        return;
+      }
+
+      // Get chapters with question counts
+      const { data: chaptersData } = await supabase
+        .from('syllabus_chapters')
+        .select(`
+          id,
+          chapter_number,
+          chapter_title,
+          question_chapter_tags(count)
+        `)
+        .eq('syllabus_id', syllabusData.id)
+        .order('chapter_number');
+
+      const formattedChapters = (chaptersData || []).map(ch => ({
+        id: ch.id,
+        chapter_number: ch.chapter_number,
+        chapter_title: ch.chapter_title,
+        question_count: Array.isArray(ch.question_chapter_tags) ? ch.question_chapter_tags.length : 0
+      }));
+
+      // Only show chapters with questions
+      const chaptersWithQuestions = formattedChapters.filter(ch => ch.question_count && ch.question_count > 0);
+      setChapters(chaptersWithQuestions);
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      setChapters([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChapterClick = (chapter: Chapter) => {
+    setSelectedChapter(chapter);
+    if (onSelectMode && selectedGrade && selectedSubject) {
+      onSelectMode('chapter', selectedGrade.id, selectedSubject.id, chapter.id);
+      handleClose();
     }
   };
 
@@ -140,6 +207,10 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const handleBack = () => {
     if (currentStep === 'paper') {
       setSelectedMode(null);
+      setCurrentStep('mode');
+    } else if (currentStep === 'chapter') {
+      setSelectedMode(null);
+      setSelectedChapter(null);
       setCurrentStep('mode');
     } else if (currentStep === 'mode') {
       setSelectedSubject(null);
@@ -154,6 +225,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     setSelectedGrade(null);
     setSelectedSubject(null);
     setSelectedMode(null);
+    setSelectedChapter(null);
     setCurrentStep('grade');
     onClose();
   };
@@ -181,6 +253,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                 {currentStep === 'grade' && 'Select Grade Level'}
                 {currentStep === 'subject' && `Grade ${selectedGrade?.name} - Select Subject`}
                 {currentStep === 'mode' && `${selectedSubject?.name} - Choose Practice Mode`}
+                {currentStep === 'chapter' && `Practice by Chapter - Select Chapter`}
                 {currentStep === 'paper' && `Practice by Year - Select Paper`}
               </h2>
             </div>
@@ -259,6 +332,20 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                 </div>
               )}
 
+              {currentStep === 'chapter' && chapters.map(chapter => (
+                <button key={chapter.id} onClick={() => handleChapterClick(chapter)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
+                  <div className="flex items-center space-x-2">
+                    <BookOpen className="w-5 h-5 text-gray-600" />
+                    <div>
+                      <p className="font-semibold text-gray-900">Chapter {chapter.chapter_number}</p>
+                      <p className="text-sm text-gray-600 mt-0.5">{chapter.chapter_title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{chapter.question_count} questions</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+                </button>
+              ))}
+
               {currentStep === 'paper' && availablePapers.map(paper => (
                 <button key={paper.id} onClick={() => handlePaperClick(paper)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
                   <div className="flex items-center space-x-2">
@@ -278,6 +365,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
             {currentStep === 'grade' && 'Select a grade level to view available subjects'}
             {currentStep === 'subject' && 'Select a subject to choose your practice mode'}
             {currentStep === 'mode' && 'Choose how you want to practice - by year or by chapter'}
+            {currentStep === 'chapter' && 'Select a chapter to practice questions from that topic'}
             {currentStep === 'paper' && 'Select an exam paper to start or continue a conversation'}
           </p>
         </div>
