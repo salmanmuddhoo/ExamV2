@@ -130,7 +130,7 @@ export function UnifiedPracticeViewer({
 
       // First, get the syllabus for this grade and subject
       const { data: syllabusData, error: syllabusError } = await supabase
-        .from('syllabi')
+        .from('syllabus')
         .select('id')
         .eq('grade_level_id', gradeId)
         .eq('subject_id', subjectId)
