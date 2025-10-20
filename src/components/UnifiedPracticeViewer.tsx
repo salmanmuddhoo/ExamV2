@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ChatMessage } from './ChatMessage';
 
 interface Props {
   mode: 'year' | 'chapter';
@@ -51,6 +52,12 @@ interface Subject {
   name: string;
 }
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  questionNumber?: string | null;
+}
+
 export function UnifiedPracticeViewer({
   mode,
   gradeId,
@@ -77,6 +84,13 @@ export function UnifiedPracticeViewer({
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [chapterInfo, setChapterInfo] = useState<Chapter | null>(null);
 
+  // Chat state (shared by both modes)
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchGradeAndSubject();
     if (mode === 'year') {
@@ -86,6 +100,16 @@ export function UnifiedPracticeViewer({
       fetchQuestionsForChapter(chapterId);
     }
   }, [mode, gradeId, subjectId, chapterId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  };
 
   const fetchGradeAndSubject = async () => {
     try {
@@ -235,6 +259,143 @@ export function UnifiedPracticeViewer({
 
   const handleQuestionSelect = (question: Question) => {
     setSelectedQuestion(question);
+    // Clear messages when switching questions
+    setMessages([]);
+    setCurrentConversationId(null);
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!input.trim() || sending) return;
+
+    // For chapter mode, ensure a question is selected
+    if (mode === 'chapter' && !selectedQuestion) return;
+
+    const userMessage = input.trim();
+    setInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setSending(true);
+
+    try {
+      if (mode === 'year') {
+        // Year mode: Use existing exam paper logic (similar to ExamViewer)
+        // TODO: Implement year mode AI integration
+        // This would fetch the exam paper images and marking scheme
+        // For now, show a placeholder response
+        setTimeout(() => {
+          setMessages((prev) => [...prev, {
+            role: 'assistant',
+            content: 'Year mode AI integration coming soon. Please use the existing ExamViewer for now.'
+          }]);
+          setSending(false);
+        }, 1000);
+      } else {
+        // Chapter mode: Fetch question data and send to AI
+        const { data: questionData, error } = await supabase
+          .from('exam_questions')
+          .select('id, question_number, ocr_text, image_url, image_urls, marking_scheme_text, exam_paper_id')
+          .eq('id', selectedQuestion!.id)
+          .single();
+
+        if (error) throw error;
+
+        if (!questionData) {
+          throw new Error('Question data not found');
+        }
+
+        // Fetch question images as base64
+        const imageUrls = questionData.image_urls && questionData.image_urls.length > 0
+          ? questionData.image_urls
+          : [questionData.image_url];
+
+        const base64Images: string[] = [];
+
+        for (const imageUrl of imageUrls) {
+          if (!imageUrl) continue;
+
+          try {
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) continue;
+
+            const imageBlob = await imageResponse.blob();
+            const reader = new FileReader();
+
+            const base64Image = await new Promise<string>((resolve, reject) => {
+              reader.onloadend = () => {
+                const result = reader.result as string;
+                const base64 = result.split(',')[1];
+                resolve(base64);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(imageBlob);
+            });
+
+            base64Images.push(base64Image);
+          } catch (error) {
+            console.error('Failed to load image:', error);
+          }
+        }
+
+        // Prepare request body for AI
+        const requestBody = {
+          question: userMessage,
+          provider: 'gemini',
+          examPaperId: questionData.exam_paper_id,
+          conversationId: currentConversationId,
+          userId: user?.id,
+          optimizedMode: true,
+          questionNumber: questionData.question_number,
+          examPaperImages: base64Images,
+          markingSchemeText: questionData.marking_scheme_text || '',
+          questionText: questionData.ocr_text || ''
+        };
+
+        console.log(`📤 Sending to AI: Question ${questionData.question_number}`);
+        console.log(`   - Images: ${base64Images.length}`);
+        console.log(`   - Marking scheme: ${questionData.marking_scheme_text ? 'Yes (text)' : 'No'}`);
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/exam-assistant`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to get response from AI');
+        }
+
+        const data = await response.json();
+        const assistantMessage = data.answer;
+
+        setMessages((prev) => [...prev, {
+          role: 'assistant',
+          content: assistantMessage,
+          questionNumber: questionData.question_number
+        }]);
+
+        // Save to conversation (chapter mode)
+        // TODO: Create chapter_conversations and chapter_messages tables if needed
+        // For now, we'll skip saving to database
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
   };
 
   if (loading) {
@@ -424,7 +585,87 @@ export function UnifiedPracticeViewer({
             </div>
           )}
 
-          {/* Chat Assistant (TODO - will be added in next phase) */}
+          {/* Chat Assistant */}
+          <div className="w-full md:w-[500px] lg:w-[600px] flex flex-col bg-white border-l border-gray-200">
+            <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
+              <h2 className="font-semibold text-gray-900">AI Study Assistant</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                {mode === 'year'
+                  ? 'Ask questions about this exam paper'
+                  : selectedQuestion
+                    ? `Discussing Question ${selectedQuestion.question_number}`
+                    : 'Select a question to start chatting'}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {!user ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center max-w-sm">
+                    <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-sm text-gray-600">Sign in to use the AI assistant</p>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center max-w-sm px-6">
+                    <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Study Assistant</h3>
+                    <p className="text-sm text-gray-600">
+                      {mode === 'year'
+                        ? 'Ask me questions about this exam paper. For best results, mention the question number (e.g., "Question 3").'
+                        : 'Ask me questions about this problem and I\'ll help guide you through it!'}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {messages.map((message, index) => (
+                <ChatMessage
+                  key={index}
+                  role={message.role}
+                  content={message.content}
+                  isStreaming={false}
+                  onStreamUpdate={scrollToBottom}
+                />
+              ))}
+
+              {sending && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 text-gray-900 rounded-lg px-4 py-3">
+                    <div className="flex items-center space-x-3">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      <span className="text-sm text-gray-600">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {user && (
+              <div className="px-4 pt-4 pb-4 border-t border-gray-200 bg-white flex-shrink-0">
+                <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask a question..."
+                    disabled={sending || (mode === 'chapter' && !selectedQuestion)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !input.trim() || (mode === 'chapter' && !selectedQuestion)}
+                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
