@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, BookOpen, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
@@ -26,6 +26,18 @@ interface Chapter {
   chapter_number: string;
   title: string;
   question_count?: number;
+}
+
+interface Question {
+  id: string;
+  question_number: string;
+  image_url: string;
+  image_urls: string[];
+  exam_papers: {
+    title: string;
+    year: number;
+    month: string;
+  };
 }
 
 interface Grade {
@@ -60,6 +72,9 @@ export function UnifiedPracticeViewer({
   // Chapter mode state
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
 
   useEffect(() => {
     fetchGradeAndSubject();
@@ -195,10 +210,76 @@ export function UnifiedPracticeViewer({
     }
   };
 
-  const handleChapterSelect = (chapter: Chapter) => {
+  const handleChapterSelect = async (chapter: Chapter) => {
     setSelectedChapter(chapter);
-    // TODO: Load questions for this chapter
+    setCurrentQuestionIndex(0);
+    await fetchQuestionsForChapter(chapter.id);
   };
+
+  const fetchQuestionsForChapter = async (chapterId: string) => {
+    try {
+      setQuestionsLoading(true);
+
+      const { data, error } = await supabase
+        .from('question_chapter_tags')
+        .select(`
+          question_id,
+          exam_questions!inner(
+            id,
+            question_number,
+            image_url,
+            image_urls,
+            exam_papers!inner(
+              title,
+              year,
+              month
+            )
+          )
+        `)
+        .eq('chapter_id', chapterId)
+        .order('exam_questions.exam_papers.year', { ascending: false });
+
+      if (error) throw error;
+
+      // Format questions and sort by year
+      const formattedQuestions = (data || [])
+        .map((tag: any) => ({
+          id: tag.exam_questions.id,
+          question_number: tag.exam_questions.question_number,
+          image_url: tag.exam_questions.image_url,
+          image_urls: tag.exam_questions.image_urls || [],
+          exam_papers: tag.exam_questions.exam_papers
+        }))
+        .sort((a, b) => {
+          // Sort by year (most recent first), then by question number
+          if (a.exam_papers.year !== b.exam_papers.year) {
+            return b.exam_papers.year - a.exam_papers.year;
+          }
+          return parseInt(a.question_number) - parseInt(b.question_number);
+        });
+
+      setQuestions(formattedQuestions);
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      setQuestions([]);
+    } finally {
+      setQuestionsLoading(false);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  };
+
+  const currentQuestion = questions[currentQuestionIndex];
 
   if (loading) {
     return (
@@ -343,20 +424,99 @@ export function UnifiedPracticeViewer({
               )}
             </div>
           ) : (
-            // Chapter Mode: Question Viewer (TODO)
-            <div className="flex-1 bg-gray-100 flex items-center justify-center">
-              <div className="text-center max-w-md p-6">
-                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-2">Chapter Practice Mode</p>
-                <p className="text-sm text-gray-500">
-                  {selectedChapter
-                    ? `Selected: Chapter ${selectedChapter.chapter_number} - ${selectedChapter.title}`
-                    : 'Select a chapter to start practicing'}
-                </p>
-                <p className="text-xs text-gray-400 mt-4">
-                  Question viewer coming next...
-                </p>
-              </div>
+            // Chapter Mode: Question Viewer
+            <div className="flex-1 bg-gray-100 flex flex-col">
+              {questionsLoading ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">Loading questions...</p>
+                  </div>
+                </div>
+              ) : !selectedChapter ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center max-w-md p-6">
+                    <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Select a chapter to start practicing</p>
+                  </div>
+                </div>
+              ) : questions.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center max-w-md p-6">
+                    <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-2">No questions available</p>
+                    <p className="text-sm text-gray-500">
+                      Chapter {selectedChapter.chapter_number} - {selectedChapter.title}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Question Display Area */}
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="max-w-4xl mx-auto">
+                      {/* Question Info */}
+                      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-gray-900">
+                              {currentQuestion.exam_papers.title} - Question {currentQuestion.question_number}
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {currentQuestion.exam_papers.year} {currentQuestion.exam_papers.month}
+                            </p>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Question {currentQuestionIndex + 1} of {questions.length}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Question Images */}
+                      <div className="space-y-4">
+                        {(currentQuestion.image_urls && currentQuestion.image_urls.length > 0
+                          ? currentQuestion.image_urls
+                          : [currentQuestion.image_url]
+                        ).map((imageUrl, idx) => (
+                          <img
+                            key={idx}
+                            src={imageUrl}
+                            alt={`Question ${currentQuestion.question_number} - Image ${idx + 1}`}
+                            className="w-full rounded-lg shadow-sm bg-white"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation Controls */}
+                  <div className="border-t border-gray-200 bg-white p-4">
+                    <div className="max-w-4xl mx-auto flex items-center justify-between">
+                      <button
+                        onClick={handlePrevQuestion}
+                        disabled={currentQuestionIndex === 0}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span className="text-sm font-medium">Previous</span>
+                      </button>
+
+                      <div className="text-sm text-gray-600">
+                        {currentQuestionIndex + 1} / {questions.length}
+                      </div>
+
+                      <button
+                        onClick={handleNextQuestion}
+                        disabled={currentQuestionIndex === questions.length - 1}
+                        className="flex items-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="text-sm font-medium">Next</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
