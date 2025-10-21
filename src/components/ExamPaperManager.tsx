@@ -11,6 +11,7 @@ interface ExamPaper {
   title: string;
   subject_id: string;
   grade_level_id: string;
+  syllabus_id: string | null;
   year: number;
   month: number | null;
   pdf_url: string;
@@ -178,13 +179,42 @@ export function ExamPaperManager() {
     return { path: data.path, url: publicUrl };
   };
 
+  const retagQuestionsWithNewSyllabus = async (examPaperId: string, newSyllabusId: string) => {
+    console.log(`Re-tagging questions for exam paper ${examPaperId} with syllabus ${newSyllabusId}`);
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retag-questions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          examPaperId,
+          syllabusId: newSyllabusId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Re-tagging error:', errorText);
+      throw new Error(`Failed to re-tag questions: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('Re-tagging result:', result);
+    return result;
+  };
+
   const handleEdit = (paper: ExamPaper) => {
     setEditingId(paper.id);
     setFormData({
       title: paper.title,
       subject_id: paper.subject_id,
       grade_level_id: paper.grade_level_id,
-      syllabus_id: '', // syllabus_id not editable for existing papers
+      syllabus_id: paper.syllabus_id || '',
       year: paper.year,
       month: paper.month ? paper.month.toString() : '',
       ai_prompt_id: paper.ai_prompt_id || '',
@@ -200,12 +230,24 @@ export function ExamPaperManager() {
     setUploading(true);
 
     try {
+      // Get the current exam paper to check if syllabus changed
+      const { data: currentPaper } = await supabase
+        .from('exam_papers')
+        .select('syllabus_id')
+        .eq('id', editingId)
+        .single();
+
+      const oldSyllabusId = currentPaper?.syllabus_id;
+      const newSyllabusId = formData.syllabus_id || null;
+      const syllabusChanged = oldSyllabusId !== newSyllabusId;
+
       const { error } = await supabase
         .from('exam_papers')
         .update({
           title: formData.title,
           subject_id: formData.subject_id,
           grade_level_id: formData.grade_level_id,
+          syllabus_id: newSyllabusId,
           year: formData.year,
           month: formData.month ? parseInt(formData.month) : null,
           ai_prompt_id: formData.ai_prompt_id || null,
@@ -214,7 +256,20 @@ export function ExamPaperManager() {
 
       if (error) throw error;
 
-      showAlert('Exam paper updated successfully!', 'Success', 'success');
+      // If syllabus changed and new syllabus is not null, trigger re-tagging
+      if (syllabusChanged && newSyllabusId) {
+        setProcessingStatus('Syllabus changed. Re-tagging questions with new chapters...');
+        try {
+          await retagQuestionsWithNewSyllabus(editingId, newSyllabusId);
+          showAlert('Exam paper and questions updated successfully!', 'Success', 'success');
+        } catch (retagError: any) {
+          console.error('Re-tagging error:', retagError);
+          showAlert(`Exam paper updated, but re-tagging failed: ${retagError.message}`, 'Partial Success', 'warning');
+        }
+        setProcessingStatus('');
+      } else {
+        showAlert('Exam paper updated successfully!', 'Success', 'success');
+      }
 
       setFormData({
         title: '',
@@ -634,7 +689,7 @@ export function ExamPaperManager() {
                   value={formData.syllabus_id}
                   onChange={(e) => setFormData({ ...formData, syllabus_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
-                  disabled={!formData.subject_id || !formData.grade_level_id || syllabuses.length === 0}
+                  disabled={!formData.subject_id || !formData.grade_level_id}
                 >
                   <option value="">No syllabus (skip chapter tagging)</option>
                   {syllabuses.map((syllabus) => (
