@@ -824,9 +824,10 @@ export function UnifiedPracticeViewer({
               )}
             </>
           )}
+        </div>
 
-          {/* Chat Assistant */}
-          <div className={`${mobileView === 'chat' ? 'flex' : 'hidden md:flex'} w-full md:w-[500px] lg:w-[600px] flex-col bg-white border-l border-gray-200 h-full pb-safe`}>
+        {/* Chat Assistant */}
+        <div className={`${mobileView === 'chat' ? 'flex' : 'hidden md:flex'} w-full md:w-[500px] lg:w-[600px] flex-col bg-white border-l border-gray-200 h-full pb-safe`}>
             <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
               <h2 className="font-semibold text-gray-900">AI Study Assistant</h2>
               <p className="text-xs text-gray-500 mt-1">
@@ -950,7 +951,6 @@ export function UnifiedPracticeViewer({
               </div>
             )}
           </div>
-        </div>
       </div>
     </div>
   );
