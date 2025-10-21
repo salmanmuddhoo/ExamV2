@@ -58,6 +58,10 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const [tokensUsed, setTokensUsed] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Question change animation state
+  const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
+  const prevQuestionNumberRef = useRef<string | null>(null);
+
   useEffect(() => {
     fetchExamPaper();
 
@@ -115,6 +119,25 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
       loadPdfBlob();
     }
   }, [examPaper, isMobile]);
+
+  // Trigger animation when detected question number changes
+  useEffect(() => {
+    if (lastQuestionNumber) {
+      // Only animate if the question actually changed (not on initial detection)
+      if (prevQuestionNumberRef.current !== null && prevQuestionNumberRef.current !== lastQuestionNumber) {
+        setQuestionChangeAnimation(true);
+
+        // Remove animation class after animation completes
+        const timer = setTimeout(() => {
+          setQuestionChangeAnimation(false);
+        }, 600); // Match animation duration
+
+        return () => clearTimeout(timer);
+      }
+
+      prevQuestionNumberRef.current = lastQuestionNumber;
+    }
+  }, [lastQuestionNumber]);
 
   // 🔹 NEW: Generate contextual clarification message
   const generateClarificationMessage = (userInput: string) => {
@@ -1100,18 +1123,30 @@ You can still view and download this exam paper!`
         <div className={`${mobileView === 'chat' ? 'flex' : 'hidden md:flex'} w-full md:w-[500px] lg:w-[600px] flex-col bg-white border-l border-gray-200 h-full pb-safe`}>
           <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
             <h2 className="font-semibold text-gray-900">AI Study Assistant</h2>
-            <p className="text-xs text-gray-500 mt-1">
-              {processingPdfs ? (
-                <span className="flex items-center">
-                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                  Processing PDFs for AI analysis...
-                </span>
-              ) : lastQuestionNumber ? (
-                `Currently discussing Question ${lastQuestionNumber}`
-              ) : (
-                "Ask your question in this format: Question 1"
-              )}
-            </p>
+            {processingPdfs ? (
+              <p className="text-xs text-gray-500 mt-1 flex items-center">
+                <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                Processing PDFs for AI analysis...
+              </p>
+            ) : lastQuestionNumber ? (
+              <div className="mt-2 flex items-center space-x-2">
+                <span className="text-xs text-gray-500">Currently discussing:</span>
+                <div
+                  className={`inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-full text-sm font-semibold shadow-md transition-all duration-300 ${
+                    questionChangeAnimation
+                      ? 'animate-[zoomInOut_0.6s_ease-in-out]'
+                      : ''
+                  }`}
+                >
+                  <span className="mr-1.5">Question</span>
+                  <span className="text-base">{lastQuestionNumber}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                Ask your question in this format: Question 1
+              </p>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollBehavior: 'smooth' }}>
