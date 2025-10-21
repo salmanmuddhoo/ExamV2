@@ -159,16 +159,37 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     try {
       setLoading(true);
 
-      // Get all syllabuses for this grade/subject
+      // Get all syllabuses for this grade/subject that are used by at least one exam paper
       const { data: syllabusData } = await supabase
         .from('syllabus')
-        .select('id, title, region, subject_id, grade_id')
+        .select(`
+          id,
+          title,
+          region,
+          subject_id,
+          grade_id,
+          exam_papers!inner(id)
+        `)
         .eq('grade_id', selectedGrade.id)
         .eq('subject_id', selectedSubject.id)
         .eq('processing_status', 'completed')
         .order('region');
 
-      setSyllabuses(syllabusData || []);
+      // Filter to unique syllabuses (since inner join may create duplicates)
+      const uniqueSyllabuses = syllabusData?.reduce((acc: Syllabus[], curr: any) => {
+        if (!acc.find(s => s.id === curr.id)) {
+          acc.push({
+            id: curr.id,
+            title: curr.title,
+            region: curr.region,
+            subject_id: curr.subject_id,
+            grade_id: curr.grade_id
+          });
+        }
+        return acc;
+      }, []) || [];
+
+      setSyllabuses(uniqueSyllabuses);
     } catch (error) {
       console.error('Error fetching syllabuses:', error);
       setSyllabuses([]);
@@ -369,8 +390,10 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                   {syllabuses.length === 0 ? (
                     <div className="text-center py-12">
                       <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600">No syllabus available for this subject and grade.</p>
-                      <p className="text-sm text-gray-500 mt-2">Please contact your administrator.</p>
+                      <p className="text-gray-600">No syllabuses with exam papers available.</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Please ensure exam papers have been uploaded with a syllabus selected.
+                      </p>
                     </div>
                   ) : (
                     syllabuses.map(syllabus => (
@@ -399,8 +422,13 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                   {chapters.length === 0 ? (
                     <div className="text-center py-12">
                       <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600">No chapters with questions available.</p>
-                      <p className="text-sm text-gray-500 mt-2">Try a different syllabus or practice mode.</p>
+                      <p className="text-gray-600">No chapter-wise questions available yet.</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Questions haven't been tagged to chapters for this syllabus yet.
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Try a different syllabus or practice by year instead.
+                      </p>
                     </div>
                   ) : (
                     chapters.map(chapter => (
