@@ -85,6 +85,7 @@ export interface Database {
           subject_id: string
           grade_level_id: string
           year: number
+          syllabus_id: string | null
           pdf_url: string
           pdf_path: string
           uploaded_by: string | null
@@ -97,6 +98,7 @@ export interface Database {
           subject_id: string
           grade_level_id: string
           year: number
+          syllabus_id?: string | null
           pdf_url: string
           pdf_path: string
           uploaded_by?: string | null
@@ -109,6 +111,7 @@ export interface Database {
           subject_id?: string
           grade_level_id?: string
           year?: number
+          syllabus_id?: string | null
           pdf_url?: string
           pdf_path?: string
           uploaded_by?: string | null
@@ -256,6 +259,138 @@ export interface Database {
           image_url?: string[]
           image_paths?: string[]
           ocr_text?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      syllabus: {
+        Row: {
+          id: string
+          subject_id: string
+          grade_id: string
+          file_name: string
+          file_url: string
+          file_size: number | null
+          processing_status: 'pending' | 'processing' | 'completed' | 'failed'
+          title: string | null
+          description: string | null
+          academic_year: string | null
+          region: string | null
+          extraction_metadata: Json | null
+          error_message: string | null
+          uploaded_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          subject_id: string
+          grade_id: string
+          file_name: string
+          file_url: string
+          file_size?: number | null
+          processing_status?: 'pending' | 'processing' | 'completed' | 'failed'
+          title?: string | null
+          description?: string | null
+          academic_year?: string | null
+          region?: string | null
+          extraction_metadata?: Json | null
+          error_message?: string | null
+          uploaded_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          subject_id?: string
+          grade_id?: string
+          file_name?: string
+          file_url?: string
+          file_size?: number | null
+          processing_status?: 'pending' | 'processing' | 'completed' | 'failed'
+          title?: string | null
+          description?: string | null
+          academic_year?: string | null
+          region?: string | null
+          extraction_metadata?: Json | null
+          error_message?: string | null
+          uploaded_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      syllabus_chapters: {
+        Row: {
+          id: string
+          syllabus_id: string
+          chapter_number: number
+          chapter_title: string
+          chapter_description: string | null
+          subtopics: string[]
+          display_order: number
+          confidence_score: number | null
+          is_manually_edited: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          syllabus_id: string
+          chapter_number: number
+          chapter_title: string
+          chapter_description?: string | null
+          subtopics?: string[]
+          display_order: number
+          confidence_score?: number | null
+          is_manually_edited?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          syllabus_id?: string
+          chapter_number?: number
+          chapter_title?: string
+          chapter_description?: string | null
+          subtopics?: string[]
+          display_order?: number
+          confidence_score?: number | null
+          is_manually_edited?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      question_chapter_tags: {
+        Row: {
+          id: string
+          question_id: string
+          chapter_id: string
+          confidence_score: number
+          is_primary: boolean
+          match_reasoning: string | null
+          is_manually_set: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          question_id: string
+          chapter_id: string
+          confidence_score?: number
+          is_primary?: boolean
+          match_reasoning?: string | null
+          is_manually_set?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          question_id?: string
+          chapter_id?: string
+          confidence_score?: number
+          is_primary?: boolean
+          match_reasoning?: string | null
+          is_manually_set?: boolean
           created_at?: string
           updated_at?: string
         }
