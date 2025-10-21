@@ -432,23 +432,23 @@ export function ChatHub({
                       {/* Grade Header - Clickable */}
                       <button
                         onClick={() => toggleGrade(gradeName)}
-                        className="w-full flex items-center justify-between px-3 py-3 bg-gradient-to-r from-indigo-100 to-indigo-50 hover:from-indigo-200 hover:to-indigo-100 rounded-lg transition-all group shadow-sm"
+                        className="w-full flex items-center justify-between px-3 py-3 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-black hover:to-gray-900 rounded-lg transition-all group shadow-md"
                       >
                         <div className="flex items-center space-x-3">
                           <div className="p-2 bg-white rounded-lg shadow-sm">
-                            <GraduationCap className="w-5 h-5 text-indigo-700" />
+                            <GraduationCap className="w-5 h-5 text-gray-900" />
                           </div>
                           <div className="text-left">
-                            <h2 className="text-base font-bold text-gray-900">
+                            <h2 className="text-base font-bold text-white">
                               {gradeName}
                             </h2>
-                            <p className="text-xs text-gray-600">
+                            <p className="text-xs text-gray-300">
                               {totalGradeConvs} conversation{totalGradeConvs !== 1 ? 's' : ''}
                             </p>
                           </div>
                         </div>
                         <svg
-                          className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${
+                          className={`w-5 h-5 text-gray-300 transition-transform duration-200 ${
                             isGradeCollapsed ? '' : 'rotate-180'
                           }`}
                           fill="none"
@@ -461,7 +461,7 @@ export function ChatHub({
 
                       {/* Subjects under this grade */}
                       {!isGradeCollapsed && (
-                        <div className="mt-2 ml-3 pl-4 border-l-2 border-indigo-200 space-y-2">
+                        <div className="mt-2 ml-3 pl-4 border-l-2 border-gray-300 space-y-2">
                           {Object.entries(subjects).map(([subjectName, modes]) => {
                             const subjectKey = `${gradeName}:${subjectName}`;
                             const isSubjectCollapsed = collapsedSubjects.has(subjectKey);
