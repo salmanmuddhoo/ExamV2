@@ -23,6 +23,7 @@ interface Syllabus {
   title?: string;
   description?: string;
   academic_year?: string;
+  region?: string;
   error_message?: string;
   created_at: string;
   subject?: Subject;
@@ -56,6 +57,7 @@ export function SyllabusManager() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [academicYear, setAcademicYear] = useState('');
+  const [region, setRegion] = useState('');
 
   // Chapter viewing/editing state
   const [viewingSyllabusId, setViewingSyllabusId] = useState<string | null>(null);
@@ -154,6 +156,7 @@ export function SyllabusManager() {
           title: title || selectedFile.name,
           description,
           academic_year: academicYear,
+          region: region || null,
           uploaded_by: user.id,
           processing_status: 'pending'
         })
@@ -172,6 +175,7 @@ export function SyllabusManager() {
       setTitle('');
       setDescription('');
       setAcademicYear('');
+      setRegion('');
 
       // Refresh list
       fetchData();
@@ -564,18 +568,21 @@ export function SyllabusManager() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Title
+                Region / Exam Board
               </label>
               <input
                 type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Mathematics Syllabus"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+                placeholder="e.g., Cambridge, Edexcel, National"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Specify the region or exam board for this syllabus
+              </p>
             </div>
 
             <div>
@@ -587,6 +594,21 @@ export function SyllabusManager() {
                 value={academicYear}
                 onChange={(e) => setAcademicYear(e.target.value)}
                 placeholder="e.g., 2024-2025"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Title
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g., Mathematics Syllabus"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-gray-900"
               />
             </div>
@@ -643,6 +665,7 @@ export function SyllabusManager() {
                     </h4>
                     <p className="text-sm text-gray-600 mt-1">
                       {syllabus.subject?.name} - {syllabus.grade?.name}
+                      {syllabus.region && ` - ${syllabus.region}`}
                       {syllabus.academic_year && ` (${syllabus.academic_year})`}
                     </p>
                     {syllabus.description && (

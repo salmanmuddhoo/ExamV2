@@ -37,6 +37,15 @@ interface AIPrompt {
   description: string | null;
 }
 
+interface Syllabus {
+  id: string;
+  subject_id: string;
+  grade_id: string;
+  title: string | null;
+  region: string | null;
+  processing_status: string;
+}
+
 export function ExamPaperManager() {
   const { user } = useAuth();
   const { modalState, showAlert, showConfirm, closeModal } = useModal();
@@ -44,12 +53,14 @@ export function ExamPaperManager() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
+  const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     subject_id: '',
     grade_level_id: '',
+    syllabus_id: '',
     year: new Date().getFullYear(),
     month: '' as string,
     ai_prompt_id: '',
@@ -89,6 +100,16 @@ export function ExamPaperManager() {
     fetchData();
   }, []);
 
+  // Fetch syllabuses when subject and grade change
+  useEffect(() => {
+    if (formData.subject_id && formData.grade_level_id) {
+      fetchSyllabuses();
+    } else {
+      setSyllabuses([]);
+      setFormData(prev => ({ ...prev, syllabus_id: '' }));
+    }
+  }, [formData.subject_id, formData.grade_level_id]);
+
   const fetchData = async () => {
     try {
       const [papersRes, subjectsRes, gradesRes, promptsRes] = await Promise.all([
@@ -123,6 +144,24 @@ export function ExamPaperManager() {
     }
   };
 
+  const fetchSyllabuses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('syllabus')
+        .select('id, subject_id, grade_id, title, region, processing_status')
+        .eq('subject_id', formData.subject_id)
+        .eq('grade_id', formData.grade_level_id)
+        .eq('processing_status', 'completed')
+        .order('region');
+
+      if (error) throw error;
+      setSyllabuses(data || []);
+    } catch (error) {
+      console.error('Error fetching syllabuses:', error);
+      setSyllabuses([]);
+    }
+  };
+
   const uploadFile = async (file: File, bucket: string, folder: string) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -145,6 +184,7 @@ export function ExamPaperManager() {
       title: paper.title,
       subject_id: paper.subject_id,
       grade_level_id: paper.grade_level_id,
+      syllabus_id: '', // syllabus_id not editable for existing papers
       year: paper.year,
       month: paper.month ? paper.month.toString() : '',
       ai_prompt_id: paper.ai_prompt_id || '',
@@ -180,6 +220,7 @@ export function ExamPaperManager() {
         title: '',
         subject_id: '',
         grade_level_id: '',
+        syllabus_id: '',
         year: new Date().getFullYear(),
         month: '',
         ai_prompt_id: '',
@@ -224,6 +265,7 @@ export function ExamPaperManager() {
             title: formData.title,
             subject_id: formData.subject_id,
             grade_level_id: formData.grade_level_id,
+            syllabus_id: formData.syllabus_id || null,
             year: formData.year,
             month: formData.month ? parseInt(formData.month) : null,
             ai_prompt_id: formData.ai_prompt_id || null,
@@ -314,7 +356,7 @@ export function ExamPaperManager() {
         console.log('AI Result:', processingResult);
 
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -329,7 +371,7 @@ export function ExamPaperManager() {
       } catch (processingError: any) {
         console.error('Processing error:', processingError);
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -474,7 +516,7 @@ export function ExamPaperManager() {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ title: '', subject_id: '', grade_level_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
+    setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
     setExamPaperFile(null);
     setMarkingSchemeFile(null);
     if (examPaperPreviewUrl) {
@@ -486,6 +528,7 @@ export function ExamPaperManager() {
       setMarkingSchemePreviewUrl('');
     }
     setExamPaperImages([]);
+    setSyllabuses([]);
   };
 
   if (loading) {
@@ -580,6 +623,37 @@ export function ExamPaperManager() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="syllabus" className="block text-sm font-medium text-gray-900 mb-1">
+                  Syllabus / Region (Optional)
+                </label>
+                <select
+                  id="syllabus"
+                  value={formData.syllabus_id}
+                  onChange={(e) => setFormData({ ...formData, syllabus_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                  disabled={!formData.subject_id || !formData.grade_level_id || syllabuses.length === 0}
+                >
+                  <option value="">No syllabus (skip chapter tagging)</option>
+                  {syllabuses.map((syllabus) => (
+                    <option key={syllabus.id} value={syllabus.id}>
+                      {syllabus.title || 'Syllabus'}
+                      {syllabus.region && ` - ${syllabus.region}`}
+                    </option>
+                  ))}
+                </select>
+                {formData.subject_id && formData.grade_level_id && syllabuses.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-600">
+                    No completed syllabus found for this subject and grade. Questions won't be tagged to chapters.
+                  </p>
+                )}
+                {(!formData.subject_id || !formData.grade_level_id) && (
+                  <p className="mt-1 text-xs text-gray-600">
+                    Select subject and grade to choose a syllabus
+                  </p>
+                )}
               </div>
 
               <div>
