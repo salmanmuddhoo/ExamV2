@@ -634,7 +634,7 @@ export function ExamPaperManager() {
                   value={formData.syllabus_id}
                   onChange={(e) => setFormData({ ...formData, syllabus_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
-                  disabled={!formData.subject_id || !formData.grade_level_id || syllabuses.length === 0}
+                  disabled={!formData.subject_id || !formData.grade_level_id}
                 >
                   <option value="">No syllabus (skip chapter tagging)</option>
                   {syllabuses.map((syllabus) => (
