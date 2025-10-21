@@ -215,26 +215,51 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setLoading(true);
 
       // Get chapters with question counts
-      const { data: chaptersData } = await supabase
+      const { data: chaptersData, error } = await supabase
         .from('syllabus_chapters')
         .select(`
           id,
           chapter_number,
           chapter_title,
-          question_chapter_tags(count)
+          question_chapter_tags!inner(count)
         `)
         .eq('syllabus_id', syllabusId)
         .order('chapter_number');
 
-      const formattedChapters = (chaptersData || []).map(ch => ({
-        id: ch.id,
-        chapter_number: ch.chapter_number,
-        chapter_title: ch.chapter_title,
-        question_count: Array.isArray(ch.question_chapter_tags) ? ch.question_chapter_tags.length : 0
-      }));
+      if (error) {
+        console.error('Error fetching chapters:', error);
+        setChapters([]);
+        return;
+      }
+
+      // Count questions per chapter by grouping the results
+      const chapterCounts = new Map<string, number>();
+
+      if (chaptersData) {
+        chaptersData.forEach((row: any) => {
+          const chapterId = row.id;
+          chapterCounts.set(chapterId, (chapterCounts.get(chapterId) || 0) + 1);
+        });
+      }
+
+      // Get unique chapters
+      const uniqueChapters = chaptersData?.reduce((acc: any[], curr: any) => {
+        if (!acc.find(ch => ch.id === curr.id)) {
+          acc.push({
+            id: curr.id,
+            chapter_number: curr.chapter_number,
+            chapter_title: curr.chapter_title,
+            question_count: chapterCounts.get(curr.id) || 0
+          });
+        }
+        return acc;
+      }, []) || [];
+
+      // Sort by chapter number
+      uniqueChapters.sort((a, b) => a.chapter_number - b.chapter_number);
 
       // Only show chapters with questions
-      const chaptersWithQuestions = formattedChapters.filter(ch => ch.question_count && ch.question_count > 0);
+      const chaptersWithQuestions = uniqueChapters.filter(ch => ch.question_count && ch.question_count > 0);
       setChapters(chaptersWithQuestions);
     } catch (error) {
       console.error('Error fetching chapters:', error);
