@@ -159,7 +159,9 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     try {
       setLoading(true);
 
-      // Get all syllabuses for this grade/subject that are used by at least one exam paper
+      // Get all syllabuses for this grade/subject that:
+      // 1. Are used by at least one exam paper
+      // 2. Have at least one chapter with questions tagged
       const { data: syllabusData } = await supabase
         .from('syllabus')
         .select(`
@@ -168,14 +170,18 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
           region,
           subject_id,
           grade_id,
-          exam_papers!inner(id)
+          exam_papers!inner(id),
+          syllabus_chapters!inner(
+            id,
+            question_chapter_tags!inner(id)
+          )
         `)
         .eq('grade_id', selectedGrade.id)
         .eq('subject_id', selectedSubject.id)
         .eq('processing_status', 'completed')
         .order('region');
 
-      // Filter to unique syllabuses (since inner join may create duplicates)
+      // Filter to unique syllabuses (since inner joins create duplicates)
       const uniqueSyllabuses = syllabusData?.reduce((acc: Syllabus[], curr: any) => {
         if (!acc.find(s => s.id === curr.id)) {
           acc.push({
