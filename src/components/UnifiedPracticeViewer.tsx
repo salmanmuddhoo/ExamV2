@@ -103,6 +103,10 @@ export function UnifiedPracticeViewer({
   const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
   const [isMobile, setIsMobile] = useState(false);
 
+  // Question change animation state
+  const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
+  const prevQuestionRef = useRef<string | null>(null);
+
   useEffect(() => {
     fetchGradeAndSubject();
     checkSubscription();
@@ -129,6 +133,27 @@ export function UnifiedPracticeViewer({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Trigger animation when question changes
+  useEffect(() => {
+    if (mode === 'chapter' && selectedQuestion) {
+      const currentQuestionNumber = selectedQuestion.question_number;
+
+      // Only animate if the question actually changed (not on initial load)
+      if (prevQuestionRef.current !== null && prevQuestionRef.current !== currentQuestionNumber) {
+        setQuestionChangeAnimation(true);
+
+        // Remove animation class after animation completes
+        const timer = setTimeout(() => {
+          setQuestionChangeAnimation(false);
+        }, 600); // Match animation duration
+
+        return () => clearTimeout(timer);
+      }
+
+      prevQuestionRef.current = currentQuestionNumber;
+    }
+  }, [selectedQuestion, mode]);
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -830,13 +855,29 @@ export function UnifiedPracticeViewer({
         <div className={`${mobileView === 'chat' ? 'flex' : 'hidden md:flex'} w-full md:w-[500px] lg:w-[600px] flex-col bg-white border-l border-gray-200 h-full pb-safe`}>
             <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
               <h2 className="font-semibold text-gray-900">AI Study Assistant</h2>
-              <p className="text-xs text-gray-500 mt-1">
-                {mode === 'year'
-                  ? 'Ask questions about this exam paper'
-                  : selectedQuestion
-                    ? `Discussing Question ${selectedQuestion.question_number}`
-                    : 'Select a question to start chatting'}
-              </p>
+              {mode === 'year' ? (
+                <p className="text-xs text-gray-500 mt-1">
+                  Ask questions about this exam paper
+                </p>
+              ) : selectedQuestion ? (
+                <div className="mt-2 flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">Currently discussing:</span>
+                  <div
+                    className={`inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-full text-sm font-semibold shadow-md transition-all duration-300 ${
+                      questionChangeAnimation
+                        ? 'animate-[zoomInOut_0.6s_ease-in-out]'
+                        : ''
+                    }`}
+                  >
+                    <span className="mr-1.5">Question</span>
+                    <span className="text-base">{selectedQuestion.question_number}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">
+                  Select a question to start chatting
+                </p>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollBehavior: 'smooth' }}>
