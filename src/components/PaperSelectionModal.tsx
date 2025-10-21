@@ -214,17 +214,20 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     try {
       setLoading(true);
 
-      // Get chapters with question counts
-      const { data: chaptersData, error } = await supabase
-        .from('syllabus_chapters')
+      // Query from question_chapter_tags and join with chapters
+      // This ensures we only get chapters that have at least one tag
+      const { data: tagsData, error } = await supabase
+        .from('question_chapter_tags')
         .select(`
-          id,
-          chapter_number,
-          chapter_title,
-          question_chapter_tags!inner(count)
+          chapter_id,
+          syllabus_chapters!inner(
+            id,
+            chapter_number,
+            chapter_title,
+            syllabus_id
+          )
         `)
-        .eq('syllabus_id', syllabusId)
-        .order('chapter_number');
+        .eq('syllabus_chapters.syllabus_id', syllabusId);
 
       if (error) {
         console.error('Error fetching chapters:', error);
@@ -232,34 +235,43 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         return;
       }
 
-      // Count questions per chapter by grouping the results
-      const chapterCounts = new Map<string, number>();
-
-      if (chaptersData) {
-        chaptersData.forEach((row: any) => {
-          const chapterId = row.id;
-          chapterCounts.set(chapterId, (chapterCounts.get(chapterId) || 0) + 1);
-        });
+      if (!tagsData || tagsData.length === 0) {
+        console.log('No chapters with questions found for this syllabus');
+        setChapters([]);
+        return;
       }
 
-      // Get unique chapters
-      const uniqueChapters = chaptersData?.reduce((acc: any[], curr: any) => {
-        if (!acc.find(ch => ch.id === curr.id)) {
-          acc.push({
-            id: curr.id,
-            chapter_number: curr.chapter_number,
-            chapter_title: curr.chapter_title,
-            question_count: chapterCounts.get(curr.id) || 0
+      // Count questions per chapter
+      const chapterCounts = new Map<string, number>();
+      const chapterDetails = new Map<string, any>();
+
+      tagsData.forEach((row: any) => {
+        const chapterId = row.chapter_id;
+        const chapterInfo = row.syllabus_chapters;
+
+        // Count tags per chapter
+        chapterCounts.set(chapterId, (chapterCounts.get(chapterId) || 0) + 1);
+
+        // Store chapter details (only once per chapter)
+        if (!chapterDetails.has(chapterId)) {
+          chapterDetails.set(chapterId, {
+            id: chapterInfo.id,
+            chapter_number: chapterInfo.chapter_number,
+            chapter_title: chapterInfo.chapter_title
           });
         }
-        return acc;
-      }, []) || [];
+      });
+
+      // Build unique chapters array with counts
+      const chaptersWithQuestions = Array.from(chapterDetails.values()).map(chapter => ({
+        ...chapter,
+        question_count: chapterCounts.get(chapter.id) || 0
+      }));
 
       // Sort by chapter number
-      uniqueChapters.sort((a, b) => a.chapter_number - b.chapter_number);
+      chaptersWithQuestions.sort((a, b) => a.chapter_number - b.chapter_number);
 
-      // Only show chapters with questions
-      const chaptersWithQuestions = uniqueChapters.filter(ch => ch.question_count && ch.question_count > 0);
+      console.log(`Found ${chaptersWithQuestions.length} chapters with questions`);
       setChapters(chaptersWithQuestions);
     } catch (error) {
       console.error('Error fetching chapters:', error);
