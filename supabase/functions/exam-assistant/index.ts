@@ -8,26 +8,60 @@ const corsHeaders = {
 
 // ========== CACHE MODE HELPERS ==========
 
-// Helper to get cache mode from settings
-async function getCacheMode(supabaseClient: any): Promise<boolean> {
+// Helper to get cache mode and API keys from settings
+async function getCacheModeAndKeys(supabaseClient: any): Promise<{
+  useGeminiCache: boolean;
+  cacheApiKey: string | null;
+  legacyApiKey: string;
+}> {
   try {
-    const { data, error } = await supabaseClient
+    // Get cache mode setting
+    const { data: cacheData } = await supabaseClient
       .from('system_settings')
       .select('setting_value')
       .eq('setting_key', 'ai_cache_mode')
       .single();
 
-    if (error || !data) {
-      console.log('Cache mode setting not found, defaulting to own cache (false)');
-      return false;
+    const useGeminiCache = (cacheData?.setting_value?.useGeminiCache) ?? false;
+    console.log(`📦 Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
+
+    // Get Gemini cache API key (for cache mode)
+    let cacheApiKey: string | null = null;
+    if (useGeminiCache) {
+      const { data: apiKeyData } = await supabaseClient
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'gemini_cache_api_key')
+        .single();
+
+      const dbApiKey = apiKeyData?.setting_value?.apiKey;
+      if (dbApiKey && dbApiKey.trim() !== '') {
+        cacheApiKey = dbApiKey;
+        console.log('🔑 Using Gemini cache API key from database settings');
+      } else {
+        // Fallback to environment variable
+        cacheApiKey = Deno.env.get("GEMINI_CACHE_API_KEY") || null;
+        if (cacheApiKey) {
+          console.log('🔑 Using Gemini cache API key from environment variable');
+        }
+      }
     }
 
-    const useGeminiCache = data.setting_value?.useGeminiCache ?? false;
-    console.log(`📦 Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
-    return useGeminiCache;
+    // Get legacy API key (for own cache mode)
+    const legacyApiKey = Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY") || '';
+
+    return {
+      useGeminiCache,
+      cacheApiKey,
+      legacyApiKey
+    };
   } catch (error) {
-    console.error('Error fetching cache mode:', error);
-    return false;
+    console.error('Error fetching cache mode and keys:', error);
+    return {
+      useGeminiCache: false,
+      cacheApiKey: null,
+      legacyApiKey: Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY") || ''
+    };
   }
 }
 
@@ -641,13 +675,18 @@ Deno.serve(async (req) => {
 
     console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
 
-    const geminiApiKey = Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) throw new Error("GEMINI_ASSISTANT_API_KEY or GEMINI_API_KEY not configured");
-
     // ========== DUAL CACHE MODE LOGIC ==========
 
-    // Get cache mode setting
-    const useGeminiCache = await getCacheMode(supabase);
+    // Get cache mode and API keys from settings
+    const { useGeminiCache, cacheApiKey, legacyApiKey } = await getCacheModeAndKeys(supabase);
+
+    // Validate API keys
+    if (useGeminiCache && !cacheApiKey) {
+      throw new Error("Gemini cache mode enabled but GEMINI_CACHE_API_KEY not configured in database or environment");
+    }
+    if (!legacyApiKey) {
+      throw new Error("GEMINI_ASSISTANT_API_KEY or GEMINI_API_KEY not configured");
+    }
 
     let data: any;
     let usedCacheName: string | null = null;
@@ -674,7 +713,7 @@ Deno.serve(async (req) => {
           // Use existing cache
           console.log(`✅ Using existing cache for Question ${detectedQuestionNumber}`);
           data = await generateWithGeminiCache(
-            geminiApiKey,
+            cacheApiKey!,
             existingCache.geminiCacheName,
             normalizedQuestion,
             'gemini-2.0-flash-exp'
@@ -686,7 +725,7 @@ Deno.serve(async (req) => {
           // Cache expired or not found, create new one
           console.log(`⚠️ No cache found, creating new one...`);
           const cacheName = await createGeminiCache(
-            geminiApiKey,
+            cacheApiKey!,
             contextualSystemPrompt,
             questionPromptText,
             finalExamImages,
@@ -706,7 +745,7 @@ Deno.serve(async (req) => {
           );
 
           data = await generateWithGeminiCache(
-            geminiApiKey,
+            cacheApiKey!,
             cacheName,
             normalizedQuestion,
             'gemini-2.0-flash-exp'
@@ -716,7 +755,7 @@ Deno.serve(async (req) => {
         // First question - create cache
         console.log(`🆕 First question - creating new Gemini cache...`);
         const cacheName = await createGeminiCache(
-          geminiApiKey,
+          cacheApiKey!,
           contextualSystemPrompt,
           questionPromptText,
           finalExamImages,
@@ -736,7 +775,7 @@ Deno.serve(async (req) => {
         );
 
         data = await generateWithGeminiCache(
-          geminiApiKey,
+          cacheApiKey!,
           cacheName,
           normalizedQuestion,
           'gemini-2.0-flash-exp'
@@ -793,7 +832,7 @@ Deno.serve(async (req) => {
       });
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${legacyApiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
