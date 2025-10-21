@@ -183,6 +183,21 @@ function App() {
     }
   };
 
+  const handleBackToChatHub = () => {
+    setSelectedPaperId(null);
+    setSelectedConversationId(null);
+    setSelectedMode(null);
+    setSelectedGradeId(null);
+    setSelectedSubjectId(null);
+    setSelectedChapterId(null);
+    // Always go to chat hub for authenticated users
+    if (user) {
+      setView('chat-hub');
+    } else {
+      setView('home');
+    }
+  };
+
   const handleNavigateToHomepage = () => {
     setView('home');
   };
@@ -345,7 +360,7 @@ function App() {
         <ExamViewer
           paperId={selectedPaperId}
           conversationId={selectedConversationId}
-          onBack={handleBackToHome}
+          onBack={handleBackToChatHub}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
         />
@@ -383,7 +398,7 @@ function App() {
           gradeId={selectedGradeId}
           subjectId={selectedSubjectId}
           chapterId={selectedChapterId}
-          onBack={handleBackToHome}
+          onBack={handleBackToChatHub}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
         />
