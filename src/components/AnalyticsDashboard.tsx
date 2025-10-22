@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BarChart3, MessageSquare, Users, TrendingUp } from 'lucide-react';
 import { TokenUsageAnalytics } from './TokenUsageAnalytics';
 import { AIPromptAnalytics } from './AIPromptAnalytics';
+import { CacheModeAnalytics } from './CacheModeAnalytics';
 
 type AnalyticsTab = 'overview' | 'prompts' | 'users' | 'costs';
 
@@ -11,8 +12,8 @@ export function AnalyticsDashboard() {
   const tabs = [
     { id: 'overview' as AnalyticsTab, label: 'Token Overview', icon: BarChart3, description: 'Overall token usage by type and subject' },
     { id: 'prompts' as AnalyticsTab, label: 'AI Prompts', icon: MessageSquare, description: 'Input/output tokens by prompt' },
+    { id: 'costs' as AnalyticsTab, label: 'Cache Mode Comparison', icon: TrendingUp, description: 'Compare costs between cache modes' },
     { id: 'users' as AnalyticsTab, label: 'User Analytics', icon: Users, description: 'Coming soon' },
-    { id: 'costs' as AnalyticsTab, label: 'Cost Analysis', icon: TrendingUp, description: 'Coming soon' },
   ];
 
   return (
@@ -29,7 +30,7 @@ export function AnalyticsDashboard() {
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
-            const isComingSoon = tab.id === 'users' || tab.id === 'costs';
+            const isComingSoon = tab.id === 'users';
 
             return (
               <button
@@ -74,21 +75,13 @@ export function AnalyticsDashboard() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         {activeTab === 'overview' && <TokenUsageAnalytics />}
         {activeTab === 'prompts' && <AIPromptAnalytics />}
+        {activeTab === 'costs' && <CacheModeAnalytics />}
         {activeTab === 'users' && (
           <div className="text-center py-12">
             <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">User Analytics</h3>
             <p className="text-sm text-gray-500">
               User behavior and engagement analytics coming soon
-            </p>
-          </div>
-        )}
-        {activeTab === 'costs' && (
-          <div className="text-center py-12">
-            <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cost Analysis</h3>
-            <p className="text-sm text-gray-500">
-              Detailed cost breakdown and projections coming soon
             </p>
           </div>
         )}
