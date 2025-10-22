@@ -6,10 +6,6 @@ interface CacheSetting {
   useGeminiCache: boolean;
 }
 
-interface GeminiModelSetting {
-  model: string;
-}
-
 interface GeminiCacheApiKeySetting {
   apiKey: string;
 }
@@ -18,7 +14,6 @@ export function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [useGeminiCache, setUseGeminiCache] = useState(false);
-  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash');
   const [geminiCacheApiKey, setGeminiCacheApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -43,20 +38,6 @@ export function SystemSettings() {
       if (cacheData) {
         const cacheSetting = cacheData.setting_value as CacheSetting;
         setUseGeminiCache(cacheSetting.useGeminiCache);
-      }
-
-      // Fetch Gemini model setting
-      const { data: modelData, error: modelError } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'gemini_model')
-        .single();
-
-      if (modelError) throw modelError;
-
-      if (modelData) {
-        const modelSetting = modelData.setting_value as GeminiModelSetting;
-        setGeminiModel(modelSetting.model);
       }
 
       // Fetch Gemini cache API key setting
@@ -97,17 +78,6 @@ export function SystemSettings() {
         .eq('setting_key', 'ai_cache_mode');
 
       if (cacheError) throw cacheError;
-
-      // Update Gemini model
-      const { error: modelError } = await supabase
-        .from('system_settings')
-        .update({
-          setting_value: { model: geminiModel },
-          updated_at: new Date().toISOString()
-        })
-        .eq('setting_key', 'gemini_model');
-
-      if (modelError) throw modelError;
 
       // Update Gemini cache API key (upsert in case it doesn't exist)
       const { error: apiKeyError } = await supabase
@@ -191,6 +161,7 @@ export function SystemSettings() {
                 for follow-up questions. Images and context are cached by Gemini.
               </p>
               <div className="mt-2 text-xs text-gray-500">
+                <strong>Model:</strong> gemini-2.0-flash (stable, supports caching)<br />
                 <strong>Pros:</strong> Lower cost, faster responses, no database storage needed<br />
                 <strong>Cost:</strong> ~90% reduction on follow-up questions
               </div>
@@ -220,6 +191,7 @@ export function SystemSettings() {
                 No images re-sent, but conversation text is sent each time.
               </p>
               <div className="mt-2 text-xs text-gray-500">
+                <strong>Model:</strong> gemini-2.0-flash-exp (experimental, original model)<br />
                 <strong>Pros:</strong> Full control, conversation stored in your database<br />
                 <strong>Cost:</strong> Higher token usage on follow-ups (conversation history sent)
               </div>
@@ -231,35 +203,9 @@ export function SystemSettings() {
           <p className="text-sm text-blue-800">
             <strong>Note:</strong> All conversations are always saved to your database for user history,
             regardless of cache mode. This setting only affects how context is sent to Gemini AI.
+            The model is automatically selected based on your cache mode choice.
           </p>
         </div>
-      </div>
-
-      {/* Gemini Model Section */}
-      <div className="border border-gray-200 rounded-lg p-6 bg-white">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <Server className="w-5 h-5 text-purple-700" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Gemini Model</h3>
-            <p className="text-sm text-gray-600">Select the Gemini AI model to use</p>
-          </div>
-        </div>
-
-        <select
-          value={geminiModel}
-          onChange={(e) => setGeminiModel(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        >
-          <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental) - Recommended</option>
-          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-        </select>
-
-        <p className="mt-2 text-xs text-gray-500">
-          Gemini 2.0 Flash offers the best performance and cost efficiency with context caching support.
-        </p>
       </div>
 
       {/* Gemini Cache API Key Section */}
