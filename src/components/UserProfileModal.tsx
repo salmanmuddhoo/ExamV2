@@ -691,7 +691,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                         )}
                         {papersLimit === null && (
                           <div className="py-3">
-                            {tierName === 'student' && selectedGrade && selectedSubjects.length > 0 ? (
+                            {(tierName === 'student' || tierName === 'student_lite') && selectedGrade && selectedSubjects.length > 0 ? (
                               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200">
                                 <div className="flex items-center justify-center mb-2">
                                   <div className="bg-green-100 rounded-full p-2">
