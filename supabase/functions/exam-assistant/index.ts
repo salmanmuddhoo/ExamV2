@@ -104,7 +104,7 @@ async function createGeminiCache(
   questionPrompt: string,
   imageData: string[],
   model: string = 'gemini-2.0-flash'
-): Promise<string> {
+): Promise<string | null> {
   const cacheParts: any[] = [
     { text: systemPrompt },
     { text: questionPrompt }
@@ -136,6 +136,19 @@ async function createGeminiCache(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Gemini cache creation error:", errorText);
+
+    // Check if error is due to content being too small (< 4096 tokens)
+    try {
+      const errorData = JSON.parse(errorText);
+      if (errorData.error?.message?.includes('too small') ||
+          errorData.error?.message?.includes('min_total_token_count')) {
+        console.log('⚠️ Content too small for caching (< 4096 tokens). Will use regular API call.');
+        return null; // Signal to use regular API instead
+      }
+    } catch (e) {
+      // Error parsing error message, continue with generic error
+    }
+
     throw new Error(`Failed to create Gemini cache: ${response.status}`);
   }
 
@@ -211,6 +224,52 @@ async function generateWithGeminiCache(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Gemini cached generation error:", errorText);
+    throw new Error(`Gemini API failed: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Generate content without cache (for content too small to cache)
+async function generateWithoutCache(
+  geminiApiKey: string,
+  systemPrompt: string,
+  questionPrompt: string,
+  userMessage: string,
+  imageData: string[],
+  model: string = 'gemini-2.0-flash'
+): Promise<any> {
+  console.log(`🚀 Generating without cache (content below 4096 token threshold)`);
+
+  const messageParts: any[] = [
+    { text: systemPrompt },
+    { text: questionPrompt },
+    { text: userMessage }
+  ];
+
+  const imageParts = imageData.map((img) => ({
+    inline_data: { mime_type: "image/jpeg", data: img }
+  }));
+  messageParts.push(...imageParts);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          role: "user",
+          parts: messageParts
+        }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Gemini API error:", errorText);
     throw new Error(`Gemini API failed: ${response.status}`);
   }
 
@@ -732,6 +791,54 @@ Deno.serve(async (req) => {
             finalExamImages,
             'gemini-2.0-flash'
           );
+
+          if (cacheName) {
+            // Cache created successfully
+            usedCacheName = cacheName;
+            cacheCreated = true;
+
+            await saveGeminiCacheMetadata(
+              supabase,
+              examPaperId,
+              detectedQuestionNumber,
+              cacheName,
+              contextualSystemPrompt,
+              finalExamImages.length,
+              'gemini-2.0-flash'
+            );
+
+            data = await generateWithGeminiCache(
+              cacheApiKey!,
+              cacheName,
+              normalizedQuestion,
+              'gemini-2.0-flash'
+            );
+          } else {
+            // Content too small for caching, use regular API
+            console.log(`📝 Using non-cached generation for follow-up (content below threshold)`);
+            data = await generateWithoutCache(
+              cacheApiKey!,
+              contextualSystemPrompt,
+              questionPromptText,
+              normalizedQuestion,
+              finalExamImages,
+              'gemini-2.0-flash'
+            );
+          }
+        }
+      } else {
+        // First question - create cache
+        console.log(`🆕 First question - creating new Gemini cache...`);
+        const cacheName = await createGeminiCache(
+          cacheApiKey!,
+          contextualSystemPrompt,
+          questionPromptText,
+          finalExamImages,
+          'gemini-2.0-flash'
+        );
+
+        if (cacheName) {
+          // Cache created successfully
           usedCacheName = cacheName;
           cacheCreated = true;
 
@@ -751,38 +858,20 @@ Deno.serve(async (req) => {
             normalizedQuestion,
             'gemini-2.0-flash'
           );
+
+          console.log(`💾 Cache created and saved for future use`);
+        } else {
+          // Content too small for caching, use regular API
+          console.log(`📝 Using non-cached generation (content below 4096 token threshold)`);
+          data = await generateWithoutCache(
+            cacheApiKey!,
+            contextualSystemPrompt,
+            questionPromptText,
+            normalizedQuestion,
+            finalExamImages,
+            'gemini-2.0-flash'
+          );
         }
-      } else {
-        // First question - create cache
-        console.log(`🆕 First question - creating new Gemini cache...`);
-        const cacheName = await createGeminiCache(
-          cacheApiKey!,
-          contextualSystemPrompt,
-          questionPromptText,
-          finalExamImages,
-          'gemini-2.0-flash'
-        );
-        usedCacheName = cacheName;
-        cacheCreated = true;
-
-        await saveGeminiCacheMetadata(
-          supabase,
-          examPaperId,
-          detectedQuestionNumber,
-          cacheName,
-          contextualSystemPrompt,
-          finalExamImages.length,
-          'gemini-2.0-flash'
-        );
-
-        data = await generateWithGeminiCache(
-          cacheApiKey!,
-          cacheName,
-          normalizedQuestion,
-          'gemini-2.0-flash'
-        );
-
-        console.log(`💾 Cache created and saved for future use`);
       }
 
     } else {
