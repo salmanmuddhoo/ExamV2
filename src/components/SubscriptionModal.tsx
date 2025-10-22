@@ -408,13 +408,13 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                   className={`relative bg-white border-2 rounded-lg p-3 flex flex-col ${
                     isCurrent
                       ? 'border-black shadow-lg'
-                      : tier.name === 'student_lite'
+                      : tier.name === 'student'
                       ? 'border-blue-200'
                       : 'border-gray-200'
                   }`}
                 >
-                  {/* Popular Badge for Student Lite */}
-                  {tier.name === 'student_lite' && (
+                  {/* Popular Badge for Student */}
+                  {tier.name === 'student' && (
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       POPULAR
                     </div>
