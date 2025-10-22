@@ -154,8 +154,8 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   };
 
   const handleSelectPlan = (tier: SubscriptionTier) => {
-    // If student tier, show grade/subject selector
-    if (tier.name === 'student') {
+    // If tier requires grade/subject selection, show selector
+    if (tier.can_select_subjects) {
       setSelectedStudentTier(tier);
       setShowStudentSelector(true);
     } else {
@@ -408,13 +408,13 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                   className={`relative bg-white border-2 rounded-lg p-3 flex flex-col ${
                     isCurrent
                       ? 'border-black shadow-lg'
-                      : tier.name === 'student'
+                      : tier.name === 'student_lite'
                       ? 'border-blue-200'
                       : 'border-gray-200'
                   }`}
                 >
-                  {/* Popular Badge for Student */}
-                  {tier.name === 'student' && (
+                  {/* Popular Badge for Student Lite */}
+                  {tier.name === 'student_lite' && (
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       POPULAR
                     </div>
