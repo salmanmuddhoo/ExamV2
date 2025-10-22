@@ -162,8 +162,8 @@ export function SubscriptionManager() {
   };
 
   const handleSelectPlan = (tier: SubscriptionTier) => {
-    // If student tier, show grade/subject selector
-    if (tier.name === 'student') {
+    // If tier requires grade/subject selection, show selector
+    if (tier.can_select_subjects) {
       setSelectedStudentTier(tier);
       setShowStudentSelector(true);
     } else {
@@ -239,7 +239,7 @@ export function SubscriptionManager() {
         let grade: string | undefined;
         let subjects: string[] | undefined;
 
-        if (tier.name === 'student' && subscriptionData.selected_grade_id) {
+        if ((tier.name === 'student' || tier.name === 'student_lite') && subscriptionData.selected_grade_id) {
           const gradeData = subscriptionData.grades as any;
           grade = gradeData?.name;
 
@@ -402,7 +402,7 @@ export function SubscriptionManager() {
                 {currentSubscription.subscription_tiers?.name === 'pro' && (
                   <Crown className="w-10 h-10 text-yellow-500" />
                 )}
-                {currentSubscription.subscription_tiers?.name === 'student' && (
+                {(currentSubscription.subscription_tiers?.name === 'student' || currentSubscription.subscription_tiers?.name === 'student_lite') && (
                   <Zap className="w-10 h-10 text-blue-500" />
                 )}
               </div>

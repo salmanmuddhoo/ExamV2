@@ -361,8 +361,8 @@ This helps me give you the most accurate and focused help! 😊`;
               console.log('🔒 Paid tier: Chat locked - Token limit reached');
             }
 
-            // For student tier, check grade/subject restrictions
-            if (access.tier_name === 'student') {
+            // For student/student_lite tiers, check grade/subject restrictions
+            if (access.tier_name === 'student' || access.tier_name === 'student_lite') {
               const { data: canUseChat, error: chatAccessError } = await supabase
                 .rpc('can_user_use_chat_for_paper', {
                   p_user_id: user.id,
@@ -373,9 +373,9 @@ This helps me give you the most accurate and focused help! 😊`;
                 console.error('Error checking student package chat access:', chatAccessError);
               } else if (canUseChat === false) {
                 setChatLocked(true);
-                console.log('🔒 Student tier: Chat locked - Paper not in selected grade/subjects');
+                console.log('🔒 Student/Student Lite tier: Chat locked - Paper not in selected grade/subjects');
               } else {
-                console.log('✅ Student tier: Chat available - Paper matches selected grade/subjects');
+                console.log('✅ Student/Student Lite tier: Chat available - Paper matches selected grade/subjects');
               }
             }
           }
@@ -1228,7 +1228,7 @@ You can still view and download this exam paper!`
                       {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
                     </span>
                   </div>
-                  {(tierName === 'free' || tierName === 'student') && (
+                  {(tierName === 'free' || tierName === 'student' || tierName === 'student_lite') && (
                     <button
                       onClick={onOpenSubscriptions || onBack}
                       className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
@@ -1244,11 +1244,11 @@ You can still view and download this exam paper!`
                   <div className="flex items-center space-x-3 mb-2">
                     <Lock className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                     <h4 className="font-semibold text-gray-900">
-                      {tierName === 'student' ? 'Chat Locked - Not in Your Package' : 'Chat Locked - Limit Reached'}
+                      {(tierName === 'student' || tierName === 'student_lite') ? 'Chat Locked - Not in Your Package' : 'Chat Locked - Limit Reached'}
                     </h4>
                   </div>
                   <p className="text-sm text-gray-700 mb-3">
-                    {tierName === 'student'
+                    {(tierName === 'student' || tierName === 'student_lite')
                       ? 'You can view this paper, but it\'s not included in your selected grade and subjects. Upgrade to Pro for access to all papers, or modify your Student Package.'
                       : 'You can view this paper, but you\'ve reached your chat limit for this billing period.'}
                   </p>
@@ -1256,7 +1256,7 @@ You can still view and download this exam paper!`
                     onClick={onOpenSubscriptions || onBack}
                     className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                   >
-                    {tierName === 'student' ? 'View Upgrade Options' : 'Upgrade to Unlock Chat'}
+                    {(tierName === 'student' || tierName === 'student_lite') ? 'View Upgrade Options' : 'Upgrade to Unlock Chat'}
                   </button>
                 </div>
               ) : (

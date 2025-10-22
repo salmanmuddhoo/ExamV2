@@ -976,7 +976,7 @@ export function UnifiedPracticeViewer({
                         {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
                       </span>
                     </div>
-                    {(tierName === 'free' || tierName === 'student') && (
+                    {(tierName === 'free' || tierName === 'student' || tierName === 'student_lite') && (
                       <button
                         onClick={onOpenSubscriptions || onBack}
                         className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
