@@ -154,8 +154,8 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   };
 
   const handleSelectPlan = (tier: SubscriptionTier) => {
-    // If student tier, show grade/subject selector
-    if (tier.name === 'student') {
+    // If tier requires grade/subject selection, show selector
+    if (tier.can_select_subjects) {
       setSelectedStudentTier(tier);
       setShowStudentSelector(true);
     } else {
