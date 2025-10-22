@@ -395,7 +395,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
 
           {/* Subscription Tiers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
-            {tiers.map((tier) => {
+            {tiers.filter(tier => tier.name !== 'free').map((tier) => {
               const price = getPrice(tier);
               const isCurrent = isCurrentTier(tier.id);
               const canUp = canUpgrade(tier);
