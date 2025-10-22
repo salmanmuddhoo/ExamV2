@@ -62,6 +62,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [existingConvs, setExistingConvs] = useState<Record<string, boolean>>({});
   const [hasChapterAccess, setHasChapterAccess] = useState(true); // New state for chapter access
+  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]); // Available subjects for selected grade
 
   useEffect(() => {
     if (isOpen) {
@@ -79,22 +80,31 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     try {
       setLoading(true);
 
-      const [gradesRes, subjectsRes, papersRes] = await Promise.all([
-        supabase.from('grade_levels').select('*').order('display_order'),
-        supabase.from('subjects').select('*').order('name'),
-        supabase.from('exam_papers').select('id, title, subject_id, grade_level_id').order('title'),
-      ]);
-
-      if (gradesRes.error) throw gradesRes.error;
-      if (subjectsRes.error) throw subjectsRes.error;
-      if (papersRes.error) throw papersRes.error;
-
-      setGradeLevels(gradesRes.data || []);
-      setSubjects(subjectsRes.data || []);
-      setPapers(papersRes.data || []);
-
-      // Fetch existing conversations for current user
       if (user) {
+        // Fetch accessible grades and subjects based on user's subscription
+        const [accessibleGrades, allSubjects, allPapers] = await Promise.all([
+          supabase.rpc('get_accessible_grades_for_user', { p_user_id: user.id }),
+          supabase.from('subjects').select('*').order('name'),
+          supabase.from('exam_papers').select('id, title, subject_id, grade_level_id').order('title'),
+        ]);
+
+        if (accessibleGrades.error) {
+          console.error('Error fetching accessible grades:', accessibleGrades.error);
+          // Fallback to all grades
+          const { data: allGrades } = await supabase.from('grade_levels').select('*').order('display_order');
+          setGradeLevels(allGrades || []);
+        } else {
+          setGradeLevels(accessibleGrades.data?.map((g: any) => ({
+            id: g.grade_id,
+            name: g.grade_name,
+            display_order: g.display_order
+          })) || []);
+        }
+
+        setSubjects(allSubjects.data || []);
+        setPapers(allPapers.data || []);
+
+        // Fetch existing conversations
         const { data: convs, error } = await supabase
           .from('conversations')
           .select('exam_paper_id')
@@ -110,6 +120,17 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
         // Fetch user's tier to check chapter_wise_access
         await fetchUserTierAccess();
+      } else {
+        // Not logged in - show all grades and subjects
+        const [gradesRes, subjectsRes, papersRes] = await Promise.all([
+          supabase.from('grade_levels').select('*').order('display_order'),
+          supabase.from('subjects').select('*').order('name'),
+          supabase.from('exam_papers').select('id, title, subject_id, grade_level_id').order('title'),
+        ]);
+
+        setGradeLevels(gradesRes.data || []);
+        setSubjects(subjectsRes.data || []);
+        setPapers(papersRes.data || []);
       }
 
     } catch (error) {
@@ -155,23 +176,74 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     }
   };
 
-  const getAvailableSubjectsForGrade = (gradeId: string) => {
-    const subjectIds = new Set(
-      papers
-        .filter(p => p.grade_level_id === gradeId)
-        .map(p => p.subject_id)
-    );
-    return subjects.filter(s => subjectIds.has(s.id));
+  const getAvailableSubjectsForGrade = async (gradeId: string) => {
+    if (!user) {
+      // For non-logged in users, show all subjects for this grade
+      const subjectIds = new Set(
+        papers
+          .filter(p => p.grade_level_id === gradeId)
+          .map(p => p.subject_id)
+      );
+      return subjects.filter(s => subjectIds.has(s.id));
+    }
+
+    // For logged in users, fetch accessible subjects
+    try {
+      const { data: accessibleSubjects, error } = await supabase
+        .rpc('get_accessible_subjects_for_user', {
+          p_user_id: user.id,
+          p_grade_id: gradeId
+        });
+
+      if (error) {
+        console.error('Error fetching accessible subjects:', error);
+        // Fallback to all subjects for this grade
+        const subjectIds = new Set(
+          papers
+            .filter(p => p.grade_level_id === gradeId)
+            .map(p => p.subject_id)
+        );
+        return subjects.filter(s => subjectIds.has(s.id));
+      }
+
+      // Filter to only subjects that have papers in this grade
+      const availableSubjectIds = new Set(
+        papers
+          .filter(p => p.grade_level_id === gradeId)
+          .map(p => p.subject_id)
+      );
+
+      return subjects.filter(s =>
+        availableSubjectIds.has(s.id) &&
+        accessibleSubjects?.some((as: any) => as.subject_id === s.id)
+      );
+    } catch (error) {
+      console.error('Error in getAvailableSubjectsForGrade:', error);
+      // Fallback
+      const subjectIds = new Set(
+        papers
+          .filter(p => p.grade_level_id === gradeId)
+          .map(p => p.subject_id)
+      );
+      return subjects.filter(s => subjectIds.has(s.id));
+    }
   };
 
   const getPapersForSubjectAndGrade = (subjectId: string, gradeId: string) => {
     return papers.filter(p => p.subject_id === subjectId && p.grade_level_id === gradeId);
   };
 
-  const handleGradeClick = (grade: GradeLevel) => {
+  const handleGradeClick = async (grade: GradeLevel) => {
     setSelectedGrade(grade);
     setSelectedSubject(null);
     setSelectedMode(null);
+    setLoading(true);
+
+    // Fetch available subjects for this grade
+    const subjects = await getAvailableSubjectsForGrade(grade.id);
+    setAvailableSubjects(subjects);
+
+    setLoading(false);
     setCurrentStep('subject');
   };
 
@@ -367,7 +439,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
   if (!isOpen) return null;
 
-  const availableSubjects = selectedGrade ? getAvailableSubjectsForGrade(selectedGrade.id) : [];
   const availablePapers = selectedGrade && selectedSubject
     ? getPapersForSubjectAndGrade(selectedSubject.id, selectedGrade.id)
     : [];
@@ -408,17 +479,23 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
             </div>
           ) : (
             <>
-              {currentStep === 'grade' && gradeLevels.map(grade => (
-                <button key={grade.id} onClick={() => handleGradeClick(grade)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
-                  <div>
-                    <p className="font-semibold text-gray-900 text-lg">Grade {grade.name}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {getAvailableSubjectsForGrade(grade.id).length} subjects available
-                    </p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
-                </button>
-              ))}
+              {currentStep === 'grade' && gradeLevels.map(grade => {
+                const subjectCount = new Set(
+                  papers.filter(p => p.grade_level_id === grade.id).map(p => p.subject_id)
+                ).size;
+
+                return (
+                  <button key={grade.id} onClick={() => handleGradeClick(grade)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
+                    <div>
+                      <p className="font-semibold text-gray-900 text-lg">Grade {grade.name}</p>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        {subjectCount} {subjectCount === 1 ? 'subject' : 'subjects'} available
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+                  </button>
+                );
+              })}
 
               {currentStep === 'subject' && availableSubjects.map(subject => (
                 <button key={subject.id} onClick={() => handleSubjectClick(subject)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
