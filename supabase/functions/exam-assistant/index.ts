@@ -103,7 +103,7 @@ async function createGeminiCache(
   systemPrompt: string,
   questionPrompt: string,
   imageData: string[],
-  model: string = 'gemini-2.0-flash-exp'
+  model: string = 'gemini-2.0-flash'
 ): Promise<string> {
   const cacheParts: any[] = [
     { text: systemPrompt },
@@ -188,7 +188,7 @@ async function generateWithGeminiCache(
   geminiApiKey: string,
   geminiCacheName: string,
   userMessage: string,
-  model: string = 'gemini-2.0-flash-exp'
+  model: string = 'gemini-2.0-flash'
 ): Promise<any> {
   console.log(`🚀 Generating with cached content: ${geminiCacheName}`);
 
@@ -691,6 +691,7 @@ Deno.serve(async (req) => {
     let data: any;
     let usedCacheName: string | null = null;
     let cacheCreated = false;
+    let modelUsed = useGeminiCache ? 'gemini-2.0-flash' : 'gemini-2.0-flash-exp';
 
     if (useGeminiCache && detectedQuestionNumber) {
       // ========== GEMINI BUILT-IN CACHE MODE ==========
@@ -716,7 +717,7 @@ Deno.serve(async (req) => {
             cacheApiKey!,
             existingCache.geminiCacheName,
             normalizedQuestion,
-            'gemini-2.0-flash-exp'
+            'gemini-2.0-flash'
           );
           usedCacheName = existingCache.geminiCacheName;
           await incrementCacheUseCount(supabase, existingCache.cacheId);
@@ -729,7 +730,7 @@ Deno.serve(async (req) => {
             contextualSystemPrompt,
             questionPromptText,
             finalExamImages,
-            'gemini-2.0-flash-exp'
+            'gemini-2.0-flash'
           );
           usedCacheName = cacheName;
           cacheCreated = true;
@@ -741,14 +742,14 @@ Deno.serve(async (req) => {
             cacheName,
             contextualSystemPrompt,
             finalExamImages.length,
-            'gemini-2.0-flash-exp'
+            'gemini-2.0-flash'
           );
 
           data = await generateWithGeminiCache(
             cacheApiKey!,
             cacheName,
             normalizedQuestion,
-            'gemini-2.0-flash-exp'
+            'gemini-2.0-flash'
           );
         }
       } else {
@@ -759,7 +760,7 @@ Deno.serve(async (req) => {
           contextualSystemPrompt,
           questionPromptText,
           finalExamImages,
-          'gemini-2.0-flash-exp'
+          'gemini-2.0-flash'
         );
         usedCacheName = cacheName;
         cacheCreated = true;
@@ -771,14 +772,14 @@ Deno.serve(async (req) => {
           cacheName,
           contextualSystemPrompt,
           finalExamImages.length,
-          'gemini-2.0-flash-exp'
+          'gemini-2.0-flash'
         );
 
         data = await generateWithGeminiCache(
           cacheApiKey!,
           cacheName,
           normalizedQuestion,
-          'gemini-2.0-flash-exp'
+          'gemini-2.0-flash'
         );
 
         console.log(`💾 Cache created and saved for future use`);
@@ -861,7 +862,8 @@ Deno.serve(async (req) => {
 
     // Log token usage for monitoring
     console.log('=== Token Usage ===');
-    console.log(`Cache mode: ${useGeminiCache ? 'Gemini' : 'Own'}`);
+    console.log(`Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
+    console.log(`Model used: ${modelUsed}`);
     console.log(`Input tokens: ${promptTokenCount}`);
     console.log(`Output tokens: ${candidatesTokenCount}`);
     console.log(`Total tokens: ${totalTokenCount}`);
@@ -886,7 +888,7 @@ Deno.serve(async (req) => {
         exam_paper_id: examPaperId,
         conversation_id: conversationId || null,
         question_number: detectedQuestionNumber,
-        model: 'gemini-2.0-flash-exp',
+        model: modelUsed,
         provider: 'gemini',
         prompt_tokens: promptTokenCount,
         completion_tokens: candidatesTokenCount,
@@ -935,7 +937,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         answer: aiResponse,
-        model: "gemini-2.0-flash-exp",
+        model: modelUsed,
         provider: "gemini",
         optimized: usedOptimizedMode,
         questionNumber: detectedQuestionNumber,
