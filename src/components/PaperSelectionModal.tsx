@@ -61,6 +61,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const [selectedSyllabus, setSelectedSyllabus] = useState<Syllabus | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [existingConvs, setExistingConvs] = useState<Record<string, boolean>>({});
+  const [hasChapterAccess, setHasChapterAccess] = useState(true); // New state for chapter access
 
   useEffect(() => {
     if (isOpen) {
@@ -106,12 +107,51 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
           convMap[c.exam_paper_id] = true;
         });
         setExistingConvs(convMap);
+
+        // Fetch user's tier to check chapter_wise_access
+        await fetchUserTierAccess();
       }
 
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserTierAccess = async () => {
+    if (!user) return;
+
+    try {
+      // Get user's active subscription
+      const { data: subscription, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          tier_id,
+          subscription_tiers!inner(
+            chapter_wise_access
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subError) {
+        console.error('Error fetching subscription:', subError);
+        setHasChapterAccess(true); // Default to true on error
+        return;
+      }
+
+      if (subscription && subscription.subscription_tiers) {
+        const tierData = subscription.subscription_tiers as any;
+        setHasChapterAccess(tierData.chapter_wise_access ?? true);
+        console.log('Chapter-wise access:', tierData.chapter_wise_access);
+      } else {
+        setHasChapterAccess(true); // Default to true if no subscription found
+      }
+    } catch (error) {
+      console.error('Error checking chapter access:', error);
+      setHasChapterAccess(true); // Default to true on error
     }
   };
 
@@ -410,21 +450,40 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors flex-shrink-0 mt-1" />
                   </button>
 
-                  <button
-                    onClick={() => handleModeClick('chapter')}
-                    className="w-full text-left px-5 py-5 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-start space-x-4 group"
-                  >
-                    <div className="p-3 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
-                      <BookOpen className="w-6 h-6" />
+                  {hasChapterAccess ? (
+                    <button
+                      onClick={() => handleModeClick('chapter')}
+                      className="w-full text-left px-5 py-5 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-start space-x-4 group"
+                    >
+                      <div className="p-3 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900 text-lg mb-1">Practice by Chapter</p>
+                        <p className="text-sm text-gray-600">
+                          Focus on specific topics. View questions organized by syllabus chapters with AI assistance.
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors flex-shrink-0 mt-1" />
+                    </button>
+                  ) : (
+                    <div className="relative">
+                      <div className="w-full text-left px-5 py-5 rounded-lg border-2 border-gray-200 bg-gray-50 opacity-60 flex items-start space-x-4">
+                        <div className="p-3 bg-gray-200 rounded-lg">
+                          <BookOpen className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-500 text-lg mb-1">Practice by Chapter</p>
+                          <p className="text-sm text-gray-500">
+                            Upgrade your plan to access chapter-wise practice.
+                          </p>
+                          <p className="text-xs text-amber-600 mt-2 font-medium">
+                            🔒 Not available in your current plan
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900 text-lg mb-1">Practice by Chapter</p>
-                      <p className="text-sm text-gray-600">
-                        Focus on specific topics. View questions organized by syllabus chapters with AI assistance.
-                      </p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors flex-shrink-0 mt-1" />
-                  </button>
+                  )}
                 </div>
               )}
 
