@@ -257,8 +257,8 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   // Show payment orchestrator if payment is initiated
   if (showPayment && paymentData) {
     return (
-      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="bg-white rounded-lg w-full max-w-3xl my-8">
+      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="bg-white rounded-lg w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto my-8">
           <PaymentOrchestrator
             paymentData={paymentData}
             onBack={handleBackFromPayment}
@@ -272,8 +272,8 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   // Show student package selector if student tier selected
   if (showStudentSelector && selectedStudentTier) {
     return (
-      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="bg-white rounded-lg w-full max-w-4xl my-8">
+      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="bg-white rounded-lg w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto my-8">
           <StudentPackageSelector
             onComplete={handleStudentSelectionComplete}
             onCancel={handleCancelStudentSelection}
@@ -285,23 +285,24 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   }
 
   return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-      <div className="bg-white rounded-lg w-full max-w-5xl my-4 sm:my-8">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-lg">
+    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 transition-opacity duration-200 ${!isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className="bg-white rounded-lg w-full max-w-5xl max-h-[95vh] sm:max-h-[90vh] flex flex-col my-4 sm:my-8">
+        {/* Header - Sticky */}
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-lg shadow-sm">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">Choose Your Plan</h2>
             <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 sm:mt-1">Upgrade anytime. Cancel anytime.</p>
           </div>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 ml-2"
+            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 ml-2"
+            aria-label="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        <div className="p-3 sm:p-4">
+        <div className="overflow-y-auto flex-1 p-3 sm:p-4">
           {/* Current Subscription Status */}
           {currentSubscription && (
             <div className="mb-3 sm:mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-2.5 sm:p-3">
