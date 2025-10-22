@@ -18,7 +18,7 @@ export function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [useGeminiCache, setUseGeminiCache] = useState(false);
-  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-exp');
+  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash');
   const [geminiCacheApiKey, setGeminiCacheApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);

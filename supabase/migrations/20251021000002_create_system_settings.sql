@@ -61,7 +61,7 @@ CREATE POLICY "Admins can insert system settings"
 -- Insert default settings
 INSERT INTO system_settings (setting_key, setting_value, description) VALUES
   ('ai_cache_mode', '{"useGeminiCache": false}'::jsonb, 'AI caching mode: true = Gemini built-in cache, false = own database cache'),
-  ('gemini_model', '{"model": "gemini-2.0-flash-exp"}'::jsonb, 'Gemini model to use for AI assistant')
+  ('gemini_model', '{"model": "gemini-2.0-flash"}'::jsonb, 'Gemini model to use for AI assistant')
 ON CONFLICT (setting_key) DO NOTHING;
 
 -- Create helper function to get setting value

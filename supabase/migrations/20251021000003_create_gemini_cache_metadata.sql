@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS gemini_cache_metadata (
 
   -- Gemini cache details
   gemini_cache_name TEXT NOT NULL, -- The name returned by Gemini's caching API
-  model TEXT NOT NULL DEFAULT 'gemini-2.0-flash-exp',
+  model TEXT NOT NULL DEFAULT 'gemini-2.0-flash',
 
   -- Cache content metadata
   system_prompt TEXT,
