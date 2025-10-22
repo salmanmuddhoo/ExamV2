@@ -691,6 +691,7 @@ Deno.serve(async (req) => {
     let data: any;
     let usedCacheName: string | null = null;
     let cacheCreated = false;
+    let modelUsed = useGeminiCache ? 'gemini-2.0-flash' : 'gemini-2.0-flash-exp';
 
     if (useGeminiCache && detectedQuestionNumber) {
       // ========== GEMINI BUILT-IN CACHE MODE ==========
@@ -832,7 +833,7 @@ Deno.serve(async (req) => {
       });
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${legacyApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${legacyApiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -861,7 +862,8 @@ Deno.serve(async (req) => {
 
     // Log token usage for monitoring
     console.log('=== Token Usage ===');
-    console.log(`Cache mode: ${useGeminiCache ? 'Gemini' : 'Own'}`);
+    console.log(`Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
+    console.log(`Model used: ${modelUsed}`);
     console.log(`Input tokens: ${promptTokenCount}`);
     console.log(`Output tokens: ${candidatesTokenCount}`);
     console.log(`Total tokens: ${totalTokenCount}`);
@@ -886,7 +888,7 @@ Deno.serve(async (req) => {
         exam_paper_id: examPaperId,
         conversation_id: conversationId || null,
         question_number: detectedQuestionNumber,
-        model: 'gemini-2.0-flash',
+        model: modelUsed,
         provider: 'gemini',
         prompt_tokens: promptTokenCount,
         completion_tokens: candidatesTokenCount,
@@ -935,7 +937,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         answer: aiResponse,
-        model: "gemini-2.0-flash",
+        model: modelUsed,
         provider: "gemini",
         optimized: usedOptimizedMode,
         questionNumber: detectedQuestionNumber,
