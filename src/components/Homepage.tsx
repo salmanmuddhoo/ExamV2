@@ -14,11 +14,13 @@ interface TierConfig {
   price_monthly: number;
   token_limit: number | null;
   papers_limit: number | null;
+  chapter_wise_access: boolean;
 }
 
 export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false }: Props) {
   const [tiers, setTiers] = useState<{
     free?: TierConfig;
+    student_lite?: TierConfig;
     student?: TierConfig;
     pro?: TierConfig;
   }>({});
@@ -32,8 +34,9 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     try {
       const { data, error } = await supabase
         .from('subscription_tiers')
-        .select('name, display_name, price_monthly, token_limit, papers_limit')
-        .eq('is_active', true);
+        .select('name, display_name, price_monthly, token_limit, papers_limit, chapter_wise_access')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
 
@@ -180,7 +183,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-6 max-w-7xl mx-auto">
             {/* Free Tier */}
             {!loading && tiers.free && (
               <PricingCard
@@ -193,12 +196,34 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `Access to ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
                   `${formatNumber(tiers.free.token_limit)} AI tokens per month`,
                   "Basic AI assistance",
-                  "View all subjects",
+                  "Yearly & Chapter practice",
                   "No credit card required"
                 ]}
                 buttonText="Get Started Free"
                 onButtonClick={onGetStarted}
                 popular={false}
+              />
+            )}
+
+            {/* Student Lite Package */}
+            {!loading && tiers.student_lite && (
+              <PricingCard
+                name={tiers.student_lite.display_name}
+                price={`$${tiers.student_lite.price_monthly.toFixed(2)}`}
+                period="per month"
+                description="Affordable yearly exam focus"
+                icon={<Rocket className="w-6 h-6" />}
+                features={[
+                  "Choose 1 grade level",
+                  "Select 1 subject",
+                  "Yearly exam papers only",
+                  `${formatNumber(tiers.student_lite.token_limit)} AI tokens per month`,
+                  "AI chat assistance",
+                  "Most affordable option"
+                ]}
+                buttonText="Start Learning"
+                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                popular={true}
               />
             )}
 
@@ -208,19 +233,19 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 name={tiers.student.display_name}
                 price={`$${tiers.student.price_monthly.toFixed(2)}`}
                 period="per month"
-                description="Best for focused subject learning"
+                description="Best for comprehensive learning"
                 icon={<Star className="w-6 h-6" />}
                 features={[
                   "Choose 1 grade level",
                   "Select up to 3 subjects",
+                  "Yearly & Chapter practice",
                   `${formatNumber(tiers.student.token_limit)} AI tokens per month`,
-                  `${formatNumber(tiers.student.papers_limit)} exam paper access`,
                   "Priority AI responses",
                   "Download exam papers"
                 ]}
-                buttonText="Start Learning"
+                buttonText="Get Full Access"
                 onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
-                popular={true}
+                popular={false}
               />
             )}
 
@@ -234,8 +259,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<Crown className="w-6 h-6" />}
                 features={[
                   "All grades & subjects",
+                  "Yearly & Chapter practice",
                   `${formatNumber(tiers.pro.token_limit)} AI tokens`,
-                  `${formatNumber(tiers.pro.papers_limit)} exam papers`,
                   "Advanced AI explanations",
                   "Detailed progress tracking",
                   "Priority support"
