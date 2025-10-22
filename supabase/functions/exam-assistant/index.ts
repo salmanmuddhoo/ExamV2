@@ -6,6 +6,231 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey"
 };
 
+// ========== CACHE MODE HELPERS ==========
+
+// Helper to get cache mode and API keys from settings
+async function getCacheModeAndKeys(supabaseClient: any): Promise<{
+  useGeminiCache: boolean;
+  cacheApiKey: string | null;
+  legacyApiKey: string;
+}> {
+  try {
+    // Get cache mode setting
+    const { data: cacheData } = await supabaseClient
+      .from('system_settings')
+      .select('setting_value')
+      .eq('setting_key', 'ai_cache_mode')
+      .single();
+
+    const useGeminiCache = (cacheData?.setting_value?.useGeminiCache) ?? false;
+    console.log(`📦 Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
+
+    // Get Gemini cache API key (for cache mode)
+    let cacheApiKey: string | null = null;
+    if (useGeminiCache) {
+      const { data: apiKeyData } = await supabaseClient
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'gemini_cache_api_key')
+        .single();
+
+      const dbApiKey = apiKeyData?.setting_value?.apiKey;
+      if (dbApiKey && dbApiKey.trim() !== '') {
+        cacheApiKey = dbApiKey;
+        console.log('🔑 Using Gemini cache API key from database settings');
+      } else {
+        // Fallback to environment variable
+        cacheApiKey = Deno.env.get("GEMINI_CACHE_API_KEY") || null;
+        if (cacheApiKey) {
+          console.log('🔑 Using Gemini cache API key from environment variable');
+        }
+      }
+    }
+
+    // Get legacy API key (for own cache mode)
+    const legacyApiKey = Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY") || '';
+
+    return {
+      useGeminiCache,
+      cacheApiKey,
+      legacyApiKey
+    };
+  } catch (error) {
+    console.error('Error fetching cache mode and keys:', error);
+    return {
+      useGeminiCache: false,
+      cacheApiKey: null,
+      legacyApiKey: Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY") || ''
+    };
+  }
+}
+
+// Get existing Gemini cache for a question
+async function getGeminiCache(
+  supabaseClient: any,
+  examPaperId: string,
+  questionNumber: string
+): Promise<{ cacheId: string; geminiCacheName: string; useCount: number } | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .rpc('get_gemini_cache_for_question', {
+        p_exam_paper_id: examPaperId,
+        p_question_number: questionNumber,
+        p_cache_type: 'question_context'
+      });
+
+    if (error) throw error;
+
+    if (data && data.length > 0 && !data[0].is_expired) {
+      console.log(`♻️ Found existing Gemini cache: ${data[0].gemini_cache_name} (used ${data[0].use_count} times)`);
+      return {
+        cacheId: data[0].cache_id,
+        geminiCacheName: data[0].gemini_cache_name,
+        useCount: data[0].use_count
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching Gemini cache:', error);
+    return null;
+  }
+}
+
+// Create Gemini cache
+async function createGeminiCache(
+  geminiApiKey: string,
+  systemPrompt: string,
+  questionPrompt: string,
+  imageData: string[],
+  model: string = 'gemini-2.0-flash-exp'
+): Promise<string> {
+  const cacheParts: any[] = [
+    { text: systemPrompt },
+    { text: questionPrompt }
+  ];
+
+  const imageParts = imageData.map((img) => ({
+    inline_data: { mime_type: "image/jpeg", data: img }
+  }));
+  cacheParts.push(...imageParts);
+
+  console.log(`🔨 Creating Gemini cache with ${imageData.length} images...`);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${geminiApiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: `models/${model}`,
+        contents: [{
+          role: "user",
+          parts: cacheParts
+        }],
+        ttl: "3600s"
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Gemini cache creation error:", errorText);
+    throw new Error(`Failed to create Gemini cache: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const cacheName = data.name;
+
+  console.log(`✅ Created Gemini cache: ${cacheName}`);
+  return cacheName;
+}
+
+// Save Gemini cache metadata to database
+async function saveGeminiCacheMetadata(
+  supabaseClient: any,
+  examPaperId: string,
+  questionNumber: string,
+  geminiCacheName: string,
+  systemPrompt: string,
+  imageCount: number,
+  model: string
+) {
+  try {
+    const cacheName = `exam_${examPaperId}_q${questionNumber}`;
+    const expiresAt = new Date(Date.now() + 3600 * 1000);
+
+    const { error } = await supabaseClient
+      .from('gemini_cache_metadata')
+      .insert({
+        cache_name: cacheName,
+        exam_paper_id: examPaperId,
+        question_number: questionNumber,
+        cache_type: 'question_context',
+        gemini_cache_name: geminiCacheName,
+        model: model,
+        system_prompt: systemPrompt,
+        image_count: imageCount,
+        marking_scheme_included: false,
+        expires_at: expiresAt.toISOString()
+      });
+
+    if (error) throw error;
+
+    console.log(`💾 Saved cache metadata: ${cacheName} -> ${geminiCacheName}`);
+  } catch (error) {
+    console.error('Error saving cache metadata:', error);
+  }
+}
+
+// Generate content using Gemini cache
+async function generateWithGeminiCache(
+  geminiApiKey: string,
+  geminiCacheName: string,
+  userMessage: string,
+  model: string = 'gemini-2.0-flash-exp'
+): Promise<any> {
+  console.log(`🚀 Generating with cached content: ${geminiCacheName}`);
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cachedContent: geminiCacheName,
+        contents: [{
+          role: "user",
+          parts: [{ text: userMessage }]
+        }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Gemini cached generation error:", errorText);
+    throw new Error(`Gemini API failed: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Increment cache use count
+async function incrementCacheUseCount(supabaseClient: any, cacheId: string) {
+  try {
+    const { error } = await supabaseClient
+      .rpc('increment_cache_use_count', { p_cache_id: cacheId });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error incrementing cache use count:', error);
+  }
+}
+
+// ========== EXISTING HELPERS ==========
+
 function extractQuestionNumber(input: string): string | null {
   if (!input) return null;
   
@@ -450,72 +675,182 @@ Deno.serve(async (req) => {
 
     console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
 
-    const geminiApiKey = Deno.env.get("GEMINI_ASSISTANT_API_KEY") || Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) throw new Error("GEMINI_ASSISTANT_API_KEY or GEMINI_API_KEY not configured");
+    // ========== DUAL CACHE MODE LOGIC ==========
 
-    // Supabase client already created earlier for fetching exam paper details
-    let conversationHistory = [];
+    // Get cache mode and API keys from settings
+    const { useGeminiCache, cacheApiKey, legacyApiKey } = await getCacheModeAndKeys(supabase);
 
-    if (isFollowUp) {
-      conversationHistory = await loadConversationHistory(
-        supabase,
-        conversationId,
-        examPaperId,
-        userId,
-        detectedQuestionNumber
-      );
-      console.log(`📚 FOLLOW-UP: Loaded ${conversationHistory.length} previous messages for Question ${detectedQuestionNumber}`);
-      console.log(`💰 COST OPTIMIZATION: Reusing ${conversationHistory.length} cached messages instead of re-sending images`);
-    } else {
-      console.log(`🆕 NEW QUESTION: Starting fresh context for Question ${detectedQuestionNumber}`);
-      console.log(`💰 COST OPTIMIZATION: No history loaded (fresh question = no unnecessary context)`);
+    // Validate API keys
+    if (useGeminiCache && !cacheApiKey) {
+      throw new Error("Gemini cache mode enabled but GEMINI_CACHE_API_KEY not configured in database or environment");
+    }
+    if (!legacyApiKey) {
+      throw new Error("GEMINI_ASSISTANT_API_KEY or GEMINI_API_KEY not configured");
     }
 
-    const contents = [];
-    contents.push(...conversationHistory);
+    let data: any;
+    let usedCacheName: string | null = null;
+    let cacheCreated = false;
 
-    const currentMessageParts: any[] = [
-      { text: contextualSystemPrompt },
-      { text: buildQuestionFocusPrompt(
+    if (useGeminiCache && detectedQuestionNumber) {
+      // ========== GEMINI BUILT-IN CACHE MODE ==========
+      console.log('🔥 Using GEMINI CACHE MODE');
+
+      const questionPromptText = buildQuestionFocusPrompt(
         normalizedQuestion,
         detectedQuestionNumber,
         questionText,
         markingSchemeText,
-        isFollowUp
-      )}
-    ];
+        false
+      );
 
-    if (!isFollowUp) {
-      const imageParts = finalExamImages.map((img) => ({
-        inline_data: { mime_type: "image/jpeg", data: img }
-      }));
-      currentMessageParts.push(...imageParts);
-    }
+      if (isFollowUp) {
+        // Try to use existing cache
+        console.log(`♻️ Follow-up question - looking for existing cache...`);
+        const existingCache = await getGeminiCache(supabase, examPaperId, detectedQuestionNumber);
 
-    contents.push({
-      role: "user",
-      parts: currentMessageParts
-    });
+        if (existingCache) {
+          // Use existing cache
+          console.log(`✅ Using existing cache for Question ${detectedQuestionNumber}`);
+          data = await generateWithGeminiCache(
+            cacheApiKey!,
+            existingCache.geminiCacheName,
+            normalizedQuestion,
+            'gemini-2.0-flash-exp'
+          );
+          usedCacheName = existingCache.geminiCacheName;
+          await incrementCacheUseCount(supabase, existingCache.cacheId);
+          console.log(`💰 SAVED: Reusing cache (${existingCache.useCount + 1} times used)`);
+        } else {
+          // Cache expired or not found, create new one
+          console.log(`⚠️ No cache found, creating new one...`);
+          const cacheName = await createGeminiCache(
+            cacheApiKey!,
+            contextualSystemPrompt,
+            questionPromptText,
+            finalExamImages,
+            'gemini-2.0-flash-exp'
+          );
+          usedCacheName = cacheName;
+          cacheCreated = true;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: contents,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
-        })
+          await saveGeminiCacheMetadata(
+            supabase,
+            examPaperId,
+            detectedQuestionNumber,
+            cacheName,
+            contextualSystemPrompt,
+            finalExamImages.length,
+            'gemini-2.0-flash-exp'
+          );
+
+          data = await generateWithGeminiCache(
+            cacheApiKey!,
+            cacheName,
+            normalizedQuestion,
+            'gemini-2.0-flash-exp'
+          );
+        }
+      } else {
+        // First question - create cache
+        console.log(`🆕 First question - creating new Gemini cache...`);
+        const cacheName = await createGeminiCache(
+          cacheApiKey!,
+          contextualSystemPrompt,
+          questionPromptText,
+          finalExamImages,
+          'gemini-2.0-flash-exp'
+        );
+        usedCacheName = cacheName;
+        cacheCreated = true;
+
+        await saveGeminiCacheMetadata(
+          supabase,
+          examPaperId,
+          detectedQuestionNumber,
+          cacheName,
+          contextualSystemPrompt,
+          finalExamImages.length,
+          'gemini-2.0-flash-exp'
+        );
+
+        data = await generateWithGeminiCache(
+          cacheApiKey!,
+          cacheName,
+          normalizedQuestion,
+          'gemini-2.0-flash-exp'
+        );
+
+        console.log(`💾 Cache created and saved for future use`);
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", errorText);
-      throw new Error(`Gemini API failed: ${response.status}`);
+    } else {
+      // ========== OWN DATABASE CACHE MODE (EXISTING LOGIC) ==========
+      console.log('🗄️ Using OWN CACHE MODE (database history)');
+
+      let conversationHistory = [];
+
+      if (isFollowUp) {
+        conversationHistory = await loadConversationHistory(
+          supabase,
+          conversationId,
+          examPaperId,
+          userId,
+          detectedQuestionNumber
+        );
+        console.log(`📚 FOLLOW-UP: Loaded ${conversationHistory.length} previous messages for Question ${detectedQuestionNumber}`);
+        console.log(`💰 COST OPTIMIZATION: Reusing ${conversationHistory.length} cached messages instead of re-sending images`);
+      } else {
+        console.log(`🆕 NEW QUESTION: Starting fresh context for Question ${detectedQuestionNumber}`);
+        console.log(`💰 COST OPTIMIZATION: No history loaded (fresh question = no unnecessary context)`);
+      }
+
+      const contents = [];
+      contents.push(...conversationHistory);
+
+      const currentMessageParts: any[] = [
+        { text: contextualSystemPrompt },
+        { text: buildQuestionFocusPrompt(
+          normalizedQuestion,
+          detectedQuestionNumber,
+          questionText,
+          markingSchemeText,
+          isFollowUp
+        )}
+      ];
+
+      if (!isFollowUp) {
+        const imageParts = finalExamImages.map((img) => ({
+          inline_data: { mime_type: "image/jpeg", data: img }
+        }));
+        currentMessageParts.push(...imageParts);
+      }
+
+      contents.push({
+        role: "user",
+        parts: currentMessageParts
+      });
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${legacyApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: contents,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini API error:", errorText);
+        throw new Error(`Gemini API failed: ${response.status}`);
+      }
+
+      data = await response.json();
     }
-
-    const data = await response.json();
     const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated";
 
     // Extract token usage from Gemini response
@@ -526,11 +861,15 @@ Deno.serve(async (req) => {
 
     // Log token usage for monitoring
     console.log('=== Token Usage ===');
+    console.log(`Cache mode: ${useGeminiCache ? 'Gemini' : 'Own'}`);
     console.log(`Input tokens: ${promptTokenCount}`);
     console.log(`Output tokens: ${candidatesTokenCount}`);
     console.log(`Total tokens: ${totalTokenCount}`);
+    if (useGeminiCache) {
+      console.log(`Cache used: ${usedCacheName || 'none'}`);
+      console.log(`Cache created: ${cacheCreated}`);
+    }
     console.log(`Images sent: ${finalExamImages.length}`);
-    console.log(`Conversation history messages: ${conversationHistory.length}`);
 
     // Calculate estimated cost (Gemini 2.0 Flash pricing as of Oct 2024)
     // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
@@ -602,8 +941,13 @@ Deno.serve(async (req) => {
         questionNumber: detectedQuestionNumber,
         imagesUsed: finalExamImages.length,
         isFollowUp: isFollowUp,
-        conversationHistoryUsed: conversationHistory.length,
         usedMarkingSchemeText: !!markingSchemeText,
+        cacheMode: useGeminiCache ? 'gemini' : 'own',
+        cacheInfo: useGeminiCache ? {
+          cacheName: usedCacheName,
+          cacheCreated: cacheCreated,
+          cacheReused: !cacheCreated && !!usedCacheName
+        } : null,
         tokenUsage: {
           promptTokens: promptTokenCount,
           completionTokens: candidatesTokenCount,
