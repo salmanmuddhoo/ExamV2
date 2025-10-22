@@ -14,6 +14,7 @@ interface TierConfig {
   can_select_grade: boolean;
   can_select_subjects: boolean;
   max_subjects: number | null;
+  chapter_wise_access: boolean;
   is_active: boolean;
   display_order: number;
 }
@@ -295,6 +296,25 @@ export function TierConfigManager() {
                     />
                   </div>
                 )}
+
+                <div className="flex items-center justify-between pt-2">
+                  <label className="text-xs font-medium text-gray-700">Chapter-wise Access</label>
+                  <button
+                    onClick={() => handleFieldChange(tier.id, 'chapter_wise_access', !tier.chapter_wise_access)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      tier.chapter_wise_access ? 'bg-green-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        tier.chapter_wise_access ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {tier.chapter_wise_access ? 'Users can practice chapter-wise questions' : 'Only yearly exam papers allowed'}
+                </p>
               </div>
 
               {/* Active Status */}
@@ -404,6 +424,18 @@ export function TierConfigManager() {
                       </span>
                     ) : (
                       <span className="text-red-600 font-semibold">✗</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+              <tr className="bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Chapter-wise Access</td>
+                {tiers.map(tier => (
+                  <td key={tier.id} className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {tier.chapter_wise_access ? (
+                      <span className="text-green-600 font-semibold">✓ Enabled</span>
+                    ) : (
+                      <span className="text-amber-600 font-semibold">Yearly Only</span>
                     )}
                   </td>
                 ))}
