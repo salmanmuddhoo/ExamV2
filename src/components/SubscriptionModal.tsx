@@ -485,46 +485,50 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                     )}
                   </ul>
 
-                  {/* CTA Button */}
-                  <button
-                    onClick={() => handleSelectPlan(tier)}
-                    disabled={isCurrent || canDown || isFree}
-                    className={`w-full py-1.5 text-xs rounded-md font-medium transition-colors ${
-                      isCurrent
-                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                  {/* CTA Button and Notes Container */}
+                  <div className="mt-auto">
+                    <button
+                      onClick={() => handleSelectPlan(tier)}
+                      disabled={isCurrent || canDown || isFree}
+                      className={`w-full py-1.5 text-xs rounded-md font-medium transition-colors ${
+                        isCurrent
+                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                          : isFree
+                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                          : canDown
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : canUp
+                          ? 'bg-black text-white hover:bg-gray-800'
+                          : 'bg-black text-white hover:bg-gray-800'
+                      }`}
+                    >
+                      {isCurrent
+                        ? 'Current Plan'
                         : isFree
-                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                        : canDown
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        ? 'Free Tier'
                         : canUp
-                        ? 'bg-black text-white hover:bg-gray-800'
-                        : 'bg-black text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    {isCurrent
-                      ? 'Current Plan'
-                      : isFree
-                      ? 'Free Tier'
-                      : canUp
-                      ? 'Upgrade'
-                      : canDown
-                      ? 'Not Available'
-                      : price === 0
-                      ? 'Get Started'
-                      : 'Select Plan'}
-                  </button>
+                        ? 'Upgrade'
+                        : canDown
+                        ? 'Not Available'
+                        : price === 0
+                        ? 'Get Started'
+                        : 'Select Plan'}
+                    </button>
 
-                  {/* Upgrade benefit note */}
-                  {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
-                    <p className="text-[10px] text-green-600 mt-1.5 text-center">
-                      ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
-                    </p>
-                  )}
-                  {canUp && tier.token_limit === null && currentSubscription && (
-                    <p className="text-[10px] text-green-600 mt-1.5 text-center">
-                      ✓ Get unlimited tokens
-                    </p>
-                  )}
+                    {/* Upgrade benefit note - Fixed height container */}
+                    <div className="h-6 mt-1.5">
+                      {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
+                        <p className="text-[10px] text-green-600 text-center">
+                          ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
+                        </p>
+                      )}
+                      {canUp && tier.token_limit === null && currentSubscription && (
+                        <p className="text-[10px] text-green-600 text-center">
+                          ✓ Get unlimited tokens
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}

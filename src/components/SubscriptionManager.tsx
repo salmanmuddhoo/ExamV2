@@ -494,7 +494,7 @@ export function SubscriptionManager() {
           return (
             <div
               key={tier.id}
-              className={`relative bg-white border-2 rounded-xl p-4 ${
+              className={`relative bg-white border-2 rounded-xl p-4 flex flex-col ${
                 isCurrent
                   ? 'border-black shadow-lg'
                   : tier.name === 'student'
@@ -527,7 +527,7 @@ export function SubscriptionManager() {
               </div>
 
               {/* Features */}
-              <ul className="space-y-2 mb-4">
+              <ul className="space-y-2 mb-4 flex-grow">
                 <li className="flex items-start">
                   <Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
                   <span className="text-xs text-gray-700">
@@ -574,42 +574,46 @@ export function SubscriptionManager() {
                 )}
               </ul>
 
-              {/* CTA Button */}
-              <button
-                onClick={() => handleSelectPlan(tier)}
-                disabled={isCurrent || canDown}
-                className={`w-full py-2 text-sm rounded-lg font-medium transition-colors ${
-                  isCurrent
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                    : canDown
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              {/* CTA Button and Notes Container */}
+              <div className="mt-auto">
+                <button
+                  onClick={() => handleSelectPlan(tier)}
+                  disabled={isCurrent || canDown}
+                  className={`w-full py-2 text-sm rounded-lg font-medium transition-colors ${
+                    isCurrent
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : canDown
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : canUp
+                      ? 'bg-black text-white hover:bg-gray-800'
+                      : 'bg-black text-white hover:bg-gray-800'
+                  }`}
+                >
+                  {isCurrent
+                    ? 'Current Plan'
                     : canUp
-                    ? 'bg-black text-white hover:bg-gray-800'
-                    : 'bg-black text-white hover:bg-gray-800'
-                }`}
-              >
-                {isCurrent
-                  ? 'Current Plan'
-                  : canUp
-                  ? 'Upgrade'
-                  : canDown
-                  ? 'Not Available'
-                  : price === 0
-                  ? 'Get Started'
-                  : 'Select Plan'}
-              </button>
+                    ? 'Upgrade'
+                    : canDown
+                    ? 'Not Available'
+                    : price === 0
+                    ? 'Get Started'
+                    : 'Select Plan'}
+                </button>
 
-              {/* Upgrade benefit note */}
-              {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
-                <p className="text-xs text-green-600 mt-2 text-center">
-                  ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
-                </p>
-              )}
-              {canUp && tier.token_limit === null && currentSubscription && (
-                <p className="text-xs text-green-600 mt-2 text-center">
-                  ✓ Get unlimited tokens
-                </p>
-              )}
+                {/* Upgrade benefit note - Fixed height container */}
+                <div className="h-7 mt-2">
+                  {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
+                    <p className="text-xs text-green-600 text-center">
+                      ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
+                    </p>
+                  )}
+                  {canUp && tier.token_limit === null && currentSubscription && (
+                    <p className="text-xs text-green-600 text-center">
+                      ✓ Get unlimited tokens
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           );
         })}
