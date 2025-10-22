@@ -23,9 +23,9 @@ CREATE POLICY "Admins can read system settings"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.role = 'admin'
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
     )
   );
 
@@ -34,16 +34,16 @@ CREATE POLICY "Admins can update system settings"
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.role = 'admin'
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
     )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.role = 'admin'
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
     )
   );
 
@@ -52,9 +52,9 @@ CREATE POLICY "Admins can insert system settings"
   TO authenticated
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.id = auth.uid()
-      AND user_profiles.role = 'admin'
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
     )
   );
 
