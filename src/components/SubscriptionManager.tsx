@@ -485,7 +485,7 @@ export function SubscriptionManager() {
 
       {/* Pricing Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {tiers.map((tier) => {
+        {tiers.filter(tier => tier.name !== 'free').map((tier) => {
           const price = getPrice(tier);
           const isCurrent = isCurrentTier(tier.id);
           const canUp = canUpgrade(tier);
