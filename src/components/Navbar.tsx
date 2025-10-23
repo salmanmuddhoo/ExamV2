@@ -72,7 +72,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   <img
     src="/assets/logo.png"
     alt="Exam Study Assistant Logo"
-    className="w-42 h-42 object-contain"
+    className="w-32 h-32 object-contain"
   />
   <span className="font-semibold text-lg hidden sm:inline">Exam Study Assistant</span>
   <span className="font-semibold text-lg sm:hidden">ESA</span>
