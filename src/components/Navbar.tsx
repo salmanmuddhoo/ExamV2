@@ -72,7 +72,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   <img
     src="/assets/logo.png"
     alt="Logo"
-    className="w-12 h-12 object-contain"
+    className="w-34 h-34 object-contain"
   />
 </button>
 
