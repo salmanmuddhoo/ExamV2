@@ -475,7 +475,7 @@ function IPhoneHero() {
       <div className="relative w-[320px] h-[650px] rounded-[40px] overflow-hidden shadow-2xl border-4 border-gray-900">
         {/* Replace the src below with your own image path */}
         <img
-          src="/your-image.jpg"
+          src="/assets/iphone.png"
           alt="App preview"
           className="w-full h-full object-cover"
         />
