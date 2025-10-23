@@ -67,16 +67,15 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
         <div className="flex items-center justify-between h-16">
           <button
   onClick={onNavigateHome}
-  className="flex items-center space-x-2 text-gray-900 hover:text-gray-600 transition-colors"
+  className="flex items-center text-gray-900 hover:text-gray-600 transition-colors"
 >
   <img
     src="/assets/logo.png"
-    alt="Exam Study Assistant Logo"
-    className="w-32 h-32 object-contain"
+    alt="Logo"
+    className="w-12 h-12 object-contain"
   />
-  <span className="font-semibold text-lg hidden sm:inline">Exam Study Assistant</span>
-  <span className="font-semibold text-lg sm:hidden">ESA</span>
 </button>
+
 
 
           <div className="hidden md:flex items-center space-x-1">
