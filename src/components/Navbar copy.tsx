@@ -66,13 +66,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <button
-            onClick={onNavigateHome}
-            className="flex items-center space-x-2 text-gray-900 hover:text-gray-600 transition-colors"
-          >
-            <BookOpen className="w-6 h-6" />
-            <span className="font-semibold text-lg hidden sm:inline">Exam Study Assistant</span>
-            <span className="font-semibold text-lg sm:hidden">ESA</span>
-          </button>
+  onClick={onNavigateHome}
+  className="flex items-center space-x-2 text-gray-900 hover:text-gray-600 transition-colors"
+>
+  <img
+    src="/logo.png"
+    alt="Exam Study Assistant Logo"
+    className="w-8 h-8 object-contain"
+  />
+  <span className="font-semibold text-lg hidden sm:inline">Exam Study Assistant</span>
+  <span className="font-semibold text-lg sm:hidden">ESA</span>
+</button>
+
 
           <div className="hidden md:flex items-center space-x-1">
             {gradeLevels.map((grade) => (
