@@ -472,17 +472,15 @@ function PricingCard({
 function IPhoneHero() {
   return (
     <div className="relative flex justify-center lg:justify-end">
-      <div className="relative w-[320px] h-[650px] rounded-[40px] overflow-hidden shadow-2xl border-4 border-gray-900">
-        {/* Replace the src below with your own image path */}
-        <img
-          src="/assets/iphone.png"
-          alt="App preview"
-          className="w-full h-full object-cover"
-        />
-      </div>
+      <img
+        src="/assets/iphone.png"
+        alt="App preview"
+        className="w-[320px] h-auto object-contain drop-shadow-2xl"
+      />
     </div>
   );
 }
+
 
 
 // Add custom animations via inline style
