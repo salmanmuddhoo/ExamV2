@@ -470,178 +470,20 @@ function PricingCard({
 }
 
 function IPhoneHero() {
-  const [activeView, setActiveView] = useState<'pdf' | 'chat'>('pdf');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveView(prev => prev === 'pdf' ? 'chat' : 'pdf');
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className="relative transform lg:rotate-6 hover:rotate-3 transition-transform duration-500">
-      {/* Hand holding phone */}
-      <div className="relative">
-        {/* Glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-600 rounded-[60px] blur-3xl opacity-20 animate-pulse"></div>
-        
-        {/* iPhone mockup with realistic styling */}
-        <div className="relative w-[320px] h-[650px]">
-          {/* iPhone body */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-[60px] shadow-2xl p-3">
-            {/* Camera module */}
-            <div className="absolute top-4 left-6 w-24 h-12 bg-gray-900 rounded-3xl border-2 border-gray-800"></div>
-            <div className="absolute top-6 left-8 w-10 h-8 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full"></div>
-            <div className="absolute top-7 left-20 w-6 h-6 bg-gradient-to-br from-blue-900 to-blue-950 rounded-full"></div>
-            
-            {/* Screen */}
-            <div className="relative w-full h-full bg-white rounded-[50px] overflow-hidden shadow-inner">
-              {/* Status bar */}
-              <div className="absolute top-0 left-0 right-0 h-12 bg-white z-20 flex items-center justify-between px-6 pt-2">
-                <span className="text-xs font-semibold">9:41</span>
-                <div className="flex items-center space-x-1">
-                  <div className="w-4 h-3 border border-black rounded-sm"></div>
-                  <div className="w-4 h-4">📶</div>
-                  <div className="w-6 h-3 border-2 border-black rounded-sm relative">
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-2 bg-black"></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* App Header */}
-              <div className="absolute top-12 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 z-10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-gray-800 to-black rounded-lg"></div>
-                    <div>
-                      <div className="h-3 w-32 bg-gray-900 rounded mb-1"></div>
-                      <div className="h-2 w-20 bg-gray-400 rounded"></div>
-                    </div>
-                  </div>
-                  
-                  {/* Toggle Switch */}
-                  <div className="relative bg-gray-200 rounded-full p-1 flex items-center shadow-inner">
-                    <div
-                      className={`absolute top-1 bottom-1 w-8 bg-black rounded-full transition-all duration-300 ease-out shadow-md ${
-                        activeView === 'chat' ? 'translate-x-9' : 'translate-x-0'
-                      }`}
-                    />
-                    <button className="relative z-10 w-8 h-7 flex items-center justify-center">
-                      <div className={`text-xs ${activeView === 'pdf' ? '📄' : '📄'}`}>📄</div>
-                    </button>
-                    <button className="relative z-10 w-8 h-7 flex items-center justify-center">
-                      <div className={`text-xs ${activeView === 'chat' ? '💬' : '💬'}`}>💬</div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Content Area */}
-              <div className="absolute top-[100px] left-0 right-0 bottom-0 overflow-hidden">
-                {/* PDF View */}
-                <div
-                  className={`absolute inset-0 bg-gray-100 transition-all duration-700 ease-in-out ${
-                    activeView === 'pdf' ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'
-                  }`}
-                >
-                  <div className="p-5 space-y-4">
-                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                      <div className="w-24 h-3 bg-gray-900 rounded mb-3"></div>
-                      <div className="space-y-2">
-                        <div className="w-full h-2 bg-gray-300 rounded"></div>
-                        <div className="w-full h-2 bg-gray-300 rounded"></div>
-                        <div className="w-4/5 h-2 bg-gray-300 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                      <div className="w-28 h-3 bg-gray-900 rounded mb-3"></div>
-                      <div className="space-y-2">
-                        <div className="w-full h-2 bg-gray-300 rounded"></div>
-                        <div className="w-full h-2 bg-gray-300 rounded"></div>
-                        <div className="w-3/4 h-2 bg-gray-300 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                      <div className="w-20 h-3 bg-gray-900 rounded mb-3"></div>
-                      <div className="space-y-2">
-                        <div className="w-full h-2 bg-gray-300 rounded"></div>
-                        <div className="w-5/6 h-2 bg-gray-300 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Chat View */}
-                <div
-                  className={`absolute inset-0 bg-white transition-all duration-700 ease-in-out ${
-                    activeView === 'chat' ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-                  }`}
-                >
-                  <div className="h-full flex flex-col p-4">
-                    <div className="flex-1 space-y-4">
-                      {/* User message */}
-                      <div className="flex justify-end animate-slideIn">
-                        <div className="bg-black text-white rounded-2xl rounded-tr-md px-4 py-3 max-w-[75%] shadow-lg">
-                          <div className="h-2 w-36 bg-white bg-opacity-90 rounded mb-1.5"></div>
-                          <div className="h-2 w-28 bg-white bg-opacity-90 rounded"></div>
-                        </div>
-                      </div>
-
-                      {/* AI message */}
-                      <div className="flex justify-start animate-slideIn animation-delay-300">
-                        <div className="bg-gray-100 rounded-2xl rounded-tl-md px-4 py-3 max-w-[75%] shadow-md border border-gray-200">
-                          <div className="h-2 w-40 bg-gray-700 rounded mb-1.5"></div>
-                          <div className="h-2 w-36 bg-gray-700 rounded mb-1.5"></div>
-                          <div className="h-2 w-32 bg-gray-700 rounded mb-1.5"></div>
-                          <div className="h-2 w-28 bg-gray-700 rounded"></div>
-                        </div>
-                      </div>
-
-                      {/* User message */}
-                      <div className="flex justify-end animate-slideIn animation-delay-600">
-                        <div className="bg-black text-white rounded-2xl rounded-tr-md px-4 py-3 max-w-[75%] shadow-lg">
-                          <div className="h-2 w-32 bg-white bg-opacity-90 rounded"></div>
-                        </div>
-                      </div>
-
-                      {/* AI message */}
-                      <div className="flex justify-start animate-slideIn animation-delay-900">
-                        <div className="bg-gray-100 rounded-2xl rounded-tl-md px-4 py-3 max-w-[75%] shadow-md border border-gray-200">
-                          <div className="h-2 w-36 bg-gray-700 rounded mb-1.5"></div>
-                          <div className="h-2 w-40 bg-gray-700 rounded mb-1.5"></div>
-                          <div className="h-2 w-32 bg-gray-700 rounded"></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Input area */}
-                    <div className="pt-3 border-t border-gray-200 mt-auto">
-                      <div className="flex space-x-2">
-                        <div className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl bg-gray-50">
-                          <div className="h-2 w-28 bg-gray-400 rounded"></div>
-                        </div>
-                        <div className="w-11 h-11 bg-black rounded-xl flex items-center justify-center shadow-lg">
-                          <div className="w-4 h-4 border-2 border-white border-l-0 border-b-0 transform rotate-45 -translate-x-0.5"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Floating indicator badge */}
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-2xl border-4 border-white">
-            {activeView === 'pdf' ? '📄 Exam Paper' : '💬 AI Assistant'}
-          </div>
-        </div>
+    <div className="relative flex justify-center lg:justify-end">
+      <div className="relative w-[320px] h-[650px] rounded-[40px] overflow-hidden shadow-2xl border-4 border-gray-900">
+        {/* Replace the src below with your own image path */}
+        <img
+          src="/your-image.jpg"
+          alt="App preview"
+          className="w-full h-full object-cover"
+        />
       </div>
     </div>
   );
 }
+
 
 // Add custom animations via inline style
 const style = document.createElement('style');
