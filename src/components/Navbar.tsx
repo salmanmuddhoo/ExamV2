@@ -70,7 +70,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   className="flex items-center space-x-2 text-gray-900 hover:text-gray-600 transition-colors"
 >
   <img
-    src="/logo.jpeg"
+    src="/logo.png"
     alt="Exam Study Assistant Logo"
     className="w-8 h-8 object-contain"
   />
