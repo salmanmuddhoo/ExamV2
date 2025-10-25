@@ -347,26 +347,28 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
 
                     {/* Expanded Papers List */}
                     {isExpanded && (
-                      <div className="border-t border-gray-200 bg-gray-50 p-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {papers.map(paper => (
+                      <div className="border-t border-gray-200 bg-white">
+                        <div className="divide-y divide-gray-100">
+                          {papers.map((paper, index) => (
                             <button
                               key={paper.id}
                               onClick={() => onSelectPaper(paper.id)}
-                              className="bg-white border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-md transition-all group text-left"
+                              className="w-full px-5 py-3 hover:bg-gray-50 transition-colors text-left group"
                             >
-                              <div className="flex items-start space-x-2">
-                                <FileText className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors flex-shrink-0 mt-1" />
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-medium text-gray-900 text-sm group-hover:text-black line-clamp-2 mb-2">
-                                    {paper.title}
-                                  </h4>
-                                  <div className="flex items-center text-xs text-gray-600">
-                                    <Calendar className="w-3 h-3 mr-1" />
-                                    <span>
-                                      {paper.month ? `${formatMonth(paper.month)} ` : ''}{paper.year}
-                                    </span>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                  <FileText className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-gray-900 text-sm group-hover:text-black truncate">
+                                      {paper.title}
+                                    </h4>
                                   </div>
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs text-gray-600 flex-shrink-0 ml-4">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  <span className="font-medium whitespace-nowrap">
+                                    {paper.month ? `${formatMonth(paper.month)} ` : ''}{paper.year}
+                                  </span>
                                 </div>
                               </div>
                             </button>
