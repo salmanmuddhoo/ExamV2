@@ -741,45 +741,48 @@ export function UnifiedPracticeViewer({
           </div>
         </div>
 
-        {/* Mobile View Toggle */}
-        <div className="flex md:hidden">
-          <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
-            <div
-              className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
-                mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
-              }`}
-            />
-            <button
-              onClick={() => setMobileView('pdf')}
-              className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
-                mobileView === 'pdf' ? 'text-white' : 'text-gray-600'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setMobileView('chat')}
-              className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
-                mobileView === 'chat' ? 'text-white' : 'text-gray-600'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
+        {/* Right side controls */}
+        <div className="flex items-center">
+          {/* Mobile View Toggle */}
+          <div className="flex md:hidden">
+            <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
+              <div
+                className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
+                  mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
+                }`}
+              />
+              <button
+                onClick={() => setMobileView('pdf')}
+                className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
+                  mobileView === 'pdf' ? 'text-white' : 'text-gray-600'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setMobileView('chat')}
+                className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
+                  mobileView === 'chat' ? 'text-white' : 'text-gray-600'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Fullscreen Toggle - Desktop Only */}
-        <button
-          onClick={toggleFullscreen}
-          className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
-          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        >
-          {isFullscreen ? (
-            <Minimize className="w-5 h-5 text-gray-700" />
-          ) : (
-            <Maximize className="w-5 h-5 text-gray-700" />
-          )}
-        </button>
+          {/* Fullscreen Toggle - Desktop Only */}
+          <button
+            onClick={toggleFullscreen}
+            className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? (
+              <Minimize className="w-5 h-5 text-gray-700" />
+            ) : (
+              <Maximize className="w-5 h-5 text-gray-700" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
