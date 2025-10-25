@@ -1,6 +1,10 @@
 -- Update get_user_paper_access_status to include subject_id and grade_level_id
 -- This is needed for PaperSelectionModal to filter papers properly
 
+-- Drop the existing function first (required when changing return type)
+DROP FUNCTION IF EXISTS get_user_paper_access_status(UUID);
+
+-- Create the function with updated return type
 CREATE OR REPLACE FUNCTION get_user_paper_access_status(p_user_id UUID)
 RETURNS TABLE (
   paper_id UUID,
