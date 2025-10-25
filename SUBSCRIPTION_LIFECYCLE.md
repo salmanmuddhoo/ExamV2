@@ -193,10 +193,18 @@ INSERT INTO user_subscriptions (
 
 **Free Tier Details:**
 - **Token Limit**: 50,000 tokens per month
-- **Papers Limit**: 2 exam papers total
-- **Grade/Subject Selection**: No restrictions (access all)
+- **Papers Limit**: 2 most recently accessed exam papers (dynamic)
+- **Grade/Subject Selection**: No restrictions (access all grades and subjects)
+- **Previous Selections**: Reset when downgrading (no retained grade/subject selections)
 - **Price**: $0 (Free)
 - **Duration**: 30-day periods
+
+**Recent Papers Access (Free Tier):**
+- Free tier users can access their 2 most recently accessed papers
+- When downgraded from paid tier, the 2 most recent papers become accessible
+- Accessing a new paper replaces the oldest paper in the list
+- Based on conversation timestamps (when paper was last opened)
+- See detailed documentation in "Free Tier Paper Access" section below
 
 ---
 
@@ -373,5 +381,109 @@ process_subscription_expirations()
 
 ---
 
-**Last Updated**: October 2025
-**Version**: 1.0.0
+## Free Tier Paper Access (Recent Papers)
+
+### Overview
+Free tier users can access their **2 most recently accessed papers** at any time. This ensures users always have access to their current study materials, even after subscription downgrades.
+
+### How It Works
+
+**Access Tracking:**
+- Paper access is tracked via the `conversations` table
+- When a user opens a paper, a conversation is created/updated
+- The `updated_at` timestamp determines which papers are "recent"
+
+**Access Rules:**
+
+1. **New Free Tier User** (accessed < 2 papers):
+   - Can access ANY paper
+   - No restrictions until 2 papers accessed
+
+2. **Free Tier User** (accessed >= 2 papers):
+   - Can access only the 2 most recently used papers
+   - All other papers are locked
+   - Accessing a new paper replaces the oldest in the list
+
+### Downgrade Scenarios
+
+**Scenario 1: User Downgrades After Using Multiple Papers**
+```
+User on Pro: Accessed Papers A, B, C, D, E
+Most recent: Paper D (Oct 20), Paper E (Oct 22)
+
+After downgrade to Free:
+✓ Paper D - Accessible (recent)
+✓ Paper E - Accessible (recent)
+✗ Papers A, B, C - Locked (too old)
+```
+
+**Scenario 2: User Accesses New Paper After Downgrade**
+```
+Current accessible: Paper D (Oct 20), Paper E (Oct 22)
+User accesses Paper F (Oct 25)
+
+Result:
+✓ Paper E (Oct 22) - Still accessible
+✓ Paper F (Oct 25) - Now accessible
+✗ Paper D (Oct 20) - Now locked (replaced)
+```
+
+### Grade/Subject Selection Reset
+
+**Important:** When a user downgrades to free tier:
+- `selected_grade_id` is reset to NULL
+- `selected_subject_ids` is reset to NULL
+- User profile should NOT show previous Student/Student Lite selections
+- User can browse all grades and subjects (free tier has no restrictions)
+- If user upgrades again, they must select grade/subjects again
+
+**Why Reset?**
+- Free tier has no grade/subject restrictions
+- Prevents confusion (showing "Grade 10 - Math" when user can access all grades)
+- Clean slate for future upgrades
+- Avoids UI showing outdated selections
+
+### Database Functions
+
+**get_recent_accessed_papers(user_id, limit)**
+```sql
+-- Returns array of paper IDs for most recent papers
+SELECT get_recent_accessed_papers('user-uuid', 2);
+-- Returns: ['paper-e-uuid', 'paper-f-uuid']
+```
+
+**can_user_access_paper(user_id, paper_id)**
+```sql
+-- Checks if user can access specific paper
+-- For free tier: Uses recent papers logic
+SELECT can_user_access_paper('user-uuid', 'paper-uuid');
+-- Returns: true/false
+```
+
+**get_user_paper_access_status(user_id)**
+```sql
+-- Returns all papers with access status
+SELECT * FROM get_user_paper_access_status('user-uuid');
+-- Returns: paper details + is_accessible + is_recently_accessed + last_accessed_at
+```
+
+### Implementation Files
+
+- **Migration**: `supabase/migrations/20251025000001_free_tier_recent_papers_access.sql`
+- **UI Examples**: `FREE_TIER_UI_EXAMPLE.tsx`
+- **Grade/Subject Reset**: `supabase/migrations/20251025000002_reset_selections_on_free_tier_downgrade.sql`
+
+### Testing Checklist
+
+- [ ] New free tier user can access 2+ papers initially
+- [ ] After accessing 2 papers with conversations, only those 2 are accessible
+- [ ] Accessing 3rd paper replaces oldest in the list
+- [ ] Upgrade to Pro → access all papers
+- [ ] Downgrade to Free → only 2 most recent papers accessible
+- [ ] Downgrade resets selected_grade_id and selected_subject_ids to NULL
+- [ ] User profile doesn't show grade/subject selections after downgrade
+
+---
+
+**Last Updated**: October 25, 2025
+**Version**: 2.0.0
