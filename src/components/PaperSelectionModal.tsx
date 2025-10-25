@@ -19,6 +19,8 @@ interface ExamPaper {
   title: string;
   subject_id: string;
   grade_level_id: string;
+  is_accessible?: boolean; // Added for tier-based access control
+  access_status?: string; // Added for free tier status
 }
 
 interface Syllabus {
@@ -81,11 +83,11 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setLoading(true);
 
       if (user) {
-        // Fetch accessible grades and subjects based on user's subscription
-        const [accessibleGrades, allSubjects, allPapers] = await Promise.all([
+        // Fetch accessible grades, subjects, and papers based on user's subscription
+        const [accessibleGrades, allSubjects, accessiblePapers] = await Promise.all([
           supabase.rpc('get_accessible_grades_for_user', { p_user_id: user.id }),
           supabase.from('subjects').select('*').order('name'),
-          supabase.from('exam_papers').select('id, title, subject_id, grade_level_id').order('title'),
+          supabase.rpc('get_user_paper_access_status', { p_user_id: user.id }),
         ]);
 
         if (accessibleGrades.error) {
@@ -102,7 +104,31 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         }
 
         setSubjects(allSubjects.data || []);
-        setPapers(allPapers.data || []);
+
+        // Filter to only accessible papers and map to ExamPaper format
+        if (accessiblePapers.error) {
+          console.error('Error fetching accessible papers:', accessiblePapers.error);
+          // Fallback to all papers if RPC fails
+          const { data: allPapers } = await supabase
+            .from('exam_papers')
+            .select('id, title, subject_id, grade_level_id')
+            .order('title');
+          setPapers(allPapers || []);
+        } else {
+          // Map accessible papers from RPC result
+          const papers = (accessiblePapers.data || [])
+            .filter((p: any) => p.is_accessible) // Only show accessible papers
+            .map((p: any) => ({
+              id: p.paper_id,
+              title: p.paper_title,
+              subject_id: p.subject_id,
+              grade_level_id: p.grade_level_id,
+              is_accessible: p.is_accessible,
+              access_status: p.access_status
+            }));
+
+          setPapers(papers);
+        }
 
         // Fetch existing conversations
         const { data: convs, error } = await supabase
