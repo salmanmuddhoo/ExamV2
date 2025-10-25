@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ChatMessage } from './ChatMessage';
 
@@ -102,6 +102,10 @@ export function UnifiedPracticeViewer({
   // Mobile state
   const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
   const [isMobile, setIsMobile] = useState(false);
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Question/Paper change animation state
   const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
@@ -371,6 +375,33 @@ export function UnifiedPracticeViewer({
       console.error('Error fetching chapter info:', error);
     }
   };
+
+  // Fullscreen functions
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+    }
+  };
+
+  // Listen for fullscreen changes (e.g., user presses Esc)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const handlePaperSelect = async (paper: ExamPaper) => {
     setSelectedPaper(paper);
@@ -682,7 +713,7 @@ export function UnifiedPracticeViewer({
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+    <div ref={containerRef} className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
@@ -736,6 +767,19 @@ export function UnifiedPracticeViewer({
             </button>
           </div>
         </div>
+
+        {/* Fullscreen Toggle - Desktop Only */}
+        <button
+          onClick={toggleFullscreen}
+          className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          {isFullscreen ? (
+            <Minimize className="w-5 h-5 text-gray-700" />
+          ) : (
+            <Maximize className="w-5 h-5 text-gray-700" />
+          )}
+        </button>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
