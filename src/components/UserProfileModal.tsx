@@ -212,21 +212,32 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         // Use period_end_date for recurring, end_date for non-recurring
         setRenewalDate((data.is_recurring ? data.period_end_date : data.end_date) || null);
 
-        // If student package, fetch grade and subjects
-        if (data.selected_grade_id && data.grade_levels) {
-          setSelectedGrade((data.grade_levels as any)?.name || '');
-        }
-
-        // Fetch subject names if student package
-        if (data.selected_subject_ids && data.selected_subject_ids.length > 0) {
-          const { data: subjects, error: subjectsError } = await supabase
-            .from('subjects')
-            .select('name')
-            .in('id', data.selected_subject_ids);
-
-          if (!subjectsError && subjects) {
-            setSelectedSubjects(subjects.map(s => s.name));
+        // Only fetch grade and subjects for student/student_lite tiers
+        // Free tier and Pro tier should not display selections
+        if (internalTierName === 'student' || internalTierName === 'student_lite') {
+          if (data.selected_grade_id && data.grade_levels) {
+            setSelectedGrade((data.grade_levels as any)?.name || '');
+          } else {
+            setSelectedGrade('');
           }
+
+          // Fetch subject names if selections exist
+          if (data.selected_subject_ids && data.selected_subject_ids.length > 0) {
+            const { data: subjects, error: subjectsError } = await supabase
+              .from('subjects')
+              .select('name')
+              .in('id', data.selected_subject_ids);
+
+            if (!subjectsError && subjects) {
+              setSelectedSubjects(subjects.map(s => s.name));
+            }
+          } else {
+            setSelectedSubjects([]);
+          }
+        } else {
+          // Clear selections for non-student tiers (free, pro)
+          setSelectedGrade('');
+          setSelectedSubjects([]);
         }
       }
     } catch (error) {
@@ -691,45 +702,32 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                         )}
                         {papersLimit === null && (
                           <div className="py-3">
-                            {(tierName === 'student' || tierName === 'student_lite') && selectedGrade && selectedSubjects.length > 0 ? (
-                              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200">
-                                <div className="flex items-center justify-center mb-2">
-                                  <div className="bg-green-100 rounded-full p-2">
-                                    <span className="text-2xl font-bold text-green-600">∞</span>
-                                  </div>
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                              <div className="flex items-center justify-center mb-2">
+                                <div className="bg-green-100 rounded-full p-2">
+                                  <span className="text-2xl font-bold text-green-600">∞</span>
                                 </div>
-                                <p className="text-xs text-green-700 text-center font-medium mb-1">
-                                  Unlimited Access
-                                </p>
-                                <p className="text-[10px] text-gray-600 text-center">
-                                  {selectedGrade} - {selectedSubjects.length} subject{selectedSubjects.length !== 1 ? 's' : ''}
-                                </p>
                               </div>
-                            ) : (
-                              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
-                                <div className="flex items-center justify-center mb-2">
-                                  <div className="bg-green-100 rounded-full p-2">
-                                    <span className="text-2xl font-bold text-green-600">∞</span>
-                                  </div>
-                                </div>
-                                <p className="text-xs text-green-700 text-center font-medium">
-                                  Unlimited Access
-                                </p>
-                                <p className="text-[10px] text-gray-600 text-center mt-1">
-                                  Access all exam papers
-                                </p>
-                              </div>
-                            )}
+                              <p className="text-xs text-green-700 text-center font-medium">
+                                Unlimited Access
+                              </p>
+                              <p className="text-[10px] text-gray-600 text-center mt-1">
+                                {tierName === 'pro' ? 'Access all exam papers' :
+                                 (tierName === 'student' || tierName === 'student_lite') && selectedGrade && selectedSubjects.length > 0 ?
+                                 `${selectedGrade} - ${selectedSubjects.length} subject${selectedSubjects.length !== 1 ? 's' : ''}` :
+                                 'Access all exam papers'}
+                              </p>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Grade and Subjects */}
-                    {selectedGrade && (
+                    {/* Grade and Subjects - Only show for Student/Student Lite tiers */}
+                    {(tierName === 'student' || tierName === 'student_lite') && selectedGrade && (
                       <p className="text-sm text-gray-600 mb-2">Grade: <span className="font-medium">{selectedGrade}</span></p>
                     )}
-                    {selectedSubjects.length > 0 && (
+                    {(tierName === 'student' || tierName === 'student_lite') && selectedSubjects.length > 0 && (
                       <div className="mb-4">
                         <p className="text-sm text-gray-600 mb-2">Subjects:</p>
                         <div className="flex flex-wrap gap-2">
@@ -739,6 +737,15 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                             </span>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Free tier info */}
+                    {tierName === 'free' && (
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-800">
+                          <span className="font-semibold">Free Tier Access:</span> You can access your 2 most recently used exam papers from any grade or subject.
+                        </p>
                       </div>
                     )}
 
