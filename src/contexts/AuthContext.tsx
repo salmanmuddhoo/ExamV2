@@ -11,12 +11,15 @@ interface Profile {
   profile_picture_url?: string;
 }
 
+export type OAuthProvider = 'google' | 'apple' | 'github' | 'azure' | 'facebook';
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
   signUp: (email: string, password: string, firstName: string, lastName: string, role?: 'admin' | 'student') => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -54,13 +57,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (error) throw error;
+
+      // If profile doesn't exist (e.g., OAuth user), create it
+      if (!data) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: user.email,
+              role: 'student',
+              first_name: user.user_metadata?.full_name?.split(' ')[0] || user.user_metadata?.name?.split(' ')[0] || '',
+              last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+              profile_picture_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          data = newProfile;
+        }
+      }
+
       setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -111,6 +138,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
+  const signInWithOAuth = async (provider: OAuthProvider) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}`,
+      },
+    });
+
+    if (error) throw error;
+  };
+
   const signOut = async () => {
     try {
       // Clear session storage on logout (including welcome modal flag)
@@ -134,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
   };
 
