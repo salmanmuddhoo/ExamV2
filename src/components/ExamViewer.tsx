@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Minimize } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
@@ -57,6 +57,10 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const [tokensLimit, setTokensLimit] = useState<number | null>(null);
   const [tokensUsed, setTokensUsed] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Question change animation state
   const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
@@ -277,6 +281,33 @@ This helps me give you the most accurate and focused help! 😊`;
       setProcessingPdfs(false);
     }
   };
+
+  // Fullscreen functions
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+    }
+  };
+
+  // Listen for fullscreen changes (e.g., user presses Esc)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const fetchExamPaper = async () => {
     try {
@@ -1005,7 +1036,7 @@ You can still view and download this exam paper!`
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+    <div ref={containerRef} className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <button
@@ -1015,37 +1046,56 @@ You can still view and download this exam paper!`
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
           <div>
-            <h1 className="font-semibold text-gray-900">{examPaper.title}</h1>
+            <h1 className="font-semibold text-gray-900">
+              Grade {examPaper.grade_levels.name} - {examPaper.subjects.name}
+            </h1>
             <p className="text-xs text-gray-500">
-              {examPaper.grade_levels.name} - {examPaper.subjects.name}
+              {examPaper.title}
             </p>
           </div>
         </div>
 
-        <div className="flex md:hidden">
-          <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
-            <div
-              className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
-                mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
-              }`}
-            />
-            <button
-              onClick={() => setMobileView('pdf')}
-              className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
-                mobileView === 'pdf' ? 'text-white' : 'text-gray-600'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setMobileView('chat')}
-              className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
-                mobileView === 'chat' ? 'text-white' : 'text-gray-600'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
+        {/* Right side controls */}
+        <div className="flex items-center">
+          {/* Mobile View Toggle */}
+          <div className="flex md:hidden">
+            <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
+              <div
+                className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
+                  mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
+                }`}
+              />
+              <button
+                onClick={() => setMobileView('pdf')}
+                className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
+                  mobileView === 'pdf' ? 'text-white' : 'text-gray-600'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setMobileView('chat')}
+                className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
+                  mobileView === 'chat' ? 'text-white' : 'text-gray-600'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+
+          {/* Fullscreen Toggle - Desktop Only */}
+          <button
+            onClick={toggleFullscreen}
+            className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? (
+              <Minimize className="w-5 h-5 text-gray-700" />
+            ) : (
+              <Maximize className="w-5 h-5 text-gray-700" />
+            )}
+          </button>
         </div>
       </div>
 
