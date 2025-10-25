@@ -24,6 +24,7 @@ function App() {
   const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedGradeFromNavbar, setSelectedGradeFromNavbar] = useState<{ id: string; name: string } | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
@@ -223,6 +224,7 @@ function App() {
   };
 
   const handleSelectGrade = (gradeId: string, gradeName: string) => {
+    setSelectedGradeFromNavbar({ id: gradeId, name: gradeName });
     setView('papers-browser');
   };
 
@@ -385,7 +387,10 @@ function App() {
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
-        <ExamPapersBrowser onSelectPaper={handleSelectPaper} />
+        <ExamPapersBrowser
+          onSelectPaper={handleSelectPaper}
+          selectedGradeFromNavbar={selectedGradeFromNavbar}
+        />
       </>
     );
   }
