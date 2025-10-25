@@ -505,23 +505,31 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
             </div>
           ) : (
             <>
-              {currentStep === 'grade' && gradeLevels.map(grade => {
-                const subjectCount = new Set(
-                  papers.filter(p => p.grade_level_id === grade.id).map(p => p.subject_id)
-                ).size;
+              {currentStep === 'grade' && gradeLevels
+                .filter(grade => {
+                  // Only show grades that have at least 1 accessible subject
+                  const subjectCount = new Set(
+                    papers.filter(p => p.grade_level_id === grade.id).map(p => p.subject_id)
+                  ).size;
+                  return subjectCount > 0;
+                })
+                .map(grade => {
+                  const subjectCount = new Set(
+                    papers.filter(p => p.grade_level_id === grade.id).map(p => p.subject_id)
+                  ).size;
 
-                return (
-                  <button key={grade.id} onClick={() => handleGradeClick(grade)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 text-lg">Grade {grade.name}</p>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        {subjectCount} {subjectCount === 1 ? 'subject' : 'subjects'} available
-                      </p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
-                  </button>
-                );
-              })}
+                  return (
+                    <button key={grade.id} onClick={() => handleGradeClick(grade)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
+                      <div>
+                        <p className="font-semibold text-gray-900 text-lg">Grade {grade.name}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {subjectCount} {subjectCount === 1 ? 'subject' : 'subjects'} available
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+                    </button>
+                  );
+                })}
 
               {currentStep === 'subject' && availableSubjects.map(subject => (
                 <button key={subject.id} onClick={() => handleSubjectClick(subject)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
