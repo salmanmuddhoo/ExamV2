@@ -5,11 +5,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 interface ExamPaper {
   id: string;
   title: string;
   pdf_url: string;
   pdf_path: string;
+  year: number;
+  month: number | null;
   subjects: { name: string };
   grade_levels: { name: string };
   marking_schemes: { pdf_url: string; pdf_path: string } | null;
@@ -1050,7 +1057,7 @@ You can still view and download this exam paper!`
               Grade {examPaper.grade_levels.name} - {examPaper.subjects.name}
             </h1>
             <p className="text-xs text-gray-500">
-              {examPaper.title}
+              {examPaper.title} - Yr {examPaper.year}{examPaper.month ? ` ${MONTHS[examPaper.month - 1]}` : ''}
             </p>
           </div>
         </div>

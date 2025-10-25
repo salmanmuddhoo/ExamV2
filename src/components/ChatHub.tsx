@@ -8,6 +8,11 @@ import { UserProfileModal } from './UserProfileModal';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeModal } from './WelcomeModal';
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 interface ConversationWithPaper {
   id: string;
   title: string;
@@ -18,6 +23,8 @@ interface ConversationWithPaper {
   chapter_id?: string | null;
   exam_papers: {
     title: string;
+    year: number;
+    month: number | null;
     subjects: { name: string };
     grade_levels: { name: string };
   };
@@ -159,6 +166,8 @@ export function ChatHub({
           chapter_id,
           exam_papers (
             title,
+            year,
+            month,
             subjects (name),
             grade_levels (name)
           ),
@@ -549,7 +558,7 @@ export function ChatHub({
                                                       <p className={`text-sm truncate font-medium ${
                                                         selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
                                                       }`}>
-                                                        {conv.exam_papers.title}
+                                                        {conv.exam_papers.title} - Yr {conv.exam_papers.year}{conv.exam_papers.month ? ` ${MONTHS[conv.exam_papers.month - 1]}` : ''}
                                                       </p>
                                                     </div>
                                                   </div>
