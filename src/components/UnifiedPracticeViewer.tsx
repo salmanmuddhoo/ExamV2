@@ -725,18 +725,20 @@ export function UnifiedPracticeViewer({
           </button>
           <div>
             <h1 className="font-semibold text-gray-900">
-              {mode === 'year'
-                ? (selectedPaper?.title || `${subject?.name} - Grade ${grade?.name}`)
-                : chapterInfo
-                  ? `Chapter ${chapterInfo.chapter_number}: ${chapterInfo.chapter_title}`
-                  : `${subject?.name} - Grade ${grade?.name}`}
+              {grade?.name && subject?.name
+                ? `Grade ${grade.name} - ${subject.name}`
+                : mode === 'year'
+                  ? 'Year Practice'
+                  : 'Chapter Practice'}
             </h1>
             <p className="text-xs text-gray-500">
               {mode === 'year'
-                ? `${subject?.name} - Grade ${grade?.name}`
-                : selectedQuestion
-                  ? `Question ${selectedQuestion.question_number} of ${questions.length}`
-                  : 'Select a question'}
+                ? selectedPaper
+                  ? `${selectedPaper.title}${selectedPaper.month ? ` - ${selectedPaper.month}` : ''}${selectedPaper.year ? ` ${selectedPaper.year}` : ''}`
+                  : 'Select an exam paper'
+                : chapterInfo
+                  ? `Chapter ${chapterInfo.chapter_number}: ${chapterInfo.chapter_title}`
+                  : 'Select a chapter'}
             </p>
           </div>
         </div>
