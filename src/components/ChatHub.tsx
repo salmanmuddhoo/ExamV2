@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar, GraduationCap } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
@@ -432,23 +432,20 @@ export function ChatHub({
                       {/* Grade Header - Clickable */}
                       <button
                         onClick={() => toggleGrade(gradeName)}
-                        className="w-full flex items-center justify-between px-3 py-3 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-black hover:to-gray-900 rounded-lg transition-all group shadow-md"
+                        className="w-full flex items-center justify-between px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all group border border-gray-200"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 bg-white rounded-lg shadow-sm">
-                            <GraduationCap className="w-5 h-5 text-gray-900" />
-                          </div>
+                        <div className="flex items-center space-x-2.5">
                           <div className="text-left">
-                            <h2 className="text-base font-bold text-white">
+                            <h2 className="text-sm font-semibold text-gray-900">
                               {gradeName}
                             </h2>
-                            <p className="text-xs text-gray-300">
+                            <p className="text-xs text-gray-500">
                               {totalGradeConvs} conversation{totalGradeConvs !== 1 ? 's' : ''}
                             </p>
                           </div>
                         </div>
                         <svg
-                          className={`w-5 h-5 text-gray-300 transition-transform duration-200 ${
+                          className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
                             isGradeCollapsed ? '' : 'rotate-180'
                           }`}
                           fill="none"
