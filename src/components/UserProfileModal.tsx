@@ -87,8 +87,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
           subscription_tiers(name, display_name, token_limit, papers_limit),
           selected_grade_id,
           selected_subject_ids,
-          grade_levels(name),
-          subjects:selected_subject_ids,
+          grade_levels!user_subscriptions_selected_grade_id_fkey(name),
           tokens_used_current_period,
           token_limit_override,
           papers_accessed_current_period,
@@ -103,6 +102,18 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         .eq('user_id', user.id)
         .eq('status', 'active')
         .single();
+
+      // Debug logging for subscription data
+      console.log('=== SUBSCRIPTION DATA DEBUG ===');
+      console.log('Query error:', error);
+      console.log('Subscription data:', data);
+      if (data) {
+        console.log('Selected grade ID:', data.selected_grade_id);
+        console.log('Selected subject IDs:', data.selected_subject_ids);
+        console.log('Grade levels data:', data.grade_levels);
+        console.log('Tier name:', data.subscription_tiers?.name);
+      }
+      console.log('=== END SUBSCRIPTION DEBUG ===');
 
       if (error || !data) {
         // Only try to create subscription once (prevent infinite loop)
