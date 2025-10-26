@@ -212,16 +212,17 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         // Use period_end_date for recurring, end_date for non-recurring
         setRenewalDate((data.is_recurring ? data.period_end_date : data.end_date) || null);
 
-        // Only fetch grade and subjects for student/student_lite tiers
-        // Free tier and Pro tier should not display selections
-        if (internalTierName === 'student' || internalTierName === 'student_lite') {
+        // Fetch grade and subjects for student/student_lite/free tiers
+        // Pro tier should not display selections
+        if (internalTierName === 'student' || internalTierName === 'student_lite' || internalTierName === 'free') {
           if (data.selected_grade_id && data.grade_levels) {
             setSelectedGrade((data.grade_levels as any)?.name || '');
           } else {
             setSelectedGrade('');
           }
 
-          // Fetch subject names if selections exist
+          // Fetch subject names if selections exist (for all three tiers)
+          // For free tier, these are auto-tracked subjects
           if (data.selected_subject_ids && data.selected_subject_ids.length > 0) {
             const { data: subjects, error: subjectsError } = await supabase
               .from('subjects')
@@ -235,7 +236,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
             setSelectedSubjects([]);
           }
         } else {
-          // Clear selections for non-student tiers (free, pro)
+          // Clear selections for pro tier
           setSelectedGrade('');
           setSelectedSubjects([]);
         }
@@ -723,16 +724,22 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                       </div>
                     </div>
 
-                    {/* Grade and Subjects - Only show for Student/Student Lite tiers */}
+                    {/* Grade and Subjects - Show for Student/Student Lite/Free tiers */}
                     {(tierName === 'student' || tierName === 'student_lite') && selectedGrade && (
                       <p className="text-sm text-gray-600 mb-2">Grade: <span className="font-medium">{selectedGrade}</span></p>
                     )}
-                    {(tierName === 'student' || tierName === 'student_lite') && selectedSubjects.length > 0 && (
+                    {((tierName === 'student' || tierName === 'student_lite' || tierName === 'free') && selectedSubjects.length > 0) && (
                       <div className="mb-4">
-                        <p className="text-sm text-gray-600 mb-2">Subjects:</p>
+                        <p className="text-sm text-gray-600 mb-2">
+                          {tierName === 'free' ? 'Recently Used Subjects (Auto-tracked):' : 'Subjects:'}
+                        </p>
                         <div className="flex flex-wrap gap-2">
                           {selectedSubjects.map((subject, index) => (
-                            <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
+                            <span key={index} className={`px-2 py-1 rounded-md text-xs ${
+                              tierName === 'free'
+                                ? 'bg-gray-100 text-gray-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
                               {subject}
                             </span>
                           ))}
@@ -744,7 +751,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     {tierName === 'free' && (
                       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-xs text-blue-800">
-                          <span className="font-semibold">Free Tier Access:</span> You can access your 2 most recently used exam papers from any grade or subject.
+                          <span className="font-semibold">Free Tier Access:</span> You can access your 2 most recently used exam papers from any grade or subject. Your subjects are automatically tracked based on your usage (max 2 subjects).
                         </p>
                       </div>
                     )}
