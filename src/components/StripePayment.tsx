@@ -63,6 +63,14 @@ function StripeCheckoutForm({
         throw new Error(paymentMethodError.message);
       }
 
+      // Debug logging for payment data
+      console.log('=== STRIPE PAYMENT DEBUG ===');
+      console.log('Payment data:', paymentData);
+      console.log('Selected grade ID:', paymentData.selectedGradeId);
+      console.log('Selected subject IDs:', paymentData.selectedSubjectIds);
+      console.log('Tier ID:', paymentData.tierId);
+      console.log('=== END STRIPE PAYMENT DEBUG ===');
+
       // Only create transaction AFTER Stripe payment method is successful
       const { data: transaction, error: transactionError } = await supabase
         .from('payment_transactions')
@@ -82,6 +90,10 @@ function StripeCheckoutForm({
         })
         .select()
         .single();
+
+      console.log('Transaction created:', transaction);
+      console.log('Transaction selected_grade_id:', transaction?.selected_grade_id);
+      console.log('Transaction selected_subject_ids:', transaction?.selected_subject_ids);
 
       if (transactionError) throw transactionError;
       transactionId = transaction.id;
