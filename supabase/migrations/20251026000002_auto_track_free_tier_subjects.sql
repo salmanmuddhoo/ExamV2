@@ -9,7 +9,8 @@ DECLARE
   v_subject_ids UUID[];
 BEGIN
   -- Get the most recent distinct subjects from conversations
-  SELECT ARRAY_AGG(DISTINCT subject_id ORDER BY max_updated DESC)
+  -- Subquery already orders by most recent, so ARRAY_AGG preserves that order
+  SELECT ARRAY_AGG(subject_id)
   INTO v_subject_ids
   FROM (
     SELECT
