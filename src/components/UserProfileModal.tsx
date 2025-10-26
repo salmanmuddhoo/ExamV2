@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle } from 'lucide-react';
+import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle, Edit } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
 import { Modal } from './Modal';
+import { StudentPackageSelector } from './StudentPackageSelector';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -43,6 +44,9 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | 'lifetime' | null>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(false);
   const [renewalDate, setRenewalDate] = useState<string | null>(null);
+  const [showEditSelections, setShowEditSelections] = useState(false);
+  const [updatingSelections, setUpdatingSelections] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getTierIcon = (tierName: string) => {
@@ -289,6 +293,43 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     } catch (error) {
       console.error('Error fetching subscription tier:', error);
       setSubscriptionTier('Unknown');
+    }
+  };
+
+  const handleUpdateSelections = async (gradeId: string, subjectIds: string[]) => {
+    if (!user) return;
+
+    setUpdatingSelections(true);
+    setUpdateMessage(null);
+
+    try {
+      const { data, error } = await supabase
+        .rpc('update_subscription_selections', {
+          p_user_id: user.id,
+          p_grade_id: gradeId,
+          p_subject_ids: subjectIds
+        });
+
+      if (error) throw error;
+
+      const result = data[0];
+      if (result.success) {
+        setUpdateMessage({ type: 'success', text: 'Selections updated successfully!' });
+        setShowEditSelections(false);
+
+        // Refresh subscription data
+        await fetchSubscriptionTier();
+
+        // Clear success message after 3 seconds
+        setTimeout(() => setUpdateMessage(null), 3000);
+      } else {
+        setUpdateMessage({ type: 'error', text: result.message });
+      }
+    } catch (error: any) {
+      console.error('Error updating selections:', error);
+      setUpdateMessage({ type: 'error', text: error.message || 'Failed to update selections' });
+    } finally {
+      setUpdatingSelections(false);
     }
   };
 
@@ -769,22 +810,80 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                       </div>
                     </div>
 
-                    {/* Grade and Subjects - Show for Student/Student Lite/Free tiers */}
-                    {(tierName === 'student' || tierName === 'student_lite') && selectedGrade && (
-                      <p className="text-sm text-gray-600 mb-2">Grade: <span className="font-medium">{selectedGrade}</span></p>
+                    {/* Update Message */}
+                    {updateMessage && (
+                      <div className={`mb-4 p-3 rounded-lg border ${
+                        updateMessage.type === 'success'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}>
+                        <p className="text-sm">{updateMessage.text}</p>
+                      </div>
                     )}
-                    {((tierName === 'student' || tierName === 'student_lite' || tierName === 'free') && selectedSubjects.length > 0) && (
+
+                    {/* Grade and Subjects - Show for Student/Student Lite/Free tiers */}
+                    {(tierName === 'student' || tierName === 'student_lite') && (
+                      <div className="mb-4">
+                        {!selectedGrade && selectedSubjects.length === 0 ? (
+                          /* No selections - Show warning and setup button */
+                          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-start space-x-3">
+                              <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-orange-900 mb-1">
+                                  Grade and Subjects Not Selected
+                                </p>
+                                <p className="text-xs text-orange-800 mb-3">
+                                  Please select your grade and subjects to access exam papers. You won't be able to use the paper selection modal or chat assistant until you complete this setup.
+                                </p>
+                                <button
+                                  onClick={() => setShowEditSelections(true)}
+                                  className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm font-medium"
+                                >
+                                  Select Grade & Subjects
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Selections exist - Show them with edit button */
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-gray-700">Grade & Subjects:</p>
+                              <button
+                                onClick={() => setShowEditSelections(true)}
+                                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm"
+                              >
+                                <Edit className="w-4 h-4" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
+                            {selectedGrade && (
+                              <p className="text-sm text-gray-600 mb-2">
+                                Grade: <span className="font-medium">{selectedGrade}</span>
+                              </p>
+                            )}
+                            {selectedSubjects.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {selectedSubjects.map((subject, index) => (
+                                  <span key={index} className="px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-700">
+                                    {subject}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {(tierName === 'free' && selectedSubjects.length > 0) && (
                       <div className="mb-4">
                         <p className="text-sm text-gray-600 mb-2">
-                          {tierName === 'free' ? 'Recently Used Subjects (Auto-tracked):' : 'Subjects:'}
+                          Recently Used Subjects (Auto-tracked):
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {selectedSubjects.map((subject, index) => (
-                            <span key={index} className={`px-2 py-1 rounded-md text-xs ${
-                              tierName === 'free'
-                                ? 'bg-gray-100 text-gray-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
+                            <span key={index} className="px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-700">
                               {subject}
                             </span>
                           ))}
@@ -968,6 +1067,19 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         cancelText="Keep Subscription"
         confirmDisabled={cancelling}
       />
+
+      {/* Edit Selections Modal */}
+      {showEditSelections && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[95vh] overflow-y-auto my-8">
+            <StudentPackageSelector
+              onComplete={handleUpdateSelections}
+              onCancel={() => setShowEditSelections(false)}
+              maxSubjects={tierName === 'student_lite' ? 1 : 8}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
