@@ -61,9 +61,9 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
   const isUserMessage = role === 'user';
 
   return (
-    <div className={`flex ${isUserMessage ? 'justify-end' : 'justify-start'} w-full mb-2`}>
+    <div className={`flex ${isUserMessage ? 'justify-end' : 'justify-start'} w-full mb-2 min-w-0`}>
       <div
-        className={`px-4 py-2.5 rounded-lg break-words ${
+        className={`px-4 py-2.5 rounded-lg break-words overflow-hidden ${
           isUserMessage ? 'bg-black text-white whitespace-pre-wrap' : 'bg-gray-100 text-gray-900'
         }`}
         style={{
@@ -75,13 +75,13 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
         {isUserMessage ? (
           <p className="text-sm">{sanitizedContent}</p>
         ) : (
-          <div className="text-sm prose prose-sm max-w-full
+          <div className="text-sm prose prose-sm max-w-full overflow-hidden
             prose-headings:mt-3 prose-headings:mb-2
             prose-p:my-2 prose-p:leading-relaxed
             prose-ul:my-2 prose-ul:pl-5 prose-ul:list-disc prose-li:leading-relaxed
             prose-ol:my-2 prose-ol:pl-5 prose-ol:list-decimal prose-li:leading-relaxed
             prose-code:text-xs prose-code:bg-gray-200 prose-code:text-gray-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:font-mono
-            prose-pre:bg-gray-800 prose-pre:text-gray-100 prose-pre:overflow-x-auto prose-pre:my-2 prose-pre:max-w-full
+            prose-pre:bg-gray-50 prose-pre:text-gray-900 prose-pre:border prose-pre:border-gray-300 prose-pre:my-2
             prose-strong:text-gray-900 prose-strong:font-semibold
             prose-em:text-gray-800">
             <ReactMarkdown
@@ -116,14 +116,14 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
                   <em className="italic text-gray-800">{children}</em>
                 ),
                 pre: ({ children }) => (
-                  <pre className="bg-gray-800 text-gray-100 p-3 rounded overflow-x-auto my-2 max-w-full block">{children}</pre>
+                  <pre className="bg-gray-50 text-gray-900 border border-gray-300 p-3 rounded overflow-x-auto my-2 block" style={{ maxWidth: '100%' }}>{children}</pre>
                 ),
                 code: ({ className, children }) => {
                   const isInline = !className;
                   return isInline ? (
                     <code className="bg-gray-200 text-gray-900 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
                   ) : (
-                    <code className="text-gray-100 text-xs font-mono whitespace-pre block" style={{ background: 'transparent' }}>{children}</code>
+                    <code className="text-gray-900 text-xs font-mono whitespace-pre block" style={{ background: 'transparent' }}>{children}</code>
                   );
                 },
                 blockquote: ({ children }) => (
