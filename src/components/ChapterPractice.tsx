@@ -144,6 +144,40 @@ export function ChapterPractice() {
     }
   };
 
+  const loadExistingConversation = async () => {
+    if (!user || !selectedChapter) return;
+
+    try {
+      // Check for existing conversation for this chapter
+      const { data: existingConv } = await supabase
+        .from('chapter_conversations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('chapter_id', selectedChapter)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (existingConv) {
+        setConversationId(existingConv.id);
+
+        // Load existing messages
+        const { data: messagesData } = await supabase
+          .from('chapter_messages')
+          .select('role, content')
+          .eq('conversation_id', existingConv.id)
+          .order('created_at', { ascending: true });
+
+        if (messagesData) {
+          setMessages(messagesData as Message[]);
+        }
+      }
+    } catch (error) {
+      // No existing conversation found, will create new one when user sends first message
+      console.log('No existing conversation found');
+    }
+  };
+
   const fetchQuestions = async () => {
     try {
       const { data } = await supabase
@@ -184,8 +218,13 @@ export function ChapterPractice() {
 
         setQuestions(formattedQuestions);
         setCurrentQuestionIndex(0);
+
+        // Clear current conversation state before loading new chapter's conversation
         setMessages([]);
         setConversationId(null);
+
+        // Load existing conversation for this chapter
+        loadExistingConversation();
       }
     } catch (error) {
       console.error('Error fetching questions:', error);
@@ -195,16 +234,14 @@ export function ChapterPractice() {
   const handlePrevQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-      setMessages([]);
-      setConversationId(null);
+      // Keep conversation and messages intact when switching questions
     }
   };
 
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setMessages([]);
-      setConversationId(null);
+      // Keep conversation and messages intact when switching questions
     }
   };
 
@@ -246,22 +283,38 @@ export function ChapterPractice() {
       // Create or get conversation
       let convId = conversationId;
       if (!convId) {
-        const chapterInfo = chapters.find(ch => ch.id === selectedChapter);
-        const subjectInfo = subjects.find(s => s.id === selectedSubject);
-
-        const { data: conv, error: convError } = await supabase
+        // Double-check for existing conversation before creating
+        const { data: existingConv } = await supabase
           .from('chapter_conversations')
-          .insert({
-            user_id: user.id,
-            chapter_id: selectedChapter,
-            title: `${subjectInfo?.name} - Chapter ${chapterInfo?.chapter_number}`,
-          })
-          .select()
-          .single();
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('chapter_id', selectedChapter)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        if (convError) throw convError;
-        convId = conv.id;
-        setConversationId(convId);
+        if (existingConv) {
+          convId = existingConv.id;
+          setConversationId(convId);
+        } else {
+          // Create new conversation only if none exists
+          const chapterInfo = chapters.find(ch => ch.id === selectedChapter);
+          const subjectInfo = subjects.find(s => s.id === selectedSubject);
+
+          const { data: conv, error: convError } = await supabase
+            .from('chapter_conversations')
+            .insert({
+              user_id: user.id,
+              chapter_id: selectedChapter,
+              title: `${subjectInfo?.name} - Chapter ${chapterInfo?.chapter_number}`,
+            })
+            .select()
+            .single();
+
+          if (convError) throw convError;
+          convId = conv.id;
+          setConversationId(convId);
+        }
       }
 
       // Get question images

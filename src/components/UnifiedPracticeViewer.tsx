@@ -489,9 +489,7 @@ export function UnifiedPracticeViewer({
 
   const handleQuestionSelect = (question: Question) => {
     setSelectedQuestion(question);
-    // Clear messages when switching questions
-    setMessages([]);
-    setCurrentConversationId(null);
+    // Keep conversation and messages intact when switching questions
   };
 
   const handlePrevQuestion = () => {
@@ -499,8 +497,7 @@ export function UnifiedPracticeViewer({
       const newIndex = currentQuestionIndex - 1;
       setCurrentQuestionIndex(newIndex);
       setSelectedQuestion(questions[newIndex]);
-      setMessages([]);
-      setCurrentConversationId(null);
+      // Keep conversation and messages intact when switching questions
     }
   };
 
@@ -509,8 +506,7 @@ export function UnifiedPracticeViewer({
       const newIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(newIndex);
       setSelectedQuestion(questions[newIndex]);
-      setMessages([]);
-      setCurrentConversationId(null);
+      // Keep conversation and messages intact when switching questions
     }
   };
 
@@ -635,38 +631,57 @@ export function UnifiedPracticeViewer({
 
         // Save to conversation (chapter mode)
         if (!currentConversationId && user && chapterId) {
-          // Create new conversation for this chapter
-          const conversationTitle = chapterInfo
-            ? `Ch ${chapterInfo.chapter_number}: ${chapterInfo.chapter_title}`
-            : 'Chapter Practice';
-
-          const { data: newConv, error: convError } = await supabase
+          // Double-check for existing conversation before creating
+          const { data: existingConv } = await supabase
             .from('conversations')
-            .insert({
-              user_id: user.id,
-              exam_paper_id: questionData.exam_paper_id,
-              practice_mode: 'chapter',
-              chapter_id: chapterId,
-              title: conversationTitle
-            })
-            .select()
-            .single();
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('chapter_id', chapterId)
+            .eq('practice_mode', 'chapter')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-          if (convError) {
-            console.error('Error creating conversation:', convError);
-          } else if (newConv) {
-            setCurrentConversationId(newConv.id);
+          let convId = existingConv?.id;
+
+          if (!convId) {
+            // Create new conversation for this chapter only if none exists
+            const conversationTitle = chapterInfo
+              ? `Ch ${chapterInfo.chapter_number}: ${chapterInfo.chapter_title}`
+              : 'Chapter Practice';
+
+            const { data: newConv, error: convError } = await supabase
+              .from('conversations')
+              .insert({
+                user_id: user.id,
+                exam_paper_id: questionData.exam_paper_id,
+                practice_mode: 'chapter',
+                chapter_id: chapterId,
+                title: conversationTitle
+              })
+              .select()
+              .single();
+
+            if (convError) {
+              console.error('Error creating conversation:', convError);
+            } else if (newConv) {
+              convId = newConv.id;
+            }
+          }
+
+          if (convId) {
+            setCurrentConversationId(convId);
 
             // Save user message
             await supabase.from('conversation_messages').insert({
-              conversation_id: newConv.id,
+              conversation_id: convId,
               role: 'user',
               content: userMessage
             });
 
             // Save assistant message
             await supabase.from('conversation_messages').insert({
-              conversation_id: newConv.id,
+              conversation_id: convId,
               role: 'assistant',
               content: assistantMessage
             });
