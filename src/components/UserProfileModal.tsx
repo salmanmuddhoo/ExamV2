@@ -851,7 +851,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                             <div className="mb-3">
                               <p className="text-sm font-semibold text-gray-900 mb-1">Your Selected Grade & Subjects</p>
                               <p className="text-xs text-gray-600 mb-3">
-                                These selections were made during purchase and are locked to prevent system abuse.
+                                These are the grade and subjects selected during your subscription purchase.
                               </p>
                             </div>
                             {selectedGrade && (
