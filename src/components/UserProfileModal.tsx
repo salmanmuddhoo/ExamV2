@@ -222,15 +222,49 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
           }
 
           // Fetch subject names if selections exist (for all three tiers)
-          // For free tier, these are auto-tracked subjects
+          // For free tier, also fetch grade information
           if (data.selected_subject_ids && data.selected_subject_ids.length > 0) {
-            const { data: subjects, error: subjectsError } = await supabase
-              .from('subjects')
-              .select('name')
-              .in('id', data.selected_subject_ids);
+            if (internalTierName === 'free') {
+              // For free tier, get subjects with their grades
+              const subjectsWithGrades: string[] = [];
 
-            if (!subjectsError && subjects) {
-              setSelectedSubjects(subjects.map(s => s.name));
+              for (const subjectId of data.selected_subject_ids) {
+                // Get the most recent conversation for this subject to find the grade
+                const { data: recentConv, error: convError } = await supabase
+                  .from('conversations')
+                  .select(`
+                    exam_papers!inner(
+                      subjects(name),
+                      grade_levels(name)
+                    )
+                  `)
+                  .eq('user_id', user.id)
+                  .eq('exam_papers.subject_id', subjectId)
+                  .order('updated_at', { ascending: false })
+                  .limit(1)
+                  .single();
+
+                if (!convError && recentConv) {
+                  const examPaper = recentConv.exam_papers as any;
+                  const gradeName = examPaper.grade_levels?.name || '';
+                  const subjectName = examPaper.subjects?.name || '';
+                  if (gradeName && subjectName) {
+                    subjectsWithGrades.push(`${gradeName} - ${subjectName}`);
+                  }
+                }
+              }
+
+              setSelectedSubjects(subjectsWithGrades);
+            } else {
+              // For student/student_lite, just get subject names
+              const { data: subjects, error: subjectsError } = await supabase
+                .from('subjects')
+                .select('name')
+                .in('id', data.selected_subject_ids);
+
+              if (!subjectsError && subjects) {
+                setSelectedSubjects(subjects.map(s => s.name));
+              }
             }
           } else {
             setSelectedSubjects([]);
