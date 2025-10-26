@@ -619,9 +619,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                           <p className="font-semibold text-gray-900 text-lg">
                             {syllabus.region || 'Default Syllabus'}
                           </p>
-                          {syllabus.title && (
-                            <p className="text-sm text-gray-600 mt-0.5">{syllabus.title}</p>
-                          )}
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
                       </button>
