@@ -78,9 +78,49 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
     }
   };
 
-  const handleGradeSelect = (gradeId: string) => {
+  const handleGradeSelect = async (gradeId: string) => {
     setSelectedGradeId(gradeId);
-    setStep('subjects');
+    setSelectedSubjectIds([]); // Clear previously selected subjects
+    setLoading(true);
+    setError('');
+
+    try {
+      // Fetch subjects that have exam papers for the selected grade
+      const { data: papersData, error: papersError } = await supabase
+        .from('exam_papers')
+        .select('subject_id, subjects(id, name, description)')
+        .eq('grade_level_id', gradeId);
+
+      if (papersError) throw papersError;
+
+      // Extract unique subjects from exam papers
+      const subjectsForGrade: Subject[] = [];
+      const seenSubjectIds = new Set<string>();
+
+      papersData?.forEach(paper => {
+        const subject = paper.subjects as any;
+        if (subject && !seenSubjectIds.has(subject.id)) {
+          seenSubjectIds.add(subject.id);
+          subjectsForGrade.push({
+            id: subject.id,
+            name: subject.name,
+            description: subject.description
+          });
+        }
+      });
+
+      // Sort subjects by name
+      subjectsForGrade.sort((a, b) => a.name.localeCompare(b.name));
+
+      setSubjects(subjectsForGrade);
+      setFilteredSubjects(subjectsForGrade);
+      setStep('subjects');
+    } catch (err) {
+      console.error('Error fetching subjects for grade:', err);
+      setError('Failed to load subjects for this grade. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubjectToggle = (subjectId: string) => {
@@ -102,6 +142,8 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
     setStep('grade');
     setSelectedSubjectIds([]);
     setSearchQuery('');
+    setSubjects([]); // Clear subjects when going back
+    setFilteredSubjects([]);
   };
 
   const clearSearch = () => {
