@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle, Edit } from 'lucide-react';
+import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
@@ -846,33 +846,42 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                             </div>
                           </div>
                         ) : (
-                          /* Selections exist - Show them with edit button */
-                          <>
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-sm font-medium text-gray-700">Grade & Subjects:</p>
-                              <button
-                                onClick={() => setShowEditSelections(true)}
-                                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm"
-                              >
-                                <Edit className="w-4 h-4" />
-                                <span>Edit</span>
-                              </button>
+                          /* Selections exist - Show them as read-only (locked after purchase) */
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="mb-3">
+                              <p className="text-sm font-semibold text-gray-900 mb-1">Your Selected Grade & Subjects</p>
+                              <p className="text-xs text-gray-600 mb-3">
+                                These selections were made during purchase and are locked to prevent system abuse.
+                              </p>
                             </div>
                             {selectedGrade && (
-                              <p className="text-sm text-gray-600 mb-2">
-                                Grade: <span className="font-medium">{selectedGrade}</span>
-                              </p>
-                            )}
-                            {selectedSubjects.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {selectedSubjects.map((subject, index) => (
-                                  <span key={index} className="px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-700">
-                                    {subject}
-                                  </span>
-                                ))}
+                              <div className="mb-3">
+                                <p className="text-xs text-gray-600 mb-1">Grade:</p>
+                                <span className="inline-block px-3 py-1.5 rounded-md text-sm font-medium bg-blue-600 text-white">
+                                  {selectedGrade}
+                                </span>
                               </div>
                             )}
-                          </>
+                            {selectedSubjects.length > 0 && (
+                              <div>
+                                <p className="text-xs text-gray-600 mb-2">
+                                  {tierName === 'student_lite' ? 'Subject (Max 1):' : 'Subjects (Max 8):'}
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedSubjects.map((subject, index) => (
+                                    <span key={index} className="px-3 py-1.5 rounded-md text-sm font-medium bg-blue-600 text-white">
+                                      {subject}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="mt-3 pt-3 border-t border-blue-200">
+                              <p className="text-xs text-gray-600">
+                                💡 <span className="font-medium">Need to change your selections?</span> You'll need to purchase a new subscription with your desired grade and subjects.
+                              </p>
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
