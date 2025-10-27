@@ -100,6 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          role: role,
+        },
+      },
     });
 
     if (error) throw error;
@@ -109,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Try to upsert the profile to ensure first_name and last_name are set
-      // If this fails due to RLS (user not verified yet), we'll update it after login
+      // If this fails due to RLS (user not verified yet), the trigger should have already set it
       try {
         await supabase
           .from('profiles')
@@ -128,8 +135,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchProfile(data.user.id);
       } catch (profileError) {
         // If profile operations fail, it's likely because email verification is required
-        // This is fine - the profile will be updated when they verify and log in
-        console.log('Profile will be updated after email verification');
+        // This is fine - the trigger should have created the profile with first_name and last_name from metadata
+        console.log('Profile created by trigger with user metadata');
       }
     }
   };

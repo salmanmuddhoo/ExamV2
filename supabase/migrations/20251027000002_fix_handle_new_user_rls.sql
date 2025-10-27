@@ -12,12 +12,22 @@ SECURITY DEFINER
 SET search_path = public
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  user_first_name TEXT;
+  user_last_name TEXT;
+  user_role TEXT;
 BEGIN
+  -- Extract first_name, last_name, and role from user metadata
+  -- These are set during signup in the auth.signUp() call
+  user_first_name := COALESCE(new.raw_user_meta_data->>'first_name', '');
+  user_last_name := COALESCE(new.raw_user_meta_data->>'last_name', '');
+  user_role := COALESCE(new.raw_user_meta_data->>'role', 'student');
+
   -- Insert into profiles with elevated privileges
   -- SECURITY DEFINER makes this run with the function owner's privileges
   -- This bypasses RLS policies
-  INSERT INTO public.profiles (id, email, role, is_active)
-  VALUES (new.id, new.email, 'student', true)
+  INSERT INTO public.profiles (id, email, role, first_name, last_name, is_active)
+  VALUES (new.id, new.email, user_role, user_first_name, user_last_name, true)
   ON CONFLICT (id) DO NOTHING;
 
   RETURN new;
