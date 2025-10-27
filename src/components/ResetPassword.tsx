@@ -72,8 +72,10 @@ export function ResetPassword() {
 
       setSuccess(true);
 
-      // Redirect to home after 2 seconds
-      setTimeout(() => {
+      // Sign out the user and redirect to home after 2 seconds
+      setTimeout(async () => {
+        await supabase.auth.signOut();
+        // Clear the hash from URL
         window.location.href = '/';
       }, 2000);
     } catch (err: any) {
@@ -108,7 +110,8 @@ export function ResetPassword() {
 
           {success && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
-              <p className="text-sm text-green-600">Password reset successfully! Redirecting...</p>
+              <p className="text-sm text-green-600 font-medium">Password reset successfully!</p>
+              <p className="text-xs text-green-600 mt-1">Redirecting to login page...</p>
             </div>
           )}
 

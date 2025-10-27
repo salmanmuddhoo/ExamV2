@@ -34,8 +34,9 @@ function App() {
     // Persist subscription modal state across page navigation
     return sessionStorage.getItem('showSubscriptionModal') === 'true';
   });
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
 
-  // Check for password reset token in URL
+  // Check for password reset token in URL (must run first)
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
@@ -43,19 +44,20 @@ function App() {
 
     if (accessToken && type === 'recovery') {
       // User clicked password reset link from email
+      setIsPasswordReset(true);
       setView('reset-password');
     }
   }, []);
 
   useEffect(() => {
-    if (!loading && !initialLoadComplete) {
+    if (!loading && !initialLoadComplete && !isPasswordReset) {
       if (user && profile?.role !== 'admin') {
         setView('chat-hub');
         checkFirstTimeUser();
       }
       setInitialLoadComplete(true);
     }
-  }, [loading, user, profile, initialLoadComplete]);
+  }, [loading, user, profile, initialLoadComplete, isPasswordReset]);
 
   // Persist subscription modal state to sessionStorage
   useEffect(() => {
@@ -120,7 +122,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (initialLoadComplete && user && profile) {
+    if (initialLoadComplete && user && profile && !isPasswordReset) {
       if (view === 'login') {
         if (profile.role === 'admin') {
           setView('admin');
@@ -131,15 +133,15 @@ function App() {
         }
       }
     }
-  }, [user, profile, initialLoadComplete, view]);
+  }, [user, profile, initialLoadComplete, view, isPasswordReset]);
 
   useEffect(() => {
-    if (initialLoadComplete && !user && !loading) {
-      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer') {
+    if (initialLoadComplete && !user && !loading && !isPasswordReset) {
+      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer' && view !== 'reset-password') {
         setView('home');
       }
     }
-  }, [user, loading, initialLoadComplete, view]);
+  }, [user, loading, initialLoadComplete, view, isPasswordReset]);
 
   const handleSelectPaper = (paperId: string) => {
     setSelectedPaperId(paperId);
