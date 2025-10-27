@@ -148,9 +148,19 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
           setIsSignUp(false);
           setPassword('');
           setConfirmPassword('');
+          setFirstName('');
+          setLastName('');
+          setEmail('');
         }}
-        title="Success!"
-        message="Account created successfully! Please log in."
+        title="Check Your Email!"
+        message={
+          <div className="space-y-2">
+            <p className="font-medium">Account created successfully!</p>
+            <p>We've sent a verification link to <strong>{email}</strong></p>
+            <p className="text-sm">Please check your inbox and click the verification link to activate your account.</p>
+            <p className="text-xs text-gray-500 mt-3">Didn't receive the email? Check your spam folder or contact support.</p>
+          </div>
+        }
         type="success"
       />
 
