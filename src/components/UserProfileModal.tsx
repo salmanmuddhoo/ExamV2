@@ -44,6 +44,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | 'lifetime' | null>(null);
   const [isRecurring, setIsRecurring] = useState<boolean>(false);
   const [renewalDate, setRenewalDate] = useState<string | null>(null);
+  const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
   const [showEditSelections, setShowEditSelections] = useState(false);
   const [updatingSelections, setUpdatingSelections] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -101,7 +102,8 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
           payment_provider,
           billing_cycle,
           is_recurring,
-          end_date
+          end_date,
+          subscription_end_date
         `)
         .eq('user_id', user.id)
         .eq('status', 'active')
@@ -226,6 +228,8 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         setIsRecurring(data.is_recurring || false);
         // Use period_end_date for recurring, end_date for non-recurring
         setRenewalDate((data.is_recurring ? data.period_end_date : data.end_date) || null);
+        // Set subscription end date (for yearly subscriptions)
+        setSubscriptionEndDate(data.subscription_end_date || null);
 
         // Fetch grade and subjects for student/student_lite/free tiers
         // Pro tier should not display selections
@@ -681,7 +685,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                           <div className="mb-1">
                             <p className="text-xs font-medium text-gray-700">
                               {billingCycle === 'monthly' ? 'Monthly' : 'Yearly'} Plan
-                              {renewalDate && isRecurring && (
+                              {renewalDate && isRecurring && billingCycle === 'monthly' && (
                                 <span className="ml-1 text-gray-600">
                                   • Renews on {new Date(renewalDate).toLocaleDateString('en-US', {
                                     month: 'short',
@@ -700,6 +704,25 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                 </span>
                               )}
                             </p>
+                            {/* Yearly Plan End Date */}
+                            {billingCycle === 'yearly' && subscriptionEndDate && (
+                              <p className="text-xs font-medium text-blue-700 mt-1">
+                                📅 Your yearly plan ends on {new Date(subscriptionEndDate).toLocaleDateString('en-US', {
+                                  month: 'long',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </p>
+                            )}
+                            {billingCycle === 'yearly' && renewalDate && (
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                Tokens refill monthly on {new Date(renewalDate).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -931,7 +954,14 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                               Subscription Scheduled for Cancellation
                             </p>
                             <p className="text-xs text-yellow-800 mb-2">
-                              Your subscription will end on {cycleEnd ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'the end of your billing period'}. You'll have access until then.
+                              Your subscription will end on {
+                                billingCycle === 'yearly' && subscriptionEndDate
+                                  ? new Date(subscriptionEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                  : cycleEnd
+                                  ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                  : 'the end of your billing period'
+                              }. You'll have access until then.
+                              {billingCycle === 'yearly' && ' Your tokens will continue to refill monthly until your subscription ends.'}
                             </p>
                             {paymentProvider === 'MCB Juice' && (
                               <p className="text-xs text-yellow-700 mb-3 italic">
@@ -1055,7 +1085,14 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         message={
           <div className="space-y-4">
             <p className="text-sm text-gray-700">
-              Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period ({cycleEnd ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'end of period'}).
+              Are you sure you want to cancel your subscription? You'll continue to have access until the end of your current billing period ({
+                billingCycle === 'yearly' && subscriptionEndDate
+                  ? new Date(subscriptionEndDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : cycleEnd
+                  ? new Date(cycleEnd).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : 'end of period'
+              }).
+              {billingCycle === 'yearly' && ' Your tokens will continue to refill monthly until your subscription ends.'}
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
