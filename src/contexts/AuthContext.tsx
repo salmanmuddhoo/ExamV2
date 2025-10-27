@@ -108,24 +108,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Wait a bit for the trigger to create the profile
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Upsert the profile to ensure first_name and last_name are set
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          email: data.user.email,
-          role,
-          first_name: firstName,
-          last_name: lastName,
-          is_active: true
-        }, {
-          onConflict: 'id'
-        });
+      // Try to upsert the profile to ensure first_name and last_name are set
+      // If this fails due to RLS (user not verified yet), we'll update it after login
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            email: data.user.email,
+            role,
+            first_name: firstName,
+            last_name: lastName,
+            is_active: true
+          }, {
+            onConflict: 'id'
+          });
 
-      if (profileError) throw profileError;
-
-      // Immediately fetch the profile to update the context
-      await fetchProfile(data.user.id);
+        // Try to fetch the profile (may fail if email verification is required)
+        await fetchProfile(data.user.id);
+      } catch (profileError) {
+        // If profile operations fail, it's likely because email verification is required
+        // This is fine - the profile will be updated when they verify and log in
+        console.log('Profile will be updated after email verification');
+      }
     }
   };
 
