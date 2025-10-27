@@ -12,4 +12,13 @@ CREATE POLICY "Users can insert their own profile"
   TO authenticated
   WITH CHECK (auth.uid() = id);
 
+-- Add INSERT policy for service role (used by triggers with SECURITY DEFINER)
+-- This is needed because even with SECURITY DEFINER, triggers need a policy
+DROP POLICY IF EXISTS "Service role can insert profiles" ON profiles;
+CREATE POLICY "Service role can insert profiles"
+  ON profiles FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
 COMMENT ON POLICY "Users can insert their own profile" ON profiles IS 'Allows authenticated users to create their own profile during signup or OAuth login';
+COMMENT ON POLICY "Service role can insert profiles" ON profiles IS 'Allows database triggers with SECURITY DEFINER to insert profiles';
