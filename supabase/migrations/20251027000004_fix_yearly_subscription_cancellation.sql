@@ -155,6 +155,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Fix 4: Fix existing cancelled yearly subscriptions that have is_recurring=FALSE
+-- These subscriptions were cancelled before this migration, so they won't get monthly token refills
+-- We need to set is_recurring=TRUE so they continue to get tokens until subscription_end_date
+UPDATE user_subscriptions
+SET
+  is_recurring = TRUE,
+  updated_at = NOW()
+WHERE billing_cycle = 'yearly'
+  AND cancel_at_period_end = TRUE
+  AND status = 'active'
+  AND is_recurring = FALSE
+  AND subscription_end_date IS NOT NULL
+  AND subscription_end_date > NOW();
+
 -- Comments
 COMMENT ON FUNCTION cancel_subscription_at_period_end IS
   'Marks subscription for cancellation at end of billing period. For yearly subscriptions, keeps is_recurring=TRUE so monthly token refills continue until subscription_end_date. For monthly subscriptions, sets is_recurring=FALSE to stop auto-renewal.';
