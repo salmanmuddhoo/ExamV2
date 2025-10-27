@@ -47,6 +47,7 @@ export interface UserSubscription {
   start_date: string;
   end_date: string | null;
   cancelled_at: string | null;
+  subscription_end_date: string | null; // For yearly subscriptions - tracks when the year ends (period_end_date is used for monthly token resets)
 
   // Cancellation tracking
   cancel_at_period_end: boolean;

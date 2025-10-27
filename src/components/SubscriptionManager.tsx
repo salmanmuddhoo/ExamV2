@@ -389,13 +389,26 @@ export function SubscriptionManager() {
                       Papers: {currentSubscription.papers_accessed_current_period} / {currentSubscription.subscription_tiers.papers_limit}
                     </p>
                   )}
-                  <p>
-                    Period: {new Date(currentSubscription.period_start_date).toLocaleDateString()} - {
-                      currentSubscription.period_end_date
-                        ? new Date(currentSubscription.period_end_date).toLocaleDateString()
-                        : 'Ongoing'
-                    }
-                  </p>
+                  {currentSubscription.billing_cycle === 'yearly' && currentSubscription.subscription_end_date ? (
+                    <>
+                      <p>
+                        Next Token Reset: {currentSubscription.period_end_date
+                          ? new Date(currentSubscription.period_end_date).toLocaleDateString()
+                          : 'N/A'}
+                      </p>
+                      <p>
+                        Subscription Ends: {new Date(currentSubscription.subscription_end_date).toLocaleDateString()}
+                      </p>
+                    </>
+                  ) : (
+                    <p>
+                      Period: {new Date(currentSubscription.period_start_date).toLocaleDateString()} - {
+                        currentSubscription.period_end_date
+                          ? new Date(currentSubscription.period_end_date).toLocaleDateString()
+                          : 'Ongoing'
+                      }
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex-shrink-0">
@@ -421,11 +434,14 @@ export function SubscriptionManager() {
                   <p className="text-xs text-yellow-800 mb-2">
                     Your subscription will end on{' '}
                     <strong>
-                      {currentSubscription.period_end_date
+                      {currentSubscription.billing_cycle === 'yearly' && currentSubscription.subscription_end_date
+                        ? new Date(currentSubscription.subscription_end_date).toLocaleDateString()
+                        : currentSubscription.period_end_date
                         ? new Date(currentSubscription.period_end_date).toLocaleDateString()
                         : 'the end of the current period'}
                     </strong>
                     . You'll continue to have full access until then.
+                    {currentSubscription.billing_cycle === 'yearly' && ' Your tokens will continue to refill monthly until your subscription ends.'}
                   </p>
                   <button
                     onClick={handleReactivateSubscription}
