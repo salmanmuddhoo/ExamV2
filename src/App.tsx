@@ -11,9 +11,10 @@ import { WelcomeModal } from './components/WelcomeModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { PaymentPage } from './components/PaymentPage';
 import { UnifiedPracticeViewer } from './components/UnifiedPracticeViewer';
+import { ResetPassword } from './components/ResetPassword';
 import { supabase } from './lib/supabase';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password';
 
 function App() {
   const { user, profile, loading } = useAuth();
@@ -33,6 +34,18 @@ function App() {
     // Persist subscription modal state across page navigation
     return sessionStorage.getItem('showSubscriptionModal') === 'true';
   });
+
+  // Check for password reset token in URL
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const type = hashParams.get('type');
+
+    if (accessToken && type === 'recovery') {
+      // User clicked password reset link from email
+      setView('reset-password');
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && !initialLoadComplete) {
@@ -297,6 +310,10 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  if (view === 'reset-password') {
+    return <ResetPassword />;
   }
 
   if (view === 'login') {
