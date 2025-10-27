@@ -530,14 +530,14 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex-shrink-0 flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-colors ${
+                      className={`flex-shrink-0 flex flex-col items-center space-y-0.5 px-2 py-1.5 rounded-md transition-colors ${
                         activeTab === tab.id
                           ? 'bg-gray-900 text-white'
                           : 'text-gray-700 hover:bg-gray-200'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
-                      <span className="font-medium text-xs whitespace-nowrap">{tab.label}</span>
+                      <span className="font-medium text-[10px] whitespace-nowrap">{tab.label}</span>
                     </button>
                   );
                 })}
