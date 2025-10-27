@@ -522,15 +522,15 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
           {/* Top/Left Tabs - Horizontal on mobile, Sidebar on desktop */}
           <div className="md:w-64 border-b md:border-b-0 md:border-r border-gray-200 bg-gray-50">
             {/* Mobile: Horizontal scrollable tabs */}
-            <div className="md:hidden overflow-x-auto">
-              <nav className="flex p-2 space-x-1">
+            <div className="md:hidden">
+              <nav className="flex p-2 gap-1">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex-shrink-0 flex flex-col items-center space-y-0.5 px-2 py-1.5 rounded-md transition-colors ${
+                      className={`flex-1 flex flex-col items-center justify-center space-y-0.5 py-1.5 rounded-md transition-colors ${
                         activeTab === tab.id
                           ? 'bg-gray-900 text-white'
                           : 'text-gray-700 hover:bg-gray-200'
