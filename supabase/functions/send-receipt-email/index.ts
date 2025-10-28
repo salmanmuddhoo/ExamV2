@@ -336,14 +336,26 @@ serve(async (req) => {
         profiles!payment_transactions_user_id_fkey(email, first_name, last_name),
         subscription_tiers(display_name),
         payment_methods(display_name),
-        grade_levels(name),
-        subjects(name)
+        grade_levels(name)
       `)
       .eq('id', transactionId)
       .single()
 
     if (fetchError || !transaction) {
       throw new Error(`Transaction not found: ${fetchError?.message}`)
+    }
+
+    // Fetch subject names if selected_subject_ids exist
+    let subjectNames: string[] = []
+    if (transaction.selected_subject_ids && transaction.selected_subject_ids.length > 0) {
+      const { data: subjects, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('name')
+        .in('id', transaction.selected_subject_ids)
+
+      if (!subjectsError && subjects) {
+        subjectNames = subjects.map((s: any) => s.name)
+      }
     }
 
     // Check if receipt already sent
@@ -371,7 +383,7 @@ serve(async (req) => {
       paymentMethod: transaction.payment_methods?.display_name || 'Unknown',
       transactionDate: transaction.created_at,
       selectedGrade: transaction.grade_levels?.name,
-      selectedSubjects: transaction.subjects?.map((s: any) => s.name),
+      selectedSubjects: subjectNames.length > 0 ? subjectNames : undefined,
       couponCode: transaction.metadata?.coupon_code,
       discountPercentage: transaction.metadata?.discount_percentage,
       originalAmount: transaction.metadata?.original_amount
