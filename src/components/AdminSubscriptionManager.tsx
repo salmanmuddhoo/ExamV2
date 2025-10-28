@@ -13,6 +13,11 @@ interface UserSubscription {
   period_start_date: string;
   period_end_date: string | null;
   created_at: string;
+  billing_cycle: 'monthly' | 'yearly' | 'lifetime' | null;
+  subscription_end_date: string | null;
+  is_recurring: boolean;
+  payment_provider: string | null;
+  last_payment_date: string | null;
   profiles: {
     email: string;
   };
@@ -110,6 +115,24 @@ export function AdminSubscriptionManager() {
 
       if (profilesError) throw profilesError;
 
+      // Get last payment date for each user
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select('user_id, created_at')
+        .in('user_id', userIds)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+
+      // Create map of last payment dates
+      const lastPaymentMap = new Map<string, string>();
+      paymentsData?.forEach(payment => {
+        if (!lastPaymentMap.has(payment.user_id)) {
+          lastPaymentMap.set(payment.user_id, payment.created_at);
+        }
+      });
+
       // Merge the data
       const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
       const mergedData = subsData?.map(sub => ({
@@ -118,7 +141,8 @@ export function AdminSubscriptionManager() {
         subscription_tiers: {
           ...sub.subscription_tiers,
           price: sub.subscription_tiers.price_monthly
-        }
+        },
+        last_payment_date: lastPaymentMap.get(sub.user_id) || null
       })) || [];
 
       setSubscriptions(mergedData);
@@ -467,6 +491,12 @@ export function AdminSubscriptionManager() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Billing Cycle
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Last Payment
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Papers Used
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -530,6 +560,39 @@ export function AdminSubscriptionManager() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(sub.status)}`}>
                       {sub.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {sub.billing_cycle ? (
+                        <>
+                          <span className="font-medium capitalize">{sub.billing_cycle}</span>
+                          {sub.billing_cycle === 'yearly' && sub.subscription_end_date && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              Ends: {formatDate(sub.subscription_end_date)}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {sub.is_recurring ? '🔄 Recurring' : '❌ Non-recurring'}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {sub.last_payment_date ? (
+                        <>
+                          <div>{formatDate(sub.last_payment_date)}</div>
+                          {sub.payment_provider && (
+                            <div className="text-xs text-gray-500 mt-1">{sub.payment_provider}</div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-gray-400">No payment</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {sub.papers_accessed_current_period}
@@ -662,11 +725,50 @@ export function AdminSubscriptionManager() {
               </div>
             </div>
 
-            {/* Period */}
-            <div className="mb-3">
-              <p className="text-xs text-gray-500">
-                Period: {formatDate(sub.period_start_date)} - {sub.period_end_date ? formatDate(sub.period_end_date) : 'Ongoing'}
-              </p>
+            {/* Billing Info */}
+            <div className="mb-3 space-y-2">
+              {/* Billing Cycle */}
+              {sub.billing_cycle && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Billing Cycle:</span>
+                  <span className="font-medium text-gray-900 capitalize">{sub.billing_cycle}</span>
+                </div>
+              )}
+
+              {/* Recurring Status */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Type:</span>
+                <span className={`font-medium ${sub.is_recurring ? 'text-green-600' : 'text-orange-600'}`}>
+                  {sub.is_recurring ? '🔄 Recurring' : '❌ Non-recurring'}
+                </span>
+              </div>
+
+              {/* Last Payment */}
+              {sub.last_payment_date && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Last Payment:</span>
+                  <span className="font-medium text-gray-900">
+                    {formatDate(sub.last_payment_date)}
+                    {sub.payment_provider && <span className="text-gray-500 ml-1">({sub.payment_provider})</span>}
+                  </span>
+                </div>
+              )}
+
+              {/* Yearly Subscription End Date */}
+              {sub.billing_cycle === 'yearly' && sub.subscription_end_date && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Yearly Ends:</span>
+                  <span className="font-medium text-blue-600">{formatDate(sub.subscription_end_date)}</span>
+                </div>
+              )}
+
+              {/* Current Period */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Current Period:</span>
+                <span className="font-medium text-gray-900">
+                  {formatDate(sub.period_start_date)} - {sub.period_end_date ? formatDate(sub.period_end_date) : 'Ongoing'}
+                </span>
+              </div>
             </div>
 
             {/* Edit Tier */}
