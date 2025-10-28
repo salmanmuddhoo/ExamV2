@@ -393,6 +393,8 @@ serve(async (req) => {
     const htmlContent = generateReceiptHTML(receiptData)
 
     // Send email via Resend
+    // Using Resend's test domain for development
+    // TODO: Change to 'ExamV2 <noreply@yourdomain.com>' after verifying your domain in Resend
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -400,7 +402,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'ExamV2 <noreply@examv2.com>',
+        from: 'ExamV2 <onboarding@resend.dev>',
         to: [receiptData.userEmail],
         subject: `Payment Receipt - ${receiptData.tierName} Subscription`,
         html: htmlContent
