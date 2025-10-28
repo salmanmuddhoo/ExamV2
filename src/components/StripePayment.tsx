@@ -9,12 +9,20 @@ import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 // TODO: Replace with your Stripe publishable key (test mode)
 const stripePromise = loadStripe('pk_test_51SH0xvCDkfruimlwdFlj8SaZhpDyrjcl1lMzCtOtKyrst5upXG3rscpavu1wStepSleqyD3SDrHxXV7DHcAei0BB00rxHlIwja');
 
+interface CouponData {
+  code: string;
+  discountPercentage: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
 interface StripePaymentProps {
   paymentData: PaymentSelectionData;
   paymentMethod: PaymentMethod;
   onBack: () => void;
   onSuccess: () => void;
   hideBackButton?: boolean;
+  couponData?: CouponData;
 }
 
 function StripeCheckoutForm({
@@ -22,7 +30,8 @@ function StripeCheckoutForm({
   paymentMethod,
   onBack,
   onSuccess,
-  hideBackButton = false
+  hideBackButton = false,
+  couponData
 }: StripePaymentProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -66,10 +75,15 @@ function StripeCheckoutForm({
       // Debug logging for payment data
       console.log('=== STRIPE PAYMENT DEBUG ===');
       console.log('Payment data:', paymentData);
+      console.log('Coupon data:', couponData);
       console.log('Selected grade ID:', paymentData.selectedGradeId);
       console.log('Selected subject IDs:', paymentData.selectedSubjectIds);
       console.log('Tier ID:', paymentData.tierId);
       console.log('=== END STRIPE PAYMENT DEBUG ===');
+
+      // Calculate final amount (use coupon final amount if present, otherwise original amount)
+      const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
+      const originalAmount = paymentData.amount;
 
       // Only create transaction AFTER Stripe payment method is successful
       const { data: transaction, error: transactionError } = await supabase
@@ -78,14 +92,20 @@ function StripeCheckoutForm({
           user_id: user.id,
           tier_id: paymentData.tierId,
           payment_method_id: paymentMethod.id,
-          amount: paymentData.amount,
+          amount: finalAmount,
           currency: 'USD',
           billing_cycle: paymentData.billingCycle,
           status: 'pending',
           selected_grade_id: paymentData.selectedGradeId,
           selected_subject_ids: paymentData.selectedSubjectIds,
           metadata: {
-            tier_name: paymentData.tierName
+            tier_name: paymentData.tierName,
+            original_amount: originalAmount,
+            ...(couponData && {
+              coupon_code: couponData.code,
+              discount_percentage: couponData.discountPercentage,
+              discount_amount: couponData.discountAmount
+            })
           }
         })
         .select()
@@ -123,12 +143,36 @@ function StripeCheckoutForm({
           metadata: {
             tier_name: paymentData.tierName,
             test_mode: true,
-            stripe_payment_method_id: stripePaymentMethod.id
+            stripe_payment_method_id: stripePaymentMethod.id,
+            original_amount: originalAmount,
+            ...(couponData && {
+              coupon_code: couponData.code,
+              discount_percentage: couponData.discountPercentage,
+              discount_amount: couponData.discountAmount
+            })
           }
         })
         .eq('id', transaction.id);
 
       if (updateError) throw updateError;
+
+      // Apply coupon if present
+      if (couponData) {
+        console.log('Applying coupon code:', couponData.code);
+        const { data: couponResult, error: couponError } = await supabase.rpc('apply_coupon_code', {
+          p_coupon_code: couponData.code,
+          p_payment_transaction_id: transaction.id,
+          p_original_amount: originalAmount,
+          p_currency: 'USD'
+        });
+
+        if (couponError) {
+          console.error('Error applying coupon:', couponError);
+          // Don't fail the payment, just log the error
+        } else {
+          console.log('Coupon applied successfully:', couponResult);
+        }
+      }
 
       setSucceeded(true);
       setTimeout(() => onSuccess(), 2000);
@@ -198,7 +242,16 @@ function StripeCheckoutForm({
           <span className="text-indigo-100">
             {paymentData.tierName} - {paymentData.billingCycle}
           </span>
-          <span className="text-2xl font-bold">${paymentData.amount}</span>
+          <div className="text-right">
+            {couponData ? (
+              <>
+                <span className="text-sm line-through text-indigo-200 block">${paymentData.amount}</span>
+                <span className="text-2xl font-bold">${couponData.finalAmount}</span>
+              </>
+            ) : (
+              <span className="text-2xl font-bold">${paymentData.amount}</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -212,13 +265,36 @@ function StripeCheckoutForm({
 
       {/* Payment Amount */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-700 font-medium">Total Amount:</span>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-gray-900">${paymentData.amount}</p>
-            <p className="text-sm text-gray-500">USD</p>
+        {couponData ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-300">
+              <span className="text-gray-700">Original Amount:</span>
+              <span className="text-lg text-gray-500 line-through">${paymentData.amount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-gray-700 font-medium">Discount ({couponData.discountPercentage}%):</span>
+                <div className="text-xs text-green-600 font-mono">Code: {couponData.code}</div>
+              </div>
+              <span className="text-lg text-green-600 font-semibold">-${couponData.discountAmount}</span>
+            </div>
+            <div className="flex items-center justify-between pt-3 border-t-2 border-gray-300">
+              <span className="text-gray-900 font-bold">Total Amount:</span>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">${couponData.finalAmount}</p>
+                <p className="text-sm text-gray-500">USD</p>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-gray-700 font-medium">Total Amount:</span>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-gray-900">${paymentData.amount}</p>
+              <p className="text-sm text-gray-500">USD</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Payment Form */}
@@ -269,7 +345,7 @@ function StripeCheckoutForm({
           ) : (
             <>
               <CreditCard className="w-5 h-5" />
-              <span>Pay ${paymentData.amount}</span>
+              <span>Pay ${couponData ? couponData.finalAmount : paymentData.amount}</span>
             </>
           )}
         </button>

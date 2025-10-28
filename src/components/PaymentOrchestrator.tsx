@@ -14,6 +14,13 @@ interface PaymentOrchestratorProps {
 
 type PaymentStep = 'select-method' | 'stripe' | 'paypal' | 'mcb_juice';
 
+interface CouponData {
+  code: string;
+  discountPercentage: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
 export function PaymentOrchestrator({
   paymentData,
   onBack,
@@ -22,15 +29,18 @@ export function PaymentOrchestrator({
 }: PaymentOrchestratorProps) {
   const [step, setStep] = useState<PaymentStep>('select-method');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [couponData, setCouponData] = useState<CouponData | undefined>(undefined);
 
-  const handlePaymentMethodSelected = (method: PaymentMethod) => {
+  const handlePaymentMethodSelected = (method: PaymentMethod, appliedCoupon?: CouponData) => {
     setSelectedPaymentMethod(method);
+    setCouponData(appliedCoupon);
     setStep(method.name as PaymentStep);
   };
 
   const handleBackToMethods = () => {
     setStep('select-method');
     setSelectedPaymentMethod(null);
+    // Keep coupon data when going back
   };
 
   if (step === 'select-method') {
@@ -52,6 +62,7 @@ export function PaymentOrchestrator({
         onBack={handleBackToMethods}
         onSuccess={onSuccess}
         hideBackButton={hideBackButton}
+        couponData={couponData}
       />
     );
   }
@@ -64,6 +75,7 @@ export function PaymentOrchestrator({
         onBack={handleBackToMethods}
         onSuccess={onSuccess}
         hideBackButton={hideBackButton}
+        couponData={couponData}
       />
     );
   }
@@ -76,6 +88,7 @@ export function PaymentOrchestrator({
         onBack={handleBackToMethods}
         onSuccess={onSuccess}
         hideBackButton={hideBackButton}
+        couponData={couponData}
       />
     );
   }

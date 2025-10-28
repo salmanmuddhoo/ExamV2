@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, DollarSign, Smartphone, ArrowLeft, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { CouponInput } from './CouponInput';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
 interface PaymentMethodSelectorProps {
   paymentData: PaymentSelectionData;
   onBack: () => void;
-  onPaymentMethodSelected: (paymentMethod: PaymentMethod) => void;
+  onPaymentMethodSelected: (paymentMethod: PaymentMethod, couponData?: {
+    code: string;
+    discountPercentage: number;
+    discountAmount: number;
+    finalAmount: number;
+  }) => void;
   hideBackButton?: boolean;
 }
 
@@ -18,6 +24,12 @@ export function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountPercentage: number;
+    discountAmount: number;
+    finalAmount: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchPaymentMethods();
@@ -91,11 +103,29 @@ export function PaymentMethodSelector({
   };
 
   const getDisplayAmount = (method: PaymentMethod) => {
+    const amount = appliedCoupon ? appliedCoupon.finalAmount : paymentData.amount;
     if (method.currency === 'MUR') {
-      const murAmount = convertToMUR(paymentData.amount);
+      const murAmount = convertToMUR(amount);
       return `Rs ${murAmount.toLocaleString()}`;
     }
-    return `$${paymentData.amount}`;
+    return `$${amount}`;
+  };
+
+  const handleCouponApplied = (code: string, discountPercentage: number, discountAmount: number, finalAmount: number) => {
+    setAppliedCoupon({
+      code,
+      discountPercentage,
+      discountAmount,
+      finalAmount
+    });
+  };
+
+  const handleCouponRemoved = () => {
+    setAppliedCoupon(null);
+  };
+
+  const handlePaymentMethodClick = (method: PaymentMethod) => {
+    onPaymentMethodSelected(method, appliedCoupon || undefined);
   };
 
   if (loading) {
@@ -125,12 +155,24 @@ export function PaymentMethodSelector({
         </p>
       </div>
 
+      {/* Coupon Input */}
+      <div className="mb-6">
+        <CouponInput
+          tierId={paymentData.tierId}
+          billingCycle={paymentData.billingCycle}
+          originalAmount={paymentData.amount}
+          currency={paymentData.currency}
+          onCouponApplied={handleCouponApplied}
+          onCouponRemoved={handleCouponRemoved}
+        />
+      </div>
+
       {/* Payment Methods */}
       <div className="space-y-2.5 sm:space-y-3">
         {paymentMethods.map((method) => (
           <button
             key={method.id}
-            onClick={() => onPaymentMethodSelected(method)}
+            onClick={() => handlePaymentMethodClick(method)}
             className="w-full bg-white border-2 border-gray-200 hover:border-gray-900 rounded-lg p-3 sm:p-4 transition-all group"
           >
             <div className="flex items-center justify-between gap-2">

@@ -11,12 +11,20 @@ declare global {
   }
 }
 
+interface CouponData {
+  code: string;
+  discountPercentage: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
 interface PayPalPaymentProps {
   paymentData: PaymentSelectionData;
   paymentMethod: PaymentMethod;
   onBack: () => void;
   onSuccess: () => void;
   hideBackButton?: boolean;
+  couponData?: CouponData;
 }
 
 export function PayPalPayment({
@@ -24,7 +32,8 @@ export function PayPalPayment({
   paymentMethod,
   onBack,
   onSuccess,
-  hideBackButton = false
+  hideBackButton = false,
+  couponData
 }: PayPalPaymentProps) {
   const { user } = useAuth();
   const [sdkReady, setSdkReady] = useState(false);
@@ -52,13 +61,14 @@ export function PayPalPayment({
       window.paypal
         .Buttons({
           createOrder: async (data: any, actions: any) => {
+            const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
             return actions.order.create({
               purchase_units: [
                 {
-                  description: `${paymentData.tierName} - ${paymentData.billingCycle}`,
+                  description: `${paymentData.tierName} - ${paymentData.billingCycle}${couponData ? ` (Coupon: ${couponData.code})` : ''}`,
                   amount: {
                     currency_code: 'USD',
-                    value: paymentData.amount.toFixed(2),
+                    value: finalAmount.toFixed(2),
                   },
                 },
               ],
@@ -73,6 +83,9 @@ export function PayPalPayment({
 
               if (!user) throw new Error('User not authenticated');
 
+              const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
+              const originalAmount = paymentData.amount;
+
               // Create payment transaction in database
               const { data: transaction, error: transactionError } = await supabase
                 .from('payment_transactions')
@@ -80,7 +93,7 @@ export function PayPalPayment({
                   user_id: user.id,
                   tier_id: paymentData.tierId,
                   payment_method_id: paymentMethod.id,
-                  amount: paymentData.amount,
+                  amount: finalAmount,
                   currency: 'USD',
                   billing_cycle: paymentData.billingCycle,
                   status: 'completed',
@@ -89,13 +102,33 @@ export function PayPalPayment({
                   selected_subject_ids: paymentData.selectedSubjectIds,
                   metadata: {
                     tier_name: paymentData.tierName,
-                    paypal_order: order
+                    paypal_order: order,
+                    original_amount: originalAmount,
+                    ...(couponData && {
+                      coupon_code: couponData.code,
+                      discount_percentage: couponData.discountPercentage,
+                      discount_amount: couponData.discountAmount
+                    })
                   }
                 })
                 .select()
                 .single();
 
               if (transactionError) throw transactionError;
+
+              // Apply coupon if present
+              if (couponData) {
+                const { error: couponError } = await supabase.rpc('apply_coupon_code', {
+                  p_coupon_code: couponData.code,
+                  p_payment_transaction_id: transaction.id,
+                  p_original_amount: originalAmount,
+                  p_currency: 'USD'
+                });
+
+                if (couponError) {
+                  console.error('Error applying coupon:', couponError);
+                }
+              }
 
               setSucceeded(true);
               setTimeout(() => onSuccess(), 2000);
