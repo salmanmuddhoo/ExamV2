@@ -212,7 +212,7 @@ const generateReceiptHTML = (data: ReceiptData): string => {
         <div class="content">
             <p class="greeting">Hi ${userName},</p>
             <p style="color: #4b5563; line-height: 1.6;">
-                Thank you for subscribing to ExamV2! Your payment has been successfully processed,
+                Thank you for subscribing to AixamPaper! Your payment has been successfully processed,
                 and your subscription is now active.
             </p>
 
