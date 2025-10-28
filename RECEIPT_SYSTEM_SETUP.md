@@ -273,16 +273,35 @@ The system prevents duplicates by:
 
 ### Email Template
 
-Edit `supabase/functions/send-receipt-email/index.ts`:
+The email template is separated from business logic for easy customization.
+
+**To customize the receipt appearance, edit** `supabase/functions/send-receipt-email/template.ts`:
 
 ```typescript
-const generateReceiptHTML = (data: ReceiptData): string => {
-  // Modify HTML here
-  // Change colors, layout, text, etc.
+// At the top of template.ts, you'll find:
+
+const BRAND_COLORS = {
+  headerGradientStart: '#667eea',  // Change header colors
+  headerGradientEnd: '#764ba2',
+  primaryText: '#1f2937',
+  secondaryText: '#6b7280',
+  successColor: '#10b981',
+  buttonColor: '#667eea',
 }
+
+const BRAND_INFO = {
+  companyName: 'ExamV2',  // Change company name
+  logoUrl: 'https://yourdomain.com/logo.png',  // Add your logo
+  supportEmail: 'support@examv2.com',  // Change support email
+  websiteUrl: 'https://exam-v2.vercel.app',  // Change website URL
+}
+
+// Then modify the HTML template in the generateReceiptHTML() function
 ```
 
 ### Email Subject
+
+Edit `supabase/functions/send-receipt-email/index.ts`:
 
 ```typescript
 subject: `Payment Receipt - ${receiptData.tierName} Subscription`,
@@ -290,6 +309,8 @@ subject: `Payment Receipt - ${receiptData.tierName} Subscription`,
 ```
 
 ### Sender Name/Email
+
+Edit `supabase/functions/send-receipt-email/index.ts`:
 
 ```typescript
 from: 'ExamV2 <noreply@examv2.com>',
