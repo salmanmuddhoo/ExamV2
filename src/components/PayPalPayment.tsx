@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { sendReceiptEmailWithRetry } from '../lib/receiptUtils';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
 // PayPal SDK types
@@ -129,6 +130,12 @@ export function PayPalPayment({
                   console.error('Error applying coupon:', couponError);
                 }
               }
+
+              // Send receipt email (non-blocking)
+              sendReceiptEmailWithRetry(transaction.id).catch(error => {
+                console.error('Error sending receipt email:', error);
+                // Don't fail the payment if receipt fails
+              });
 
               setSucceeded(true);
               setTimeout(() => onSuccess(), 2000);

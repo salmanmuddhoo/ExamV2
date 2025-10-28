@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { sendReceiptEmailWithRetry } from '../lib/receiptUtils';
 import {
   CheckCircle,
   XCircle,
@@ -114,7 +115,13 @@ export function AdminPaymentApproval() {
 
       if (error) throw error;
 
-      alert('Payment approved successfully! User subscription has been activated.');
+      // Send receipt email (non-blocking)
+      sendReceiptEmailWithRetry(transactionId).catch(error => {
+        console.error('Error sending receipt email:', error);
+        // Don't fail the approval if receipt fails
+      });
+
+      alert('Payment approved successfully! User subscription has been activated. Receipt email will be sent shortly.');
       fetchTransactions();
       setSelectedTransaction(null);
     } catch (error: any) {
