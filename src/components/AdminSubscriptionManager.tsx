@@ -117,7 +117,7 @@ export function AdminSubscriptionManager() {
 
       // Get last payment date for each user
       const { data: paymentsData, error: paymentsError } = await supabase
-        .from('payments')
+        .from('payment_transactions')
         .select('user_id, created_at')
         .in('user_id', userIds)
         .eq('status', 'completed')
