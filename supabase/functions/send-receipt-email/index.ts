@@ -1,7 +1,7 @@
 // Supabase Edge Function: Send Receipt Email
 // Sends a payment receipt email to students after successful payment
 //
-// TEMPLATE CUSTOMIZATION:
+// TEMPLATE CUSTOMIZATION :
 // To customize the receipt email appearance, edit the template.ts file in this directory.
 // You can change colors, company info, layout, and more without touching this file.
 
