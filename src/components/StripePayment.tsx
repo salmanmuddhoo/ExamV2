@@ -4,6 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { sendReceiptEmailWithRetry } from '../lib/receiptUtils';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
 // TODO: Replace with your Stripe publishable key (test mode)
@@ -173,6 +174,12 @@ function StripeCheckoutForm({
           console.log('Coupon applied successfully:', couponResult);
         }
       }
+
+      // Send receipt email (non-blocking)
+      sendReceiptEmailWithRetry(transaction.id).catch(error => {
+        console.error('Error sending receipt email:', error);
+        // Don't fail the payment if receipt fails
+      });
 
       setSucceeded(true);
       setTimeout(() => onSuccess(), 2000);
