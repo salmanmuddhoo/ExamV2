@@ -176,10 +176,12 @@ body: JSON.stringify({
 ### 2.2 Commit Changes
 
 ```bash
-git add supabase/functions/send-receipt-email/index.ts
+git add supabase/functions/send-receipt-email/
 git commit -m "Update receipt sender email to verified domain"
 git push
 ```
+
+**Note:** If you also customized the template, both `index.ts` and `template.ts` will be committed.
 
 ### 2.3 Redeploy Edge Function
 
@@ -200,108 +202,92 @@ supabase functions logs send-receipt-email
 
 ### 3.1 Where to Edit
 
-The email template is in the same file: `supabase/functions/send-receipt-email/index.ts`
+The email template is separated from business logic for easy customization.
 
-**Function to modify:** `generateReceiptHTML()` (starts around line 32)
+**Template file:** `supabase/functions/send-receipt-email/template.ts`
+**Business logic:** `supabase/functions/send-receipt-email/index.ts`
 
-### 3.2 Customization Options
+📝 **All visual customizations should be done in `template.ts`**
+⚙️ **Only edit `index.ts` for sender email and subject line**
 
-**Change Colors:**
+### 3.2 Quick Customization (Easiest)
+
+At the top of `template.ts`, you'll find easy-to-edit constants:
 
 ```typescript
-// Find the style section (around line 50-100)
-.header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); // <- CHANGE COLORS
-  color: white;
-  padding: 40px 30px;
-  text-align: center;
+const BRAND_COLORS = {
+  headerGradientStart: '#667eea',  // 👈 Change header gradient start color
+  headerGradientEnd: '#764ba2',    // 👈 Change header gradient end color
+  primaryText: '#1f2937',          // Main text color
+  secondaryText: '#6b7280',        // Secondary text color
+  successColor: '#10b981',         // Total amount color
+  buttonColor: '#667eea',          // Button background color
+}
+
+const BRAND_INFO = {
+  companyName: 'ExamV2',           // 👈 Change your company name
+  logoUrl: 'https://yourdomain.com/logo.png',  // 👈 Add your logo URL
+  supportEmail: 'support@examv2.com',          // 👈 Change support email
+  websiteUrl: 'https://exam-v2.vercel.app',    // 👈 Change website URL
 }
 ```
 
 **Example color schemes:**
-- Blue gradient: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
-- Green gradient: `linear-gradient(135deg, #11998e 0%, #38ef7d 100%)`
-- Orange gradient: `linear-gradient(135deg, #f46b45 0%, #eea849 100%)`
-- Purple gradient: `linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)`
+
+```typescript
+// Blue gradient (default)
+headerGradientStart: '#667eea', headerGradientEnd: '#764ba2'
+
+// Green gradient
+headerGradientStart: '#11998e', headerGradientEnd: '#38ef7d'
+
+// Orange gradient
+headerGradientStart: '#f46b45', headerGradientEnd: '#eea849'
+
+// Red gradient
+headerGradientStart: '#eb3349', headerGradientEnd: '#f45c43'
+```
+
+### 3.3 Advanced Customization
+
+For more control, edit the HTML template in the `generateReceiptHTML()` function in `template.ts`.
 
 **Add Your Logo:**
 
 ```typescript
-// In the header section (around line 175)
-<div class="header">
-  <!-- ADD YOUR LOGO -->
-  <img src="https://yourdomain.com/logo.png" alt="ExamV2 Logo" style="width: 150px; margin-bottom: 20px;">
+// Uncomment and set logoUrl in BRAND_INFO
+const BRAND_INFO = {
+  companyName: 'ExamV2',
+  logoUrl: 'https://yourdomain.com/logo.png',  // 👈 Uncomment this line
+  supportEmail: 'support@examv2.com',
+  websiteUrl: 'https://exam-v2.vercel.app',
+}
 
-  <h1>✅ Payment Successful!</h1>
-  <p>Thank you for your purchase</p>
-</div>
+// The template will automatically show your logo in the header
 ```
 
-**Change Company Name:**
+**Change Company Name Everywhere:**
 
-```typescript
-// Find all instances of "ExamV2" and replace with your company name
-// Use Find & Replace (Ctrl+F or Cmd+F)
-// Search: ExamV2
-// Replace: Your Company Name
-```
-
-**Update Footer:**
-
-```typescript
-// Around line 280
-<div class="footer">
-  <p style="font-weight: 600; color: #1f2937;">Your Company Name</p>
-  <p>This is an automated receipt for your records.</p>
-  <p>Please keep this email for your reference.</p>
-
-  <!-- ADD ADDITIONAL INFO -->
-  <p style="margin-top: 20px; font-size: 12px;">
-    Questions? Contact us at support@yourdomain.com
-  </p>
-  <p style="font-size: 12px;">
-    Your Company Address | Phone: +123-456-7890
-  </p>
-</div>
-```
-
-**Change Button URL:**
-
-```typescript
-// Find the "Access Your Account" button (around line 255)
-<a href="${SUPABASE_URL?.replace('/rest/v1', '')}" class="button">
-  Access Your Account
-</a>
-
-// Replace with your app URL:
-<a href="https://exam-v2.vercel.app" class="button">
-  Access Your Account
-</a>
-
-// Or use a dynamic URL:
-<a href="https://yourdomain.com/dashboard" class="button">
-  Go to Dashboard
-</a>
-```
+Simply change `companyName` in `BRAND_INFO` - it's used throughout the template automatically.
 
 **Add Social Media Links:**
 
 ```typescript
-// In footer section
+// In the footer section of template.ts, uncomment the social media section:
+<!-- Add social media links here if needed -->
 <div style="margin-top: 20px;">
-  <a href="https://twitter.com/yourcompany" style="margin: 0 10px;">
-    <img src="https://yourcdn.com/twitter-icon.png" alt="Twitter" style="width: 24px;">
-  </a>
-  <a href="https://facebook.com/yourcompany" style="margin: 0 10px;">
-    <img src="https://yourcdn.com/facebook-icon.png" alt="Facebook" style="width: 24px;">
-  </a>
+    <a href="https://twitter.com/yourcompany" style="margin: 0 10px; text-decoration: none; color: #667eea;">Twitter</a>
+    <a href="https://facebook.com/yourcompany" style="margin: 0 10px; text-decoration: none; color: #667eea;">Facebook</a>
+    <a href="https://linkedin.com/company/yourcompany" style="margin: 0 10px; text-decoration: none; color: #667eea;">LinkedIn</a>
 </div>
 ```
 
 **Change Email Subject:**
 
+Edit `index.ts` (not template.ts):
+
 ```typescript
-// Around line 407
+// Around line 111 in index.ts
 subject: `Payment Receipt - ${receiptData.tierName} Subscription`,
 
 // Change to:
@@ -310,9 +296,9 @@ subject: `Thank you for your purchase! - Receipt #${receiptData.transactionId.su
 subject: `Your ${receiptData.tierName} Receipt from ExamV2`,
 ```
 
-### 3.3 Testing Template Changes
+### 3.4 Testing Template Changes
 
-After making changes:
+After making changes to `template.ts`:
 
 1. **Save the file**
 2. **Redeploy the function:**
@@ -328,7 +314,7 @@ After making changes:
 - https://litmus.com/email-previews (paid)
 - Test in Gmail, Outlook, Apple Mail
 
-### 3.4 Template Best Practices
+### 3.5 Template Best Practices
 
 ✅ **Do:**
 - Keep it simple and clean

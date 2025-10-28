@@ -1,19 +1,7 @@
-// Supabase Edge Function: Send Receipt Email
-// Sends a payment receipt email to students after successful payment
-//
-// TEMPLATE CUSTOMIZATION:
-// To customize the receipt email appearance, edit the template.ts file in this directory.
-// You can change colors, company info, layout, and more without touching this file.
+// Receipt Email Template
+// Edit this file to customize the receipt email appearance
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { generateReceiptHTML, type ReceiptData } from './template.ts'
-
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-interface ReceiptData {
+export interface ReceiptData {
   transactionId: string
   userEmail: string
   userName: string
@@ -30,7 +18,17 @@ interface ReceiptData {
   originalAmount?: number
 }
 
-const generateReceiptHTML = (data: ReceiptData): string => {
+/**
+ * Generates the HTML email template for payment receipts
+ *
+ * CUSTOMIZATION GUIDE:
+ * - Change colors: Look for "background:", "color:", etc.
+ * - Add logo: Add <img> tag in the header section
+ * - Update company name: Find/replace "ExamV2"
+ * - Modify footer: Edit the footer section at the bottom
+ * - Change button URL: Update the href in the button
+ */
+export function generateReceiptHTML(data: ReceiptData): string {
   const {
     transactionId,
     userName,
@@ -62,6 +60,39 @@ const generateReceiptHTML = (data: ReceiptData): string => {
     return `$${amt.toFixed(2)}`
   }
 
+  // ============================================================
+  // CUSTOMIZATION SECTION - BRANDING & COLORS
+  // ============================================================
+
+  const BRAND_COLORS = {
+    // Header gradient colors (change these for different brand colors)
+    headerGradientStart: '#667eea',  // Purple-blue
+    headerGradientEnd: '#764ba2',    // Purple
+
+    // Alternative color schemes (uncomment to use):
+    // Green: '#11998e' and '#38ef7d'
+    // Orange: '#f46b45' and '#eea849'
+    // Blue: '#2196F3' and '#21CBF3'
+    // Red: '#eb3349' and '#f45c43'
+
+    // Text colors
+    primaryText: '#1f2937',
+    secondaryText: '#6b7280',
+
+    // Success/highlight color
+    successColor: '#10b981',
+
+    // Button color
+    buttonColor: '#667eea',
+  }
+
+  const BRAND_INFO = {
+    companyName: 'ExamV2',  // Change to your company name
+    // logoUrl: 'https://yourdomain.com/logo.png',  // Uncomment and add your logo URL
+    supportEmail: 'support@examv2.com',  // Change to your support email
+    websiteUrl: 'https://exam-v2.vercel.app',  // Change to your website
+  }
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -85,7 +116,7 @@ const generateReceiptHTML = (data: ReceiptData): string => {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, ${BRAND_COLORS.headerGradientStart} 0%, ${BRAND_COLORS.headerGradientEnd} 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
@@ -100,12 +131,16 @@ const generateReceiptHTML = (data: ReceiptData): string => {
             font-size: 16px;
             opacity: 0.9;
         }
+        .logo {
+            width: 150px;
+            margin-bottom: 20px;
+        }
         .content {
             padding: 40px 30px;
         }
         .greeting {
             font-size: 18px;
-            color: #1f2937;
+            color: ${BRAND_COLORS.primaryText};
             margin-bottom: 20px;
         }
         .receipt-box {
@@ -125,11 +160,11 @@ const generateReceiptHTML = (data: ReceiptData): string => {
             border-bottom: none;
         }
         .receipt-label {
-            color: #6b7280;
+            color: ${BRAND_COLORS.secondaryText};
             font-size: 14px;
         }
         .receipt-value {
-            color: #1f2937;
+            color: ${BRAND_COLORS.primaryText};
             font-weight: 500;
             font-size: 14px;
             text-align: right;
@@ -143,12 +178,12 @@ const generateReceiptHTML = (data: ReceiptData): string => {
         .total-row .receipt-label {
             font-size: 16px;
             font-weight: 600;
-            color: #1f2937;
+            color: ${BRAND_COLORS.primaryText};
         }
         .total-row .receipt-value {
             font-size: 24px;
             font-weight: 700;
-            color: #10b981;
+            color: ${BRAND_COLORS.successColor};
         }
         .discount-badge {
             display: inline-block;
@@ -174,7 +209,7 @@ const generateReceiptHTML = (data: ReceiptData): string => {
         }
         .package-info p {
             margin: 6px 0;
-            color: #1f2937;
+            color: ${BRAND_COLORS.primaryText};
             font-size: 14px;
         }
         .footer {
@@ -185,12 +220,12 @@ const generateReceiptHTML = (data: ReceiptData): string => {
         }
         .footer p {
             margin: 8px 0;
-            color: #6b7280;
+            color: ${BRAND_COLORS.secondaryText};
             font-size: 14px;
         }
         .button {
             display: inline-block;
-            background-color: #667eea;
+            background-color: ${BRAND_COLORS.buttonColor};
             color: white;
             padding: 12px 32px;
             text-decoration: none;
@@ -210,6 +245,7 @@ const generateReceiptHTML = (data: ReceiptData): string => {
 <body>
     <div class="container">
         <div class="header">
+            ${BRAND_INFO.logoUrl ? `<img src="${BRAND_INFO.logoUrl}" alt="${BRAND_INFO.companyName} Logo" class="logo">` : ''}
             <h1>✅ Payment Successful!</h1>
             <p>Thank you for your purchase</p>
         </div>
@@ -217,12 +253,12 @@ const generateReceiptHTML = (data: ReceiptData): string => {
         <div class="content">
             <p class="greeting">Hi ${userName},</p>
             <p style="color: #4b5563; line-height: 1.6;">
-                Thank you for subscribing to AixamPaper! Your payment has been successfully processed,
+                Thank you for subscribing to ${BRAND_INFO.companyName}! Your payment has been successfully processed,
                 and your subscription is now active.
             </p>
 
             <div class="receipt-box">
-                <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 20px;">Receipt Details</h2>
+                <h2 style="margin: 0 0 20px; color: ${BRAND_COLORS.primaryText}; font-size: 20px;">Receipt Details</h2>
 
                 <div class="receipt-row">
                     <span class="receipt-label">Transaction ID</span>
@@ -290,175 +326,31 @@ const generateReceiptHTML = (data: ReceiptData): string => {
             </p>
 
             <div style="text-align: center;">
-                <a href="${SUPABASE_URL?.replace('/rest/v1', '')}" class="button">
+                <a href="${BRAND_INFO.websiteUrl}" class="button">
                     Access Your Account
                 </a>
             </div>
         </div>
 
         <div class="footer">
-            <p style="font-weight: 600; color: #1f2937;">ExamV2</p>
+            <p style="font-weight: 600; color: ${BRAND_COLORS.primaryText};">${BRAND_INFO.companyName}</p>
             <p>This is an automated receipt for your records.</p>
             <p>Please keep this email for your reference.</p>
             <p style="margin-top: 20px; font-size: 12px;">
-                If you did not make this purchase, please contact us immediately.
+                If you did not make this purchase, please contact us immediately at ${BRAND_INFO.supportEmail}
             </p>
+
+            <!-- Add social media links here if needed -->
+            <!--
+            <div style="margin-top: 20px;">
+                <a href="https://twitter.com/yourcompany" style="margin: 0 10px; text-decoration: none; color: #667eea;">Twitter</a>
+                <a href="https://facebook.com/yourcompany" style="margin: 0 10px; text-decoration: none; color: #667eea;">Facebook</a>
+                <a href="https://linkedin.com/company/yourcompany" style="margin: 0 10px; text-decoration: none; color: #667eea;">LinkedIn</a>
+            </div>
+            -->
         </div>
     </div>
 </body>
 </html>
   `.trim()
 }
-
-serve(async (req) => {
-  // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      }
-    })
-  }
-
-  try {
-    // Parse request body
-    const { transactionId } = await req.json()
-
-    if (!transactionId) {
-      throw new Error('Transaction ID is required')
-    }
-
-    // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-    // Fetch transaction details with related data
-    const { data: transaction, error: fetchError } = await supabase
-      .from('payment_transactions')
-      .select(`
-        *,
-        profiles!payment_transactions_user_id_fkey(email, first_name, last_name),
-        subscription_tiers(display_name),
-        payment_methods(display_name),
-        grade_levels(name)
-      `)
-      .eq('id', transactionId)
-      .single()
-
-    if (fetchError || !transaction) {
-      throw new Error(`Transaction not found: ${fetchError?.message}`)
-    }
-
-    // Fetch subject names if selected_subject_ids exist
-    let subjectNames: string[] = []
-    if (transaction.selected_subject_ids && transaction.selected_subject_ids.length > 0) {
-      const { data: subjects, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('name')
-        .in('id', transaction.selected_subject_ids)
-
-      if (!subjectsError && subjects) {
-        subjectNames = subjects.map((s: any) => s.name)
-      }
-    }
-
-    // Check if receipt already sent
-    if (transaction.receipt_sent) {
-      console.log(`Receipt already sent for transaction ${transactionId}`)
-      return new Response(
-        JSON.stringify({ success: true, message: 'Receipt already sent' }),
-        { headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Prepare receipt data
-    const userName = transaction.profiles?.first_name
-      ? `${transaction.profiles.first_name} ${transaction.profiles.last_name || ''}`.trim()
-      : 'Valued Customer'
-
-    const receiptData: ReceiptData = {
-      transactionId: transaction.id,
-      userEmail: transaction.profiles?.email || '',
-      userName,
-      amount: parseFloat(transaction.amount),
-      currency: transaction.currency,
-      tierName: transaction.subscription_tiers?.display_name || 'Subscription',
-      billingCycle: transaction.billing_cycle,
-      paymentMethod: transaction.payment_methods?.display_name || 'Unknown',
-      transactionDate: transaction.created_at,
-      selectedGrade: transaction.grade_levels?.name,
-      selectedSubjects: subjectNames.length > 0 ? subjectNames : undefined,
-      couponCode: transaction.metadata?.coupon_code,
-      discountPercentage: transaction.metadata?.discount_percentage,
-      originalAmount: transaction.metadata?.original_amount
-    }
-
-    // Generate HTML email
-    const htmlContent = generateReceiptHTML(receiptData)
-
-    // Send email via Resend
-    // Using Resend's test domain for development
-    // TODO: Change to 'ExamV2 <noreply@yourdomain.com>' after verifying your domain in Resend
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`
-      },
-      body: JSON.stringify({
-        from: 'ExamV2 <onboarding@resend.dev>',
-        to: [receiptData.userEmail],
-        subject: `Payment Receipt - ${receiptData.tierName} Subscription`,
-        html: htmlContent
-      })
-    })
-
-    const resendData = await resendResponse.json()
-
-    if (!resendResponse.ok) {
-      throw new Error(`Resend API error: ${JSON.stringify(resendData)}`)
-    }
-
-    // Mark receipt as sent in database
-    const { error: markError } = await supabase.rpc('mark_receipt_sent', {
-      p_transaction_id: transactionId,
-      p_email: receiptData.userEmail,
-      p_receipt_id: resendData.id
-    })
-
-    if (markError) {
-      console.error('Error marking receipt as sent:', markError)
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Receipt sent successfully',
-        receiptId: resendData.id
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      }
-    )
-
-  } catch (error) {
-    console.error('Error sending receipt:', error)
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      }
-    )
-  }
-})
