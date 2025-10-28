@@ -4,6 +4,22 @@
 -- Date: 2025-10-28
 
 -- =====================================================
+-- 0. CREATE HELPER FUNCTION FOR UPDATED_AT
+-- =====================================================
+
+-- Create a generic function to update updated_at timestamp if it doesn't exist
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Add comment
+COMMENT ON FUNCTION public.update_updated_at_column IS 'Generic trigger function to update updated_at timestamp';
+
+-- =====================================================
 -- 1. CREATE COUPON_CODES TABLE
 -- =====================================================
 
