@@ -87,7 +87,7 @@ CREATE POLICY "Admins can view all coupon codes"
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.is_admin = TRUE
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
         )
     );
 
@@ -96,7 +96,7 @@ CREATE POLICY "Admins can create coupon codes"
     WITH CHECK (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.is_admin = TRUE
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
         )
     );
 
@@ -105,7 +105,7 @@ CREATE POLICY "Admins can update coupon codes"
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.is_admin = TRUE
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
         )
     );
 
@@ -114,7 +114,7 @@ CREATE POLICY "Admins can delete coupon codes"
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.is_admin = TRUE
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
         )
     );
 
@@ -128,7 +128,7 @@ CREATE POLICY "Admins can view all coupon usages"
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE profiles.id = auth.uid() AND profiles.is_admin = TRUE
+            WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
         )
     );
 
