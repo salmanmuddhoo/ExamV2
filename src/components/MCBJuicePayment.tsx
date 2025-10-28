@@ -4,12 +4,20 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
+interface CouponData {
+  code: string;
+  discountPercentage: number;
+  discountAmount: number;
+  finalAmount: number;
+}
+
 interface MCBJuicePaymentProps {
   paymentData: PaymentSelectionData;
   paymentMethod: PaymentMethod;
   onBack: () => void;
   onSuccess: () => void;
   hideBackButton?: boolean;
+  couponData?: CouponData;
 }
 
 export function MCBJuicePayment({
@@ -17,7 +25,8 @@ export function MCBJuicePayment({
   paymentMethod,
   onBack,
   onSuccess,
-  hideBackButton = false
+  hideBackButton = false,
+  couponData
 }: MCBJuicePaymentProps) {
   const { user } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -27,7 +36,8 @@ export function MCBJuicePayment({
   const [submitted, setSubmitted] = useState(false);
 
   const exchangeRate = 45.5;
-  const murAmount = Math.round(paymentData.amount * exchangeRate);
+  const finalUsdAmount = couponData ? couponData.finalAmount : paymentData.amount;
+  const murAmount = Math.round(finalUsdAmount * exchangeRate);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -60,7 +70,7 @@ export function MCBJuicePayment({
         .getPublicUrl(filePath);
 
       // Create payment transaction
-      const { error: transactionError } = await supabase
+      const { data: transaction, error: transactionError } = await supabase
         .from('payment_transactions')
         .insert({
           user_id: user.id,
@@ -78,11 +88,34 @@ export function MCBJuicePayment({
           metadata: {
             tier_name: paymentData.tierName,
             usd_amount: paymentData.amount,
-            exchange_rate: exchangeRate
+            exchange_rate: exchangeRate,
+            ...(couponData && {
+              original_usd_amount: paymentData.amount,
+              coupon_code: couponData.code,
+              discount_percentage: couponData.discountPercentage,
+              discount_amount_usd: couponData.discountAmount,
+              final_usd_amount: finalUsdAmount
+            })
           }
-        });
+        })
+        .select()
+        .single();
 
       if (transactionError) throw transactionError;
+
+      // Apply coupon if present (will be recorded when admin approves)
+      if (couponData && transaction) {
+        const { error: couponError } = await supabase.rpc('apply_coupon_code', {
+          p_coupon_code: couponData.code,
+          p_payment_transaction_id: transaction.id,
+          p_original_amount: paymentData.amount,
+          p_currency: 'USD' // Track in USD for consistency
+        });
+
+        if (couponError) {
+          console.error('Error applying coupon:', couponError);
+        }
+      }
 
       setSubmitted(true);
 
