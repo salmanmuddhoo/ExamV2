@@ -43,6 +43,7 @@ interface SubscriptionTier {
 interface Stats {
   total_users: number;
   free_users: number;
+  student_lite_users: number;
   student_users: number;
   pro_users: number;
   total_revenue: number;
@@ -55,6 +56,7 @@ export function AdminSubscriptionManager() {
   const [stats, setStats] = useState<Stats>({
     total_users: 0,
     free_users: 0,
+    student_lite_users: 0,
     student_users: 0,
     pro_users: 0,
     total_revenue: 0,
@@ -149,14 +151,16 @@ export function AdminSubscriptionManager() {
 
       // Calculate stats
       const freeTier = mergedData.filter(s => s.subscription_tiers.name === 'free' && s.status === 'active');
+      const studentLiteTier = mergedData.filter(s => s.subscription_tiers.name === 'student_lite' && s.status === 'active');
       const studentTier = mergedData.filter(s => s.subscription_tiers.name === 'student' && s.status === 'active');
       const proTier = mergedData.filter(s => s.subscription_tiers.name === 'pro' && s.status === 'active');
 
-      const revenue = [...studentTier, ...proTier].reduce((sum, sub) => sum + sub.subscription_tiers.price, 0);
+      const revenue = [...studentLiteTier, ...studentTier, ...proTier].reduce((sum, sub) => sum + sub.subscription_tiers.price, 0);
 
       setStats({
         total_users: mergedData.length,
         free_users: freeTier.length,
+        student_lite_users: studentLiteTier.length,
         student_users: studentTier.length,
         pro_users: proTier.length,
         total_revenue: revenue,
@@ -334,6 +338,7 @@ export function AdminSubscriptionManager() {
   const getTierBadgeColor = (tierName: string) => {
     switch (tierName) {
       case 'free': return 'bg-gray-100 text-gray-800';
+      case 'student_lite': return 'bg-cyan-100 text-cyan-800';
       case 'student': return 'bg-blue-100 text-blue-800';
       case 'pro': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -360,7 +365,7 @@ export function AdminSubscriptionManager() {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center justify-between mb-2">
             <Users className="w-5 h-5 text-blue-600" />
@@ -375,6 +380,14 @@ export function AdminSubscriptionManager() {
           </div>
           <p className="text-2xl font-bold text-gray-900">{stats.free_users}</p>
           <p className="text-xs sm:text-sm text-gray-600">Free Tier</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4 border border-cyan-200">
+          <div className="flex items-center justify-between mb-2">
+            <CreditCard className="w-5 h-5 text-cyan-600" />
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{stats.student_lite_users}</p>
+          <p className="text-xs sm:text-sm text-gray-600">Student Lite</p>
         </div>
 
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
@@ -434,6 +447,7 @@ export function AdminSubscriptionManager() {
             >
               <option value="all">All Tiers</option>
               <option value="free">Free</option>
+              <option value="student_lite">Student Lite</option>
               <option value="student">Student</option>
               <option value="pro">Pro</option>
             </select>
