@@ -365,22 +365,26 @@ async function loadConversationHistory(
   }
 
   try {
+    // Get the last 4 messages (most recent) for this question
     const { data, error } = await supabaseClient
       .from('conversation_messages')
-      .select('role, content, question_number, has_images')
+      .select('role, content, question_number, has_images, created_at')
       .eq('conversation_id', conversationId)
       .eq('question_number', questionNumber)
-      .order('created_at', { ascending: true })
-      .limit(4);
+      .order('created_at', { ascending: false }) // Get newest first
+      .limit(8); // Get last 8 messages (4 exchanges: user + AI response)
 
     if (error) throw error;
 
-    const history = data.map(msg => ({
+    // Reverse to get chronological order (oldest to newest)
+    const sortedData = data.reverse();
+
+    const history = sortedData.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
 
-    console.log(`Loaded ${history.length} messages for Question ${questionNumber}`);
+    console.log(`Loaded ${history.length} messages (last ${Math.min(8, data.length)} from database) for Question ${questionNumber}`);
 
     return history;
   } catch (error) {
@@ -713,8 +717,12 @@ Deno.serve(async (req) => {
     let detectedQuestionNumber = extractedQuestionNumber;
 
     if (isFollowUp) {
-      console.log(`Follow-up question detected - using conversation context without re-sending images`);
-      finalExamImages = [];
+      console.log(`Follow-up question detected - will check if cache exists`);
+      // Don't set finalExamImages to empty yet - we'll decide after checking cache
+      if (examPaperImages && examPaperImages.length > 0) {
+        finalExamImages = examPaperImages;
+        console.log(`Received ${examPaperImages.length} image(s) for follow-up (will use only if no cache)`);
+      }
       usedOptimizedMode = true;
     } else if (optimizedMode && examPaperImages && examPaperImages.length > 0) {
       console.log(`Using OPTIMIZED mode for question ${detectedQuestionNumber}`);
@@ -783,7 +791,14 @@ Deno.serve(async (req) => {
           console.log(`💰 SAVED: Reusing cache (${existingCache.useCount + 1} times used)`);
         } else {
           // Cache expired or not found, create new one
-          console.log(`⚠️ No cache found, creating new one...`);
+          console.log(`⚠️ No cache found for follow-up question`);
+
+          if (finalExamImages.length === 0) {
+            console.log(`❌ ERROR: No images available and no cache - cannot provide context`);
+            throw new Error('No cache found and no images provided for follow-up question. Please retry.');
+          }
+
+          console.log(`📸 Creating new cache with ${finalExamImages.length} images to maintain context...`);
           const cacheName = await createGeminiCache(
             cacheApiKey!,
             contextualSystemPrompt,
@@ -889,7 +904,14 @@ Deno.serve(async (req) => {
           detectedQuestionNumber
         );
         console.log(`📚 FOLLOW-UP: Loaded ${conversationHistory.length} previous messages for Question ${detectedQuestionNumber}`);
-        console.log(`💰 COST OPTIMIZATION: Reusing ${conversationHistory.length} cached messages instead of re-sending images`);
+
+        // Check if we have sufficient cache
+        if (conversationHistory.length < 2) {
+          console.log(`⚠️ INSUFFICIENT CACHE: Only ${conversationHistory.length} messages found - treating as new question`);
+          console.log(`📸 Sending question images + marking scheme to provide context`);
+        } else {
+          console.log(`💰 COST OPTIMIZATION: Reusing ${conversationHistory.length} cached messages instead of re-sending images`);
+        }
       } else {
         console.log(`🆕 NEW QUESTION: Starting fresh context for Question ${detectedQuestionNumber}`);
         console.log(`💰 COST OPTIMIZATION: No history loaded (fresh question = no unnecessary context)`);
@@ -905,11 +927,19 @@ Deno.serve(async (req) => {
           detectedQuestionNumber,
           questionText,
           markingSchemeText,
-          isFollowUp
+          isFollowUp && conversationHistory.length >= 2 // Only treat as follow-up if we have cache
         )}
       ];
 
-      if (!isFollowUp) {
+      // Send images if:
+      // 1. It's a new question (!isFollowUp), OR
+      // 2. It's a follow-up but no sufficient cache exists (< 2 messages)
+      const shouldSendImages = !isFollowUp || conversationHistory.length < 2;
+
+      if (shouldSendImages) {
+        if (conversationHistory.length < 2 && conversationHistory.length > 0) {
+          console.log(`🔄 Follow-up with insufficient cache - sending images to maintain context`);
+        }
         const imageParts = finalExamImages.map((img) => ({
           inline_data: { mime_type: "image/jpeg", data: img }
         }));

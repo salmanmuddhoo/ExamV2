@@ -826,13 +826,27 @@ You can still view and download this exam paper!`
       };
 
       if (isFollowUp) {
-        // 🔹 FOLLOW-UP: Don't send images, use conversation history
-        console.log(`💬 Follow-up question detected - using conversation context (no images sent)`);
+        // 🔹 FOLLOW-UP: Still send images in case backend cache is empty
+        // Backend will decide whether to use images or cached history
+        console.log(`💬 Follow-up question detected - backend will use cache if available`);
         setAiProcessingStatus('Analyzing your follow-up question...');
-        requestBody.optimizedMode = true;
-        requestBody.questionNumber = questionNumber;
-        requestBody.examPaperImages = []; // Empty - backend will use history
-        requestBody.markingSchemeImages = [];
+
+        const questionData = await fetchQuestionData(questionNumber);
+
+        if (questionData && questionData.exam.length > 0) {
+          console.log(`✅ Fetched Question ${questionNumber} data for follow-up (backend may use cache instead)`);
+          requestBody.optimizedMode = true;
+          requestBody.questionNumber = questionNumber;
+          requestBody.examPaperImages = questionData.exam; // Send images - backend uses only if no cache
+          requestBody.markingSchemeText = questionData.markingSchemeText;
+          requestBody.questionText = questionData.questionText;
+        } else {
+          console.log(`❌ Could not fetch Question ${questionNumber} data for follow-up`);
+          requestBody.optimizedMode = false;
+          requestBody.questionNumber = questionNumber;
+          requestBody.examPaperImages = examPaperImages;
+          requestBody.markingSchemeImages = markingSchemeImages;
+        }
       } else if (questionNumber) {
         // 🔹 NEW QUESTION: Fetch data (from cache if available)
         setAiProcessingStatus(`Reading Question ${questionNumber} from exam paper...`);
