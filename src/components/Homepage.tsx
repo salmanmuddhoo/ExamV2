@@ -474,107 +474,88 @@ function PricingCard({
   );
 }
 
-function AnimatedIllustration() {
+function IPhoneHero() {
   const [phase, setPhase] = useState(0);
-  
+
   useEffect(() => {
-    const timer1 = setTimeout(() => setPhase(1), 2000);
-    const timer2 = setTimeout(() => setPhase(2), 5000);
-    const timer3 = setTimeout(() => setPhase(3), 7500);
-    
+    const timers = [
+      setTimeout(() => setPhase(1), 2000),  // Start walking
+      setTimeout(() => setPhase(2), 5000),  // Reaches house
+      setTimeout(() => setPhase(3), 7500),  // Opens laptop
+    ];
+
     const interval = setInterval(() => {
       setPhase(0);
       setTimeout(() => setPhase(1), 2000);
       setTimeout(() => setPhase(2), 5000);
       setTimeout(() => setPhase(3), 7500);
     }, 14000);
-    
+
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
+      timers.forEach(clearTimeout);
       clearInterval(interval);
     };
   }, []);
 
   return (
     <div className="relative w-full max-w-lg">
-      <svg viewBox="0 0 500 400" className="w-full h-auto">
+      <svg viewBox="0 0 500 400" className="w-full h-auto" style={{ filter: 'drop-shadow(0 20px 25px rgb(0 0 0 / 0.15))' }}>
         
-        {/* Mountains Scene */}
-        {(phase === 0 || phase === 1) && (
-          <g opacity={phase === 1 ? 0.3 : 1} style={{ transition: 'opacity 2s' }}>
-            <rect x="0" y="0" width="500" height="250" fill="none" />
-            <circle cx="420" cy="60" r="25" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 0 240 L 100 180 L 200 220 L 300 160 L 400 200 L 500 180 L 500 250 L 0 250 Z" 
-                  fill="none" stroke="#000000" strokeWidth="3" />
-            <path d="M 0 280 Q 150 275 250 285 Q 350 295 500 280" fill="none" stroke="#000000" strokeWidth="3" />
-            <line x1="0" y1="300" x2="500" y2="300" stroke="#000000" strokeWidth="2.5" />
-          </g>
-        )}
-        
+        {/* Mountains and Background */}
+        <g>
+          <rect x="0" y="0" width="500" height="250" fill="#E0F2FE" />
+          <circle cx="420" cy="60" r="25" fill="none" stroke="#F59E0B" strokeWidth="2.5" />
+          <path d="M0 240 L100 180 L200 220 L300 160 L400 200 L500 180 L500 250 L0 250 Z" fill="none" stroke="#1F2937" strokeWidth="3" />
+          <line x1="0" y1="300" x2="500" y2="300" stroke="#1F2937" strokeWidth="2.5" />
+        </g>
+
+        {/* House */}
+        <g>
+          <rect x="200" y="180" width="180" height="120" fill="none" stroke="#1F2937" strokeWidth="3" />
+          <path d="M190 180 L290 120 L390 180 Z" fill="none" stroke="#1F2937" strokeWidth="3" />
+          <rect x="265" y="230" width="50" height="70" rx="3" fill="none" stroke="#1F2937" strokeWidth="2.5" />
+        </g>
+
         {/* Walking Person */}
         {phase === 1 && (
-          <g style={{ transform: `translateX(${0}px)`, transition: 'transform 3s linear' }}>
-            <circle cx="120" cy="220" r="18" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <line x1="120" y1="238" x2="120" y2="275" stroke="#000000" strokeWidth="3" />
-            <path d="M 120 245 L 100 268" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 120 245 L 140 268" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 120 275 L 110 300" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 120 275 L 130 300" stroke="#000000" strokeWidth="2.5" />
+          <g style={{ transform: `translateX(${phase === 1 ? 0 : 130}px)`, transition: 'transform 3s linear' }}>
+            <circle cx="120" cy="220" r="18" fill="none" stroke="#1F2937" strokeWidth="2.5" />
+            {/* Arms swing */}
+            <path d="M120 245 L{phase === 1 ? 100 : 110} 268" stroke="#1F2937" strokeWidth="2.5" />
+            <path d="M120 245 L{phase === 1 ? 140 : 130} 268" stroke="#1F2937" strokeWidth="2.5" />
+            {/* Legs swing */}
+            <path d="M120 275 L110 300" stroke="#1F2937" strokeWidth="2.5" />
+            <path d="M120 275 L130 300" stroke="#1F2937" strokeWidth="2.5" />
           </g>
         )}
-        
-        {/* House */}
-        {(phase === 2 || phase === 3) && (
-          <g opacity={phase === 3 ? 0.3 : 1} style={{ transition: 'opacity 1s' }}>
-            <rect x="200" y="180" width="180" height="120" fill="none" stroke="#000000" strokeWidth="3" />
-            <path d="M 190 180 L 290 120 L 390 180 Z" fill="none" stroke="#000000" strokeWidth="3" />
-            <rect x="265" y="230" width="50" height="70" rx="3" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <rect x="220" y="210" width="35" height="40" fill="none" stroke="#000000" strokeWidth="2" />
-            <rect x="325" y="210" width="35" height="40" fill="none" stroke="#000000" strokeWidth="2" />
-            <line x1="0" y1="300" x2="500" y2="300" stroke="#000000" strokeWidth="2.5" />
-          </g>
-        )}
-        
-        {/* Person Entering */}
+
+        {/* Person entering house */}
         {phase === 2 && (
-          <g opacity={1} style={{ transition: 'opacity 1s' }}>
-            <circle cx="250" cy="240" r="18" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <line x1="250" y1="258" x2="250" y2="290" stroke="#000000" strokeWidth="3" />
-            <path d="M 250 265 L 230 280" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 250 265 L 270 280" stroke="#000000" strokeWidth="2.5" />
+          <g style={{ transform: 'translateX(250px)', transition: 'transform 1s' }}>
+            <circle cx="250" cy="240" r="18" fill="none" stroke="#1F2937" strokeWidth="2.5" />
+            <line x1="250" y1="258" x2="250" y2="290" stroke="#1F2937" strokeWidth="3" />
           </g>
         )}
-        
-        {/* Interior Working */}
+
+        {/* Person studying at laptop */}
         {phase === 3 && (
           <g>
-            <rect x="150" y="150" width="300" height="150" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <rect x="170" y="170" width="80" height="60" fill="none" stroke="#000000" strokeWidth="2" />
-            <rect x="220" y="260" width="140" height="45" fill="none" stroke="#000000" strokeWidth="2.5" />
-            
+            <rect x="170" y="170" width="80" height="60" fill="#E0F2FE" stroke="#1F2937" strokeWidth="2" />
+            <rect x="220" y="260" width="140" height="45" fill="none" stroke="#1F2937" strokeWidth="2.5" />
             {/* Laptop */}
-            <path d="M 245 305 L 245 275 L 335 275 L 335 305" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 248 275 L 252 235 L 328 235 L 332 275" fill="none" stroke="#000000" strokeWidth="2.5" />
-            
-            <line x1="262" y1="245" x2="300" y2="245" stroke="#000000" strokeWidth="1.5" />
-            <line x1="262" y1="252" x2="315" y2="252" stroke="#000000" strokeWidth="1.5" />
-            
+            <path d="M245 305 L245 275 L335 275 L335 305" fill="none" stroke="#1F2937" strokeWidth="2.5" />
+            <path d="M248 275 L252 235 L328 235 L332 275" fill="#F9FAFB" stroke="#1F2937" strokeWidth="2.5" />
+            {/* Text bubble */}
+            <text x="260" y="230" fontSize="16" fill="#1F2937">Aixampaper:</text>
             {/* Person */}
-            <circle cx="290" cy="240" r="16" fill="none" stroke="#000000" strokeWidth="2.5" />
-            <line x1="290" y1="256" x2="290" y2="290" stroke="#000000" strokeWidth="3" />
-            <path d="M 290 270 L 255 295" stroke="#000000" strokeWidth="2.5" />
-            <path d="M 290 270 L 325 295" stroke="#000000" strokeWidth="2.5" />
-            <circle cx="255" cy="295" r="5" fill="none" stroke="#000000" strokeWidth="2" />
-            <circle cx="325" cy="295" r="5" fill="none" stroke="#000000" strokeWidth="2" />
+            <circle cx="290" cy="240" r="16" fill="none" stroke="#1F2937" strokeWidth="2.5" />
+            <line x1="290" y1="256" x2="290" y2="290" stroke="#1F2937" strokeWidth="3" />
           </g>
         )}
       </svg>
     </div>
   );
 }
-
 
 
 
