@@ -1307,7 +1307,7 @@ You can still view and download this exam paper!`
                   </div>
                   <p className="text-sm text-gray-700 mb-3">
                     {(tierName === 'student' || tierName === 'student_lite')
-                      ? 'You can view this paper, but it\'s not included in your selected grade and subjects. Upgrade to Pro for access to all papers, or modify your Student Package.'
+                      ? 'You can view this paper, but it\'s not included in your selected grade and subjects. Upgrade to Pro for access to all papers.'
                       : 'You can view this paper, but you\'ve reached your chat limit for this billing period.'}
                   </p>
                   <button
