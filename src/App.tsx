@@ -101,8 +101,9 @@ function App() {
         const tokenLimit = subscription.subscription_tiers.token_limit || 0;
         const papersLimit = subscription.subscription_tiers.papers_limit || 0;
 
-        const tokensLeft = tokenLimit - subscription.tokens_used_current_period;
-        const papersLeft = papersLimit - subscription.papers_accessed_current_period;
+        // Cap remaining tokens/papers at 0 to avoid showing negative values
+        const tokensLeft = Math.max(0, tokenLimit - subscription.tokens_used_current_period);
+        const papersLeft = Math.max(0, papersLimit - subscription.papers_accessed_current_period);
 
         console.log('✅ Free tier user! Tokens:', tokensLeft, 'Papers:', papersLeft);
 

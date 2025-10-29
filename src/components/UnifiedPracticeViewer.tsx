@@ -67,7 +67,7 @@ export function UnifiedPracticeViewer({
   onLoginRequired,
   onOpenSubscriptions
 }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [grade, setGrade] = useState<Grade | null>(null);
   const [subject, setSubject] = useState<Subject | null>(null);
@@ -250,7 +250,9 @@ export function UnifiedPracticeViewer({
         const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
         const actualUsed = subscription.tokens_used_current_period;
 
-        const displayedUsed = tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed;
+        // For non-admin users, cap displayed usage at the limit
+        const isAdmin = profile?.role === 'admin';
+        const displayedUsed = isAdmin ? actualUsed : (tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed);
 
         setTokensLimit(tokenLimit);
         setTokensUsed(displayedUsed);
@@ -293,7 +295,9 @@ export function UnifiedPracticeViewer({
         const tokenLimit = (subscription as any).token_limit_override ?? tierTokenLimit;
         const actualUsed = subscription.tokens_used_current_period;
 
-        const displayedUsed = tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed;
+        // For non-admin users, cap displayed usage at the limit
+        const isAdmin = profile?.role === 'admin';
+        const displayedUsed = isAdmin ? actualUsed : (tokenLimit !== null ? Math.min(actualUsed, tokenLimit) : actualUsed);
 
         setTokensLimit(tokenLimit);
         setTokensUsed(displayedUsed);

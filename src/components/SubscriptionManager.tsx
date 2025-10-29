@@ -8,7 +8,7 @@ import { PaymentOrchestrator } from './PaymentOrchestrator';
 import type { PaymentSelectionData } from '../types/payment';
 
 export function SubscriptionManager() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [tiers, setTiers] = useState<SubscriptionTier[]>(() => {
     // Restore cached tiers to avoid loading screen
     const cached = sessionStorage.getItem('subscription_tiers');
@@ -382,7 +382,14 @@ export function SubscriptionManager() {
                   <p>
                     Tokens: {currentSubscription.subscription_tiers?.token_limit === null
                       ? 'Unlimited'
-                      : `${currentSubscription.tokens_used_current_period.toLocaleString()} / ${currentSubscription.subscription_tiers.token_limit.toLocaleString()}`}
+                      : (() => {
+                          // Cap displayed usage at limit for non-admin users
+                          const isAdmin = profile?.role === 'admin';
+                          const tokensUsed = currentSubscription.tokens_used_current_period;
+                          const tokenLimit = currentSubscription.subscription_tiers.token_limit;
+                          const displayedUsage = isAdmin ? tokensUsed : Math.min(tokensUsed, tokenLimit);
+                          return `${displayedUsage.toLocaleString()} / ${tokenLimit.toLocaleString()}`;
+                        })()}
                   </p>
                   {currentSubscription.subscription_tiers?.papers_limit !== null && (
                     <p>
