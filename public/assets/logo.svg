@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <!-- Background paper/document shape with subtle fold -->
+  <g id="paper-base">
+    <!-- Main document -->
+    <rect x="20" y="30" width="160" height="140" rx="8" fill="white" stroke="#000000" stroke-width="3"/>
+
+    <!-- Paper lines (exam paper aesthetic) -->
+    <line x1="40" y1="60" x2="160" y2="60" stroke="#E5E7EB" stroke-width="2"/>
+    <line x1="40" y1="80" x2="160" y2="80" stroke="#E5E7EB" stroke-width="2"/>
+    <line x1="40" y1="100" x2="160" y2="100" stroke="#E5E7EB" stroke-width="2"/>
+    <line x1="40" y1="120" x2="140" y2="120" stroke="#E5E7EB" stroke-width="2"/>
+
+    <!-- Top corner fold effect -->
+    <path d="M 160 30 L 180 30 L 180 50 Z" fill="#F3F4F6" stroke="#000000" stroke-width="2"/>
+    <line x1="160" y1="30" x2="180" y2="50" stroke="#D1D5DB" stroke-width="1"/>
+  </g>
+
+  <!-- AI Neural Network Overlay -->
+  <g id="ai-network">
+    <!-- Neural network nodes -->
+    <circle cx="70" cy="70" r="6" fill="#000000"/>
+    <circle cx="130" cy="70" r="6" fill="#000000"/>
+    <circle cx="70" cy="110" r="6" fill="#000000"/>
+    <circle cx="130" cy="110" r="6" fill="#000000"/>
+    <circle cx="100" cy="90" r="8" fill="#000000"/>
+
+    <!-- Neural connections -->
+    <line x1="70" y1="70" x2="100" y2="90" stroke="#000000" stroke-width="2" opacity="0.4"/>
+    <line x1="130" y1="70" x2="100" y2="90" stroke="#000000" stroke-width="2" opacity="0.4"/>
+    <line x1="70" y1="110" x2="100" y2="90" stroke="#000000" stroke-width="2" opacity="0.4"/>
+    <line x1="130" y1="110" x2="100" y2="90" stroke="#000000" stroke-width="2" opacity="0.4"/>
+
+    <!-- Connecting lines between nodes -->
+    <line x1="70" y1="70" x2="130" y2="70" stroke="#000000" stroke-width="1.5" opacity="0.3"/>
+    <line x1="70" y1="110" x2="130" y2="110" stroke="#000000" stroke-width="1.5" opacity="0.3"/>
+    <line x1="70" y1="70" x2="70" y2="110" stroke="#000000" stroke-width="1.5" opacity="0.3"/>
+    <line x1="130" y1="70" x2="130" y2="110" stroke="#000000" stroke-width="1.5" opacity="0.3"/>
+
+    <!-- AI Sparkle accent -->
+    <path d="M 150 50 L 154 54 L 158 50 L 154 46 Z" fill="#000000"/>
+    <path d="M 154 48 L 154 56" stroke="#000000" stroke-width="1.5"/>
+    <path d="M 150 52 L 158 52" stroke="#000000" stroke-width="1.5"/>
+  </g>
+
+  <!-- Brand Name -->
+  <g id="brand-text">
+    <!-- "AI" - Bold and prominent -->
+    <text x="220" y="125" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="72" font-weight="800" fill="#000000" letter-spacing="-2">AI</text>
+
+    <!-- "xampaper" - Regular weight -->
+    <text x="310" y="125" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="72" font-weight="500" fill="#000000" letter-spacing="-1">xampaper</text>
+  </g>
+
+  <!-- Tagline (optional, can be removed for compact version) -->
+  <text x="220" y="155" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="18" font-weight="400" fill="#6B7280" letter-spacing="1">SMART EXAM PREPARATION</text>
+</svg>

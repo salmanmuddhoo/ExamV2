@@ -70,9 +70,9 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   className="flex items-center text-gray-900 hover:text-gray-600 transition-colors"
 >
   <img
-    src="/assets/logo.png"
-    alt="Logo"
-    className="w-32 h-32 object-contain"
+    src="/assets/logo.svg"
+    alt="Aixampaper Logo"
+    className="h-12 w-auto object-contain"
   />
 </button>
 
