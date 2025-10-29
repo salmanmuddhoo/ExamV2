@@ -226,7 +226,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 features={[
                   "Choose 1 grade level",
                   formatSubjects(tiers.student_lite.max_subjects),
-                  "Yearly & Chapterwise practice",
+                  "Yearly & Chapter-wise practice",
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
                   "Most affordable option"
                 ]}
@@ -247,7 +247,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 features={[
                   "Choose 1 grade level",
                   formatSubjects(tiers.student.max_subjects),
-                  "Yearly & Chapterwise practice",
+                  "Yearly & Chapter-wise practice",
                   `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
                   "Study Plan"
                 ]}
@@ -267,7 +267,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<Crown className="w-6 h-6" />}
                 features={[
                   "All grades & subjects",
-                  "Yearly & Chapterwise practice",
+                  "Yearly & Chapter-wise practice",
                   `${formatTokenCount(tiers.pro.token_limit)} AI tokens`,
                   "Study Plan"
                 ]}
@@ -300,7 +300,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 <Benefit text="Get detailed explanations for every exam question" />
                 <Benefit text="Practice with real past exam papers" />
                 <Benefit text="No downloads required - everything works in your browser" />
-                <Benefit text="Free access to all exam papers and AI assistance" />
+                <Benefit text="Free access to all exam papers" />
               </div>
             </div>
             <div className="bg-gray-50 rounded-lg p-8 border border-gray-200">
