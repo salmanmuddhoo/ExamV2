@@ -228,7 +228,6 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   formatSubjects(tiers.student_lite.max_subjects),
                   "Yearly & Chapterwise practice",
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
-                  "AI chat assistance",
                   "Most affordable option"
                 ]}
                 buttonText="Start Learning"
