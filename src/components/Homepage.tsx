@@ -206,8 +206,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 features={[
                   `Access to ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
                   `${formatTokenCount(tiers.free.token_limit)} AI tokens per month`,
-                  "Basic AI assistance",
-                  "Yearly & Chapter practice",
+                  "Yearly practice",
                   "No credit card required"
                 ]}
                 buttonText="Get Started Free"
@@ -227,7 +226,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 features={[
                   "Choose 1 grade level",
                   formatSubjects(tiers.student_lite.max_subjects),
-                  "Yearly exam papers only",
+                  "Yearly & Chapterwise practice",
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
                   "AI chat assistance",
                   "Most affordable option"
@@ -249,10 +248,9 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 features={[
                   "Choose 1 grade level",
                   formatSubjects(tiers.student.max_subjects),
-                  "Yearly & Chapter practice",
+                  "Yearly & Chapterwise practice",
                   `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
-                  "Priority AI responses",
-                  "Download exam papers"
+                  "Study Plan"
                 ]}
                 buttonText="Get Full Access"
                 onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
@@ -270,11 +268,9 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<Crown className="w-6 h-6" />}
                 features={[
                   "All grades & subjects",
-                  "Yearly & Chapter practice",
+                  "Yearly & Chapterwise practice",
                   `${formatTokenCount(tiers.pro.token_limit)} AI tokens`,
-                  "Advanced AI explanations",
-                  "Detailed progress tracking",
-                  "Priority support"
+                  "Study Plan"
                 ]}
                 buttonText="Go Premium"
                 onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
@@ -303,7 +299,6 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               <div className="space-y-4">
                 <Benefit text="Learn at your own pace with 24/7 AI assistance" />
                 <Benefit text="Get detailed explanations for every exam question" />
-                <Benefit text="Access marking schemes for better understanding" />
                 <Benefit text="Practice with real past exam papers" />
                 <Benefit text="No downloads required - everything works in your browser" />
                 <Benefit text="Free access to all exam papers and AI assistance" />
