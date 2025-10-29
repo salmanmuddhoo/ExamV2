@@ -4,6 +4,7 @@ import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Mini
 import { useAuth } from '../contexts/AuthContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
+import { formatTokenCount } from '../lib/formatUtils';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -741,10 +742,10 @@ You can still view and download this exam paper!`
             role: 'assistant',
             content: `🔒 **Token Limit Reached**
 
-You've used all ${tokenLimit.toLocaleString()} tokens for this month.
+You've used all ${formatTokenCount(tokenLimit)} tokens for this month.
 
 **To continue using AI chat:**
-- Upgrade to **Student Package** ($15/month) - Get 500K tokens/month
+- Upgrade to **Student Package** ($15/month) - Get more tokens
 - Upgrade to **Professional Package** ($25/month) - Unlimited tokens
 
 Your tokens will reset at the start of next month.`
@@ -762,7 +763,7 @@ Your tokens will reset at the start of next month.`
 
 You can view this exam paper, but you've used AI chat on ${papersLimit} papers already (your free tier limit).
 
-You still have **${tokenLimit ? tokenLimit - subscription.tokens_used_current_period : 0} tokens** remaining, but they can only be used on the ${papersLimit} papers you've already chatted with.
+You still have **${tokenLimit ? formatTokenCount(tokenLimit - subscription.tokens_used_current_period) : 0} tokens** remaining, but they can only be used on the ${papersLimit} papers you've already chatted with.
 
 **To unlock AI chat for more papers:**
 - Upgrade to **Student Package** ($15/month) - Chat with unlimited papers
@@ -1282,7 +1283,7 @@ You can still view and download this exam paper!`
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-600">AI Tokens:</span>
                     <span className="text-xs font-semibold text-gray-900">
-                      {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
+                      {formatTokenCount(tokensUsed)} / {formatTokenCount(tokensLimit)}
                     </span>
                   </div>
                   {(tierName === 'free' || tierName === 'student' || tierName === 'student_lite') && (
