@@ -684,7 +684,7 @@ export function ChatHub({
                   Ready to ace your exams?
                 </h2>
                 <p className="text-gray-600 mb-8">
-                  Choose a conversation from the left to continue, or click "New Conversation" to start chatting with an exam paper
+                  Choose a conversation to continue, or click "New Conversation" to start working on a new exam paper.
                 </p>
 
                 {userTier !== 'pro' ? (
@@ -692,11 +692,11 @@ export function ChatHub({
                     <div className="flex items-center justify-center mb-3">
                       <Crown className="w-6 h-6 text-yellow-500 mr-2" />
                       <p className="text-base font-semibold text-gray-900">
-                        Upgrade for unlimited access
+                        Upgrade for more access
                       </p>
                     </div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Get unlimited tokens, access to all exam papers, and priority support
+                      Get more tokens and additional access to exam papers.
                     </p>
                     <button
                       onClick={handleOpenSubscriptions}
