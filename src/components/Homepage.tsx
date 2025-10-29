@@ -16,6 +16,7 @@ interface TierConfig {
   token_limit: number | null;
   papers_limit: number | null;
   chapter_wise_access: boolean;
+  max_subjects: number | null;
 }
 
 export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false }: Props) {
@@ -35,7 +36,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     try {
       const { data, error } = await supabase
         .from('subscription_tiers')
-        .select('name, display_name, price_monthly, token_limit, papers_limit, chapter_wise_access')
+        .select('name, display_name, price_monthly, token_limit, papers_limit, chapter_wise_access, max_subjects')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -59,6 +60,14 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     if (num >= 1000) return `${(num / 1000).toLocaleString()}K`;
     return num.toLocaleString();
   };
+
+  // Format subject count for display
+  const formatSubjects = (count: number | null) => {
+    if (count === null) return 'All subjects';
+    if (count === 1) return 'Select 1 subject';
+    return `Select up to ${count} subjects`;
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -217,7 +226,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<Rocket className="w-6 h-6" />}
                 features={[
                   "Choose 1 grade level",
-                  "Select 1 subject",
+                  formatSubjects(tiers.student_lite.max_subjects),
                   "Yearly exam papers only",
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
                   "AI chat assistance",
@@ -239,7 +248,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<Star className="w-6 h-6" />}
                 features={[
                   "Choose 1 grade level",
-                  "Select up to 3 subjects",
+                  formatSubjects(tiers.student.max_subjects),
                   "Yearly & Chapter practice",
                   `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
                   "Priority AI responses",
