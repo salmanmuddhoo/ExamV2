@@ -5,6 +5,7 @@ import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
 import { Modal } from './Modal';
 import { StudentPackageSelector } from './StudentPackageSelector';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -744,7 +745,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-medium text-gray-600">AI Tokens</span>
                           <span className="text-xs text-gray-500">
-                            {tokensLimit === null ? 'Unlimited' : `${tokensUsed.toLocaleString()} / ${tokensLimit.toLocaleString()}`}
+                            {tokensLimit === null ? 'Unlimited' : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`}
                           </span>
                         </div>
                         {tokensLimit !== null && (
@@ -768,15 +769,15 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs">
                                 <span className="text-gray-600">Tier Allocation:</span>
-                                <span className="font-medium text-gray-900">{tokensTierLimit?.toLocaleString()}</span>
+                                <span className="font-medium text-gray-900">{formatTokenCount(tokensTierLimit)}</span>
                               </div>
                               <div className="flex justify-between text-xs">
                                 <span className="text-green-600">+ Carryover:</span>
-                                <span className="font-medium text-green-600">{tokensCarryover.toLocaleString()}</span>
+                                <span className="font-medium text-green-600">{formatTokenCount(tokensCarryover)}</span>
                               </div>
                               <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
                                 <span className="text-gray-700 font-medium">Total Available:</span>
-                                <span className="font-bold text-gray-900">{tokensLimit.toLocaleString()}</span>
+                                <span className="font-bold text-gray-900">{formatTokenCount(tokensLimit)}</span>
                               </div>
                             </div>
                           </div>

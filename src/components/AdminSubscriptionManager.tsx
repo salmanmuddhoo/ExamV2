@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Users, CreditCard, TrendingUp, Filter, Search, RefreshCw, Edit2, Check, X } from 'lucide-react';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface UserSubscription {
   id: string;
@@ -541,7 +542,7 @@ export function AdminSubscriptionManager() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {sub.tokens_used_current_period.toLocaleString()}
+                    {formatTokenCount(sub.tokens_used_current_period)}
                     {(() => {
                       const tierLimit = sub.subscription_tiers.token_limit;
                       const actualLimit = sub.token_limit_override ?? tierLimit;
@@ -637,7 +638,7 @@ export function AdminSubscriptionManager() {
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-xs text-gray-500 mb-1">Tokens Used</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  {(sub.tokens_used_current_period / 1000).toFixed(1)}K
+                  {formatTokenCount(sub.tokens_used_current_period)}
                   {(() => {
                     const tierLimit = sub.subscription_tiers.token_limit;
                     const actualLimit = sub.token_limit_override ?? tierLimit;
@@ -650,13 +651,13 @@ export function AdminSubscriptionManager() {
                     if (carryover > 0) {
                       return (
                         <>
-                          <span className="text-gray-500"> / {(actualLimit / 1000).toFixed(0)}K</span>
-                          <span className="text-green-600 text-xs ml-1">(+{(carryover / 1000).toFixed(0)}K)</span>
+                          <span className="text-gray-500"> / {formatTokenCount(actualLimit)}</span>
+                          <span className="text-green-600 text-xs ml-1">(+{formatTokenCount(carryover)})</span>
                         </>
                       );
                     }
 
-                    return <span className="text-gray-500"> / {(actualLimit / 1000).toFixed(0)}K</span>;
+                    return <span className="text-gray-500"> / {formatTokenCount(actualLimit)}</span>;
                   })()}
                 </p>
               </div>
