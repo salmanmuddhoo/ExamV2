@@ -1,7 +1,7 @@
 {
-  "name": "Exam Study Assistant",
-  "short_name": "Exam Assistant",
-  "description": "AI-powered exam study assistant with interactive guidance",
+  "name": "Aixampaper - Smart Exam Preparation",
+  "short_name": "Aixampaper",
+  "description": "AI-powered exam preparation platform with smart study assistance",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
