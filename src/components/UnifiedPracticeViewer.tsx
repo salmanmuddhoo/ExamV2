@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ChatMessage } from './ChatMessage';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface Props {
   mode: 'year' | 'chapter';
@@ -1041,7 +1042,7 @@ export function UnifiedPracticeViewer({
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-600">AI Tokens:</span>
                       <span className="text-xs font-semibold text-gray-900">
-                        {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
+                        {formatTokenCount(tokensUsed)} / {formatTokenCount(tokensLimit)}
                       </span>
                     </div>
                     {(tierName === 'free' || tierName === 'student' || tierName === 'student_lite') && (

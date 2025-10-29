@@ -1,6 +1,7 @@
 import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface Props {
   onGetStarted: () => void;
@@ -52,6 +53,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     }
   };
 
+  // Format numbers for papers (keep simple K formatting)
   const formatNumber = (num: number | null) => {
     if (num === null) return 'Unlimited';
     if (num >= 1000) return `${(num / 1000).toLocaleString()}K`;
@@ -194,7 +196,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<BookOpen className="w-6 h-6" />}
                 features={[
                   `Access to ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
-                  `${formatNumber(tiers.free.token_limit)} AI tokens per month`,
+                  `${formatTokenCount(tiers.free.token_limit)} AI tokens per month`,
                   "Basic AI assistance",
                   "Yearly & Chapter practice",
                   "No credit card required"
@@ -217,7 +219,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   "Choose 1 grade level",
                   "Select 1 subject",
                   "Yearly exam papers only",
-                  `${formatNumber(tiers.student_lite.token_limit)} AI tokens per month`,
+                  `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
                   "AI chat assistance",
                   "Most affordable option"
                 ]}
@@ -239,7 +241,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   "Choose 1 grade level",
                   "Select up to 3 subjects",
                   "Yearly & Chapter practice",
-                  `${formatNumber(tiers.student.token_limit)} AI tokens per month`,
+                  `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
                   "Priority AI responses",
                   "Download exam papers"
                 ]}
@@ -260,7 +262,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 features={[
                   "All grades & subjects",
                   "Yearly & Chapter practice",
-                  `${formatNumber(tiers.pro.token_limit)} AI tokens`,
+                  `${formatTokenCount(tiers.pro.token_limit)} AI tokens`,
                   "Advanced AI explanations",
                   "Detailed progress tracking",
                   "Priority support"

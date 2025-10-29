@@ -6,6 +6,7 @@ import type { SubscriptionTier, UserSubscription } from '../types/subscription';
 import { StudentPackageSelector } from './StudentPackageSelector';
 import { PaymentOrchestrator } from './PaymentOrchestrator';
 import type { PaymentSelectionData } from '../types/payment';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -126,9 +127,9 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
     return selectedBillingCycle === 'monthly' ? tier.price_monthly : tier.price_yearly;
   };
 
+  // Use the new formatTokenCount utility for better formatting (K/M)
   const formatTokens = (tokens: number | null) => {
-    if (tokens === null) return 'Unlimited';
-    return `${(tokens / 1000).toFixed(0)}K`;
+    return formatTokenCount(tokens, 1);
   };
 
   const formatPapers = (papers: number | null) => {
@@ -376,7 +377,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                             const tokensUsed = currentSubscription.tokens_used_current_period;
                             const tokenLimit = currentSubscription.subscription_tiers.token_limit;
                             const displayedUsage = isAdmin ? tokensUsed : Math.min(tokensUsed, tokenLimit);
-                            return `${displayedUsage.toLocaleString()} / ${tokenLimit.toLocaleString()}`;
+                            return `${formatTokenCount(displayedUsage)} / ${formatTokenCount(tokenLimit)}`;
                           })()}
                     </p>
                     {currentSubscription.subscription_tiers?.papers_limit !== null && (

@@ -1,4 +1,5 @@
 import { Sparkles, MessageSquare, FileText, ArrowRight, X } from 'lucide-react';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface WelcomeModalProps {
   isOpen: boolean;
@@ -56,7 +57,7 @@ export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining
                   <MessageSquare className="w-3 h-3 text-gray-900" />
                   <span className="text-xs font-medium text-gray-600">AI Tokens</span>
                 </div>
-                <p className="text-xl font-bold text-gray-900">{tokensRemaining.toLocaleString()}</p>
+                <p className="text-xl font-bold text-gray-900">{formatTokenCount(tokensRemaining)}</p>
                 <p className="text-xs text-gray-500">per month</p>
               </div>
 
