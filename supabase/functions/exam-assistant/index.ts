@@ -454,19 +454,6 @@ Do NOT reference the marking scheme.
 Keep your language appropriate for O-Level students (14-16 years old). Be encouraging and focus on building understanding, not just providing answers.
 `;
 
-// Lightweight system prompt for follow-up questions
-// Since conversation history already contains context, we only need basic continuation instructions
-const FOLLOW_UP_SYSTEM_PROMPT = `You are an AI Tutor continuing a conversation with a student.
-
-**IMPORTANT:**
-- Continue the conversation naturally based on the previous context
-- Maintain the same friendly, conversational tone
-- Reference previous discussions when relevant
-- Keep responses concise and focused on the student's follow-up question
-- Do NOT repeat information already covered unless the student specifically asks for clarification
-
-Keep your language appropriate for O-Level students (14-16 years old).`;
-
 function buildQuestionFocusPrompt(
   studentQuestion: string,
   questionNumber: string | null,
@@ -911,18 +898,8 @@ Deno.serve(async (req) => {
       const contents = [];
       contents.push(...conversationHistory);
 
-      // Use lightweight prompt for follow-ups to optimize token usage
-      // The conversation history already contains context, so we don't need to repeat the full system prompt
-      const systemPromptToUse = isFollowUp ? FOLLOW_UP_SYSTEM_PROMPT : contextualSystemPrompt;
-
-      if (isFollowUp) {
-        console.log(`📝 Using LIGHTWEIGHT system prompt for follow-up (optimized)`);
-      } else {
-        console.log(`📝 Using FULL system prompt for initial question`);
-      }
-
       const currentMessageParts: any[] = [
-        { text: systemPromptToUse },
+        { text: contextualSystemPrompt },
         { text: buildQuestionFocusPrompt(
           normalizedQuestion,
           detectedQuestionNumber,
