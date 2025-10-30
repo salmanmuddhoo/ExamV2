@@ -3,7 +3,7 @@ name: Supabase Production Migrations
 on:
   push:
     branches:
-      - main
+      - main  # Only run on main branch
 
 jobs:
   migrate:
@@ -13,22 +13,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Install Supabase CLI via official Action
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
+      # Link Supabase project using actual project ref
       - name: Link Supabase Project
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      - name: Show DB status (debug)
+      # Optional: Show DB migration status (debug)
+      - name: Show DB status
         run: supabase db status --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
 
+      # Deploy migrations
       - name: Deploy database migrations
         run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
