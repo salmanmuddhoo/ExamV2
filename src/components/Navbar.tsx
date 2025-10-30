@@ -70,7 +70,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   className="flex items-center text-gray-900 hover:text-gray-600 transition-colors"
 >
   <img
-    src="/assets/logo.svg"
+    src="/assets/logo.png"
     alt="Aixampaper Logo"
     className="h-12 w-auto object-contain"
   />
