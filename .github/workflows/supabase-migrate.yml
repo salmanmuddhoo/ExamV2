@@ -31,12 +31,14 @@ jobs:
       - name: Show DB status
         run: supabase db status --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          #SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZndqaGd0bXBvd3hldXhuZXNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTc0MzMwNiwiZXhwIjoyMDc3MzE5MzA2fQ.MOCy_AgzKwMEJiNUu8OJyzet1reuNzKptkhJXINWgk4
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
 
       # 5️⃣ Deploy migrations
       - name: Deploy database migrations
         run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+         # SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZndqaGd0bXBvd3hldXhuZXNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTc0MzMwNiwiZXhwIjoyMDc3MzE5MzA2fQ.MOCy_AgzKwMEJiNUu8OJyzet1reuNzKptkhJXINWgk4
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
