@@ -24,7 +24,8 @@ jobs:
       - name: Link Supabase Project
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+         # SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+         SUPABASE_ACCESS_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZndqaGd0bXBvd3hldXhuZXNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTc0MzMwNiwiZXhwIjoyMDc3MzE5MzA2fQ.MOCy_AgzKwMEJiNUu8OJyzet1reuNzKptkhJXINWgk4
 
       # 4️⃣ Optional: Show DB migration status (debug)
       - name: Show DB status
