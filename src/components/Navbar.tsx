@@ -72,7 +72,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   <img
     src="/assets/logo.png"
     alt="Aixampaper Logo"
-    className="h-32 w-auto object-contain"
+    className="h-16 w-auto object-contain"
   />
 </button>
 
