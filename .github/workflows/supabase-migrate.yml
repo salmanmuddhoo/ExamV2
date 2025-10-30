@@ -14,33 +14,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Install Supabase CLI via official setup
+      # 2️⃣ Install Supabase CLI
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      # 3️⃣ Link Supabase project
-      - name: Link Supabase Project
-       # run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-        run: supabase link --project-ref ayfwjhgtmpowxeuxnesq
-        env:
-         # SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-         SUPABASE_ACCESS_TOKEN: sbp_d6e077c32a5324378bf46abc5af7d61654d41aee
+      # 3️⃣ Verify secrets are available
+      - name: Verify Supabase Secrets
+        run: |
+          if [ -z "${{ secrets.SUPABASE_PROJECT_ID }}" ]; then
+            echo "Error: SUPABASE_PROJECT_ID is empty!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "Error: SUPABASE_ACCESS_TOKEN is empty!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.SUPABASE_DB_PASSWORD }}" ]; then
+            echo "Error: SUPABASE_DB_PASSWORD is empty!"
+            exit 1
+          fi
 
-      # 4️⃣ Optional: Show DB migration status (debug)
-      - name: Show DB status
-        run: supabase db status --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      # 4️⃣ Link Supabase project
+      - name: Link Supabase Project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
-          #SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_ACCESS_TOKEN: sbp_d6e077c32a5324378bf46abc5af7d61654d41aee
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # 5️⃣ Show DB migration status (optional, debug)
+      - name: Show DB status
+        run: supabase db status
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
 
-      # 5️⃣ Deploy migrations
+      # 6️⃣ Deploy database migrations
       - name: Deploy database migrations
-       # run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
-        run: supabase db push --project-ref ayfwjhgtmpowxeuxnesq
+        run: supabase db push
         env:
-         # SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_ACCESS_TOKEN: sbp_d6e077c32a5324378bf46abc5af7d61654d41aee
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
