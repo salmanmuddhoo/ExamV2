@@ -10,28 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Install Supabase CLI
-        run: |
-          curl -fsSL https://get.supabase.com/cli | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
-          echo "/home/runner/.supabase/bin" >> $GITHUB_PATH
-
-      - name: Verify Supabase CLI
-        run: supabase --version
-
+      # Use official Supabase CLI Action
+      - name: Setup Supabase CLI
+        uses: supabase/action-cli@v1
+        with:
+          version: 'latest'   # or specific version
+          
       - name: Link Supabase Project
-        run: |
-          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Deploy database migrations
-        run: |
-          supabase db push
+        run: supabase db push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
