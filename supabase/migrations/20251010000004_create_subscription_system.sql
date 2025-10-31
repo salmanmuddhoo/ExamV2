@@ -30,7 +30,6 @@ INSERT INTO subscription_tiers (name, display_name, description, price_monthly, 
 ('free', 'Free', 'Try our AI assistant with limited access', 0, 0, 50000, 2, FALSE, FALSE, NULL, 1),
 ('student', 'Student Package', 'Perfect for focused exam preparation', 15, 150, 500000, NULL, TRUE, TRUE, 3, 2),
 ('pro', 'Professional Package', 'Unlimited access to all features', 25, 250, NULL, NULL, FALSE, FALSE, NULL, 3);
-ON CONFLICT (name) DO NOTHING;
 
 -- Create user subscriptions table
 CREATE TABLE IF NOT EXISTS user_subscriptions (
