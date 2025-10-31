@@ -74,7 +74,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
       <section className="relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
         
-        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24 lg:py-16">
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24 lg:py-32">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left Content */}
             <div className="text-center lg:text-left z-10">
