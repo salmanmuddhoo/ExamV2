@@ -1,12 +1,12 @@
-name: Supabase Production Migrations
+name: Supabase Production Deployment
 
 on:
   push:
     branches:
-      - main  # Only run on main branch
+      - main
 
 jobs:
-  migrate:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,38 +20,35 @@ jobs:
         with:
           version: latest
 
-      # 3️⃣ Verify secrets are available
+      # 3️⃣ Verify secrets
       - name: Verify Supabase Secrets
         run: |
-          if [ -z "${{ secrets.SUPABASE_PROJECT_ID }}" ]; then
-            echo "Error: SUPABASE_PROJECT_ID is empty!"
-            exit 1
-          fi
-          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
-            echo "Error: SUPABASE_ACCESS_TOKEN is empty!"
-            exit 1
-          fi
-          if [ -z "${{ secrets.SUPABASE_DB_PASSWORD }}" ]; then
-            echo "Error: SUPABASE_DB_PASSWORD is empty!"
-            exit 1
-          fi
+          if [ -z "${{ secrets.SUPABASE_PROJECT_ID }}" ]; then echo "Missing SUPABASE_PROJECT_ID"; exit 1; fi
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then echo "Missing SUPABASE_ACCESS_TOKEN"; exit 1; fi
+          if [ -z "${{ secrets.SUPABASE_DB_PASSWORD }}" ]; then echo "Missing SUPABASE_DB_PASSWORD"; exit 1; fi
 
-      # 4️⃣ Link Supabase project
+      # 4️⃣ Link Supabase Project
       - name: Link Supabase Project
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      # 5️⃣ Show DB migration status (optional, debug)
+      # 5️⃣ Show DB status (optional)
       - name: Show DB status
         run: supabase db status
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
 
-      # 6️⃣ Deploy database migrations
+      # 6️⃣ Apply migrations
       - name: Deploy database migrations
         run: supabase db push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           DATABASE_URL: postgres://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
+
+      # 7️⃣ Deploy Edge Functions
+      - name: Deploy Edge Functions
+        run: supabase functions deploy --all --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
