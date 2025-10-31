@@ -1,12 +1,6 @@
--- Enable uuid generation
--- Ensure the extension exists in the public schema
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
-
-
-
 -- Create subscription tiers table
 CREATE TABLE IF NOT EXISTS subscription_tiers (
-  id UUID PRIMARY KEY DEFAULT public.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
   description TEXT,
