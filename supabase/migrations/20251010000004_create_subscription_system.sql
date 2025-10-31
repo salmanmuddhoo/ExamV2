@@ -1,5 +1,7 @@
 -- Enable uuid generation
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Ensure the extension exists in the public schema
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
+
 
 
 -- Create subscription tiers table
