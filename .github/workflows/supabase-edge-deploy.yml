@@ -1,0 +1,43 @@
+name: Supabase Edge Functions Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "supabase/functions/**" # Only trigger when Edge Functions change
+
+jobs:
+  deploy-edge-functions:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Install Supabase CLI
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # 3️⃣ Verify secrets exist
+      - name: Verify secrets
+        run: |
+          if [ -z "${{ secrets.SUPABASE_PROJECT_ID }}" ] || [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "❌ Missing Supabase secrets. Ensure SUPABASE_PROJECT_ID & SUPABASE_ACCESS_TOKEN are set."
+            exit 1
+          fi
+
+      # 4️⃣ Link Supabase project
+      - name: Link project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # 5️⃣ Deploy Edge Functions
+      - name: Deploy Edge Functions
+        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
