@@ -204,7 +204,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 description="Perfect for trying out the platform"
                 icon={<BookOpen className="w-6 h-6" />}
                 features={[
-                  `Access to ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
+                  `Access Ai assistant for ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
                   `${formatTokenCount(tiers.free.token_limit)} AI tokens per month`,
                   "Yearly practice",
                   "No credit card required"
