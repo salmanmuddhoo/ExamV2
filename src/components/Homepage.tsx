@@ -103,9 +103,10 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
                 
-                <button className="inline-flex items-center justify-center space-x-2 px-8 py-4 bg-white text-gray-900 rounded-xl hover:bg-gray-50 transition-all text-lg font-semibold border-2 border-gray-200">
-                  <span>Watch Demo</span>
-                </button>
+
+
+
+                
               </div>
               
               <div className="mt-8 flex items-center justify-center lg:justify-start space-x-6 text-sm text-gray-600">
