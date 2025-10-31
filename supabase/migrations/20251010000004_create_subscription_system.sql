@@ -18,7 +18,12 @@ CREATE TABLE IF NOT EXISTS subscription_tiers (
 );
 
 -- Create index on name for quick lookups
-CREATE INDEX idx_subscription_tiers_name ON subscription_tiers(name);
+DO $$ BEGIN
+    CREATE INDEX IF NOT EXISTS idx_subscription_tiers_name ON subscription_tiers(name);
+EXCEPTION
+    WHEN duplicate_table THEN null;
+END $$;
+
 
 -- Insert default tiers
 INSERT INTO subscription_tiers (name, display_name, description, price_monthly, price_yearly, token_limit, papers_limit, can_select_grade, can_select_subjects, max_subjects, display_order) VALUES
