@@ -247,7 +247,8 @@ async function extractAndSplitQuestions(
 **CRITICAL INSTRUCTIONS:**
 1. Return ONLY a JSON array - no other text
 2. Keep "fullText" SHORT - just the first 100 characters of each question
-3. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Question 1: ...","hasSubParts":false}]
+3. In "fullText", replace ALL newlines and line breaks with spaces
+4. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Question 1: ...","hasSubParts":false}]
 
 **IMPORTANT FOR MULTI-PAGE QUESTIONS:**
 - Look CAREFULLY at where each question ENDS
@@ -350,16 +351,30 @@ Return ONLY the JSON array, nothing else.`;
 
     jsonText = jsonText.trim();
 
+    // Sanitize JSON to handle control characters that break JSON parsing
+    // This is a fallback since responseMimeType: "application/json" should handle this
+    console.log("Raw JSON length:", jsonText.length);
+
+    // Check if there are unescaped control characters
+    const hasControlChars = /[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/.test(jsonText);
+    if (hasControlChars) {
+      console.warn("Found unescaped control characters in JSON, sanitizing...");
+      // Replace control characters (except already-escaped ones)
+      jsonText = jsonText.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, ' ');
+    }
+
     let questions;
     try {
       questions = JSON.parse(jsonText);
       console.log(`Successfully parsed ${questions.length} questions`);
     } catch (parseError) {
       console.error("JSON parse error:", parseError.message);
-      
+      console.error("First 500 chars of problematic JSON:", jsonText.substring(0, 500));
+
       try {
+        // Try to salvage partial response
         const lastCompleteMatch = jsonText.match(/\{[^}]*\}(?=\s*,|\s*\])/g);
-        
+
         if (lastCompleteMatch && lastCompleteMatch.length > 0) {
           const salvaged = '[' + lastCompleteMatch.join(',') + ']';
           questions = JSON.parse(salvaged);
@@ -368,6 +383,7 @@ Return ONLY the JSON array, nothing else.`;
           throw parseError;
         }
       } catch (salvageError) {
+        console.error("Salvage also failed:", salvageError.message);
         throw new Error(`JSON parse failed. The response may be too large or malformed.`);
       }
     }
