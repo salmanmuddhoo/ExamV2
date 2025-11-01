@@ -1,3 +1,6 @@
+-- Enable uuid-ossp extension for uuid_generate_v4()
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Create subscription tiers table
 CREATE TABLE IF NOT EXISTS subscription_tiers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
