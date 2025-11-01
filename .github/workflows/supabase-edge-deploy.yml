@@ -38,6 +38,12 @@ jobs:
 
       # 5️⃣ Deploy Edge Functions
       - name: Deploy Edge Functions
-        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase functions deploy --all --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # 6️⃣ Verify deployment
+      - name: List deployed functions
+        run: supabase functions list --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
