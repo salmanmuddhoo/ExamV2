@@ -16,6 +16,7 @@ interface TierConfig {
   max_subjects: number | null;
   chapter_wise_access: boolean;
   is_active: boolean;
+  coming_soon: boolean;
   display_order: number;
 }
 
@@ -334,6 +335,28 @@ export function TierConfigManager() {
                 </button>
               </div>
 
+              {/* Coming Soon Status */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-xs font-medium text-gray-700">Coming Soon</label>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {tier.coming_soon ? 'Users cannot purchase this package' : 'Available for purchase'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleFieldChange(tier.id, 'coming_soon', !tier.coming_soon)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    tier.coming_soon ? 'bg-amber-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      tier.coming_soon ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Save Button */}
               <button
                 onClick={() => handleUpdateTier(tier.id, tier)}
@@ -451,6 +474,22 @@ export function TierConfigManager() {
                     }`}>
                       {tier.is_active ? 'Active' : 'Inactive'}
                     </span>
+                  </td>
+                ))}
+              </tr>
+              <tr className="bg-amber-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Availability</td>
+                {tiers.map(tier => (
+                  <td key={tier.id} className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {tier.coming_soon ? (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Coming Soon
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Available
+                      </span>
+                    )}
                   </td>
                 ))}
               </tr>
