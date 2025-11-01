@@ -11,6 +11,7 @@ export interface SubscriptionTier {
   can_select_subjects: boolean;
   max_subjects: number | null;
   is_active: boolean;
+  coming_soon: boolean;
   display_order: number;
   created_at: string;
   updated_at: string;
