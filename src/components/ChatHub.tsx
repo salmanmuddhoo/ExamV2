@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
@@ -86,6 +86,7 @@ export function ChatHub({
     conversationId: null,
   });
   const [userTier, setUserTier] = useState<string>('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -371,6 +372,66 @@ export function ChatHub({
         onOpenSubscriptions={onOpenSubscriptions}
       />
 
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-64 bg-white shadow-xl transform transition-transform"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Menu Header */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Menu</h2>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
+
+            {/* Menu Items */}
+            <div className="p-4 space-y-2">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigateHome();
+                }}
+                className="w-full flex items-center space-x-3 p-3 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <Home className="w-5 h-5 text-gray-700" />
+                <span className="text-gray-900 font-medium">Home</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setShowProfileModal(true);
+                }}
+                className="w-full flex items-center space-x-3 p-3 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <User className="w-5 h-5 text-gray-700" />
+                <span className="text-gray-900 font-medium">Profile</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="w-full flex items-center space-x-3 p-3 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <LogOut className="w-5 h-5 text-red-600" />
+                <span className="text-red-600 font-medium">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="h-screen flex flex-col md:flex-row bg-gray-50">
         {/* Left Panel - Conversations List */}
         <div className="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -378,7 +439,9 @@ export function ChatHub({
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
-              <div className="flex items-center space-x-1">
+
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-1">
                 <button
                   onClick={onNavigateHome}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -401,6 +464,15 @@ export function ChatHub({
                   <LogOut className="w-5 h-5 text-gray-700" />
                 </button>
               </div>
+
+              {/* Mobile Hamburger Menu */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Menu"
+              >
+                <Menu className="w-6 h-6 text-gray-700" />
+              </button>
             </div>
             <button
               onClick={handleNewConversation}
