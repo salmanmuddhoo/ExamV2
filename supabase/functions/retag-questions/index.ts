@@ -60,17 +60,25 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Found ${questions.length} questions to re-tag`);
 
-    // Step 2: Get syllabus chapters
+    // Step 2: Get syllabus with file URL and chapters
     const { data: syllabus, error: syllabusError } = await supabase
       .from('syllabus')
-      .select('id, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
+      .select('id, file_url, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
       .eq('id', syllabusId)
       .eq('processing_status', 'completed')
       .single();
 
     if (syllabusError) throw syllabusError;
 
-    if (!syllabus || !syllabus.syllabus_chapters || syllabus.syllabus_chapters.length === 0) {
+    if (!syllabus || !syllabus.file_url) {
+      console.log('Syllabus not found or missing PDF file');
+      return new Response(
+        JSON.stringify({ error: 'Syllabus not found or missing PDF file' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!syllabus.syllabus_chapters || syllabus.syllabus_chapters.length === 0) {
       console.log('No chapters found for this syllabus');
       return new Response(
         JSON.stringify({ error: 'Syllabus has no chapters' }),
@@ -94,12 +102,13 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Deleted old chapter tags for ${questionIds.length} questions`);
 
-    // Step 4: Tag questions with new chapters using AI
+    // Step 4: Tag questions with new chapters using AI and full PDF
     const taggingResult = await tagQuestionsWithChapters(
       examPaperId,
       questions,
       syllabus.syllabus_chapters,
       syllabus.id,
+      syllabus.file_url,
       supabase,
       geminiApiKey
     );
@@ -127,24 +136,23 @@ Deno.serve(async (req: Request) => {
 
 /**
  * Tag questions with syllabus chapters using AI analysis
- * (Reused from process-exam-paper function)
+ * Uses the full syllabus PDF for more accurate matching
  */
 async function tagQuestionsWithChapters(
   examPaperId: string,
   questions: any[],
   chapters: any[],
   syllabusId: string,
+  fileUrl: string,
   supabase: any,
   geminiApiKey: string
 ): Promise<{ taggedCount: number; tokenUsage: any }> {
 
-  // Build chapter information for AI
+  // Build chapter information for AI (to provide chapter IDs)
   const chapterInfo = chapters.map(ch => ({
     id: ch.id,
     number: ch.chapter_number,
-    title: ch.chapter_title,
-    description: ch.chapter_description || '',
-    subtopics: Array.isArray(ch.subtopics) ? ch.subtopics.join(', ') : ''
+    title: ch.chapter_title
   }));
 
   // Build question information for AI
@@ -158,21 +166,40 @@ async function tagQuestionsWithChapters(
     console.log(`  - ID: ${ch.id}, Chapter ${ch.number}: ${ch.title}`);
   });
 
-  const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters.
+  console.log('Fetching syllabus PDF from:', fileUrl);
 
-**CHAPTERS:**
+  // Fetch and convert PDF to base64
+  const pdfResponse = await fetch(fileUrl);
+  if (!pdfResponse.ok) {
+    throw new Error(`Failed to fetch syllabus PDF: ${pdfResponse.statusText}`);
+  }
+  const pdfBlob = await pdfResponse.blob();
+  const arrayBuffer = await pdfBlob.arrayBuffer();
+  const base64Pdf = await arrayBufferToBase64(arrayBuffer);
+
+  console.log(`Syllabus PDF fetched and converted to base64, size: ${pdfBlob.size} bytes`);
+
+  const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters from the provided PDF.
+
+**REFERENCE CHAPTERS:**
 ${chapterInfo.map(ch => `ID: ${ch.id}
-Chapter ${ch.number}: ${ch.title}
-Description: ${ch.description}
-Subtopics: ${ch.subtopics || 'None listed'}`).join('\n\n')}
+Chapter ${ch.number}: ${ch.title}`).join('\n\n')}
 
 **QUESTIONS:**
 ${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
 
 **Task:**
-For each question, identify which chapter(s) it belongs to. A question may relate to multiple chapters.
+Read the FULL SYLLABUS PDF provided and compare each question against the COMPLETE CONTENT of each chapter in the PDF.
+For each question, identify which chapter(s) it belongs to by reading the detailed content, subtopics, and learning objectives in the PDF.
 
-**IMPORTANT:** Use the EXACT chapter IDs provided above. Copy them exactly as shown in the "ID:" field.
+**Instructions:**
+1. Read through the ENTIRE syllabus PDF to understand all chapter content
+2. For each question, carefully compare it against the full chapter content in the PDF (not just the titles above)
+3. Match questions to chapters based on the detailed content, subtopics, and concepts in the PDF
+4. A question may relate to multiple chapters if it spans multiple topics
+5. Use the chapter reference list above ONLY to get the correct chapter IDs - the PDF is your source for content matching
+
+**IMPORTANT:** Use the EXACT chapter IDs from the "Reference Chapters" list above. Match the chapter numbers from the PDF to the IDs in the list.
 
 Return a JSON array with this format:
 [
@@ -184,7 +211,7 @@ Return a JSON array with this format:
         "chapterNumber": 1,
         "confidence": 0.95,
         "isPrimary": true,
-        "reasoning": "Question directly tests concepts from this chapter"
+        "reasoning": "Question tests concepts from this chapter based on PDF content"
       }
     ]
   }
@@ -194,15 +221,15 @@ Return a JSON array with this format:
 1. confidence should be a number from 0.00 to 1.00 (1.00 = perfect match)
 2. Only include matches with confidence >= 0.60
 3. Mark ONE chapter as isPrimary: true (the best match)
-4. **CRITICAL:** Use the EXACT chapter UUID from the "ID:" field above - copy it character-for-character
-5. reasoning should be brief (1 sentence)
+4. **CRITICAL:** Use the EXACT chapter UUID from the reference list above
+5. reasoning should explain what content in the PDF matched the question
 6. If a question doesn't match any chapter well, return empty matches array
 7. chapterNumber should be the integer chapter number
 
 Return ONLY the JSON array, no other text.`;
 
   try {
-    console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using AI...`);
+    console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using full PDF...`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -218,6 +245,12 @@ Return ONLY the JSON array, no other text.`;
                 {
                   text: CHAPTER_TAGGING_PROMPT,
                 },
+                {
+                  inline_data: {
+                    mime_type: 'application/pdf',
+                    data: base64Pdf
+                  }
+                }
               ],
             },
           ],
@@ -307,4 +340,18 @@ Return ONLY the JSON array, no other text.`;
     console.error("Error in tagQuestionsWithChapters:", error);
     throw error;
   }
+}
+
+/**
+ * Helper function to convert ArrayBuffer to base64 in chunks (avoids stack overflow)
+ */
+async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // Process 8KB at a time
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
 }
