@@ -1,6 +1,6 @@
 {
-  "name": "Aixampaper - Smart Exam Preparation",
-  "short_name": "Aixampaper",
+  "name": "Aixampapers - Smart Exam Preparation",
+  "short_name": "Aixampapers",
   "description": "AI-powered exam preparation platform with smart study assistance",
   "start_url": "/",
   "display": "standalone",
