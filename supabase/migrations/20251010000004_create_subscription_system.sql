@@ -1,9 +1,6 @@
--- Enable uuid-ossp extension for uuid_generate_v4()
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Create subscription tiers table
 CREATE TABLE IF NOT EXISTS subscription_tiers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
   description TEXT,
@@ -36,7 +33,7 @@ INSERT INTO subscription_tiers (name, display_name, description, price_monthly, 
 
 -- Create user subscriptions table
 CREATE TABLE IF NOT EXISTS user_subscriptions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   tier_id UUID NOT NULL REFERENCES subscription_tiers(id) ON DELETE RESTRICT,
 
@@ -85,7 +82,7 @@ WHERE status = 'active';
 
 -- Create subscription config table (admin configurable settings)
 CREATE TABLE IF NOT EXISTS subscription_config (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   key TEXT NOT NULL UNIQUE,
   value TEXT NOT NULL,
   description TEXT,
