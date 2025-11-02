@@ -477,19 +477,18 @@ function PricingCard({
 // Image slider for desktop and mobile app views
 function AppScreenshotSlider() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [imageErrors, setImageErrors] = useState<{ [key: number]: boolean }>({});
 
   const slides = [
     {
       title: 'Desktop View',
       description: 'Full-featured experience on desktop',
-      // Placeholder for desktop screenshot - replace with actual image path
       image: '/screenshots/desktop-view.png',
       isDesktop: true,
     },
     {
       title: 'Mobile View',
       description: 'Study on-the-go with our mobile PWA',
-      // Placeholder for mobile screenshot - replace with actual image path
       image: '/screenshots/mobile-view.png',
       isDesktop: false,
     },
@@ -512,6 +511,10 @@ function AppScreenshotSlider() {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => ({ ...prev, [index]: true }));
+  };
+
   return (
     <div className="relative w-full max-w-2xl mx-auto">
       {/* Screenshot Frame with Border */}
@@ -529,30 +532,40 @@ function AppScreenshotSlider() {
                   : 'opacity-0 translate-x-full'
               }`}
             >
-              {/* Placeholder image - replace with actual screenshots */}
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                <div className="text-center p-4 sm:p-8">
-                  <div className={`mx-auto mb-4 ${slide.isDesktop ? 'w-16 h-16 sm:w-24 sm:h-24' : 'w-12 h-24 sm:w-16 sm:h-32'} bg-black rounded-lg flex items-center justify-center`}>
-                    {slide.isDesktop ? (
-                      <svg className="w-8 h-8 sm:w-12 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="2" />
-                        <path d="M8 21h8" strokeWidth="2" strokeLinecap="round" />
-                        <path d="M12 17v4" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-10 sm:w-8 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <rect x="5" y="2" width="14" height="20" rx="2" strokeWidth="2" />
-                        <path d="M12 18h.01" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    )}
+              {/* Try to load actual screenshot, fallback to placeholder */}
+              {!imageErrors[index] ? (
+                <img
+                  src={slide.image}
+                  alt={slide.title}
+                  className="w-full h-full object-cover"
+                  onError={() => handleImageError(index)}
+                />
+              ) : (
+                /* Placeholder for missing images */
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                  <div className="text-center p-4 sm:p-8">
+                    <div className={`mx-auto mb-4 ${slide.isDesktop ? 'w-16 h-16 sm:w-24 sm:h-24' : 'w-12 h-24 sm:w-16 sm:h-32'} bg-black rounded-lg flex items-center justify-center`}>
+                      {slide.isDesktop ? (
+                        <svg className="w-8 h-8 sm:w-12 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="2" />
+                          <path d="M8 21h8" strokeWidth="2" strokeLinecap="round" />
+                          <path d="M12 17v4" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-10 sm:w-8 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <rect x="5" y="2" width="14" height="20" rx="2" strokeWidth="2" />
+                          <path d="M12 18h.01" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{slide.title}</h3>
+                    <p className="text-sm sm:text-base text-gray-600">{slide.description}</p>
+                    <p className="mt-4 text-xs sm:text-sm text-gray-500">
+                      Add {slide.image} to display screenshot
+                    </p>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{slide.title}</h3>
-                  <p className="text-sm sm:text-base text-gray-600">{slide.description}</p>
-                  <p className="mt-4 text-xs sm:text-sm text-gray-500">
-                    Replace /public/screenshots/{slide.isDesktop ? 'desktop' : 'mobile'}-view.png with your screenshot
-                  </p>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
