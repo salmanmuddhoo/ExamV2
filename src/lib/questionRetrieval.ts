@@ -59,7 +59,6 @@ export async function getQuestionImages(
     }
 
     if (!examQuestion) {
-      console.log(`Question ${questionNumber} not found for exam paper ${examPaperId}`);
       return null;
     }
 

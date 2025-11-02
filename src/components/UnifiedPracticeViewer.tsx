@@ -271,7 +271,6 @@ export function UnifiedPracticeViewer({
         // Chapter mode is for paid tiers only (not free)
         if (mode === 'chapter' && tierName === 'free') {
           setChatLocked(true);
-          console.log('🔒 Chapter mode locked - Free tier users must upgrade');
         }
       }
     } catch (error) {
@@ -602,9 +601,6 @@ export function UnifiedPracticeViewer({
           questionText: questionData.ocr_text || ''
         };
 
-        console.log(`📤 Sending to AI: Question ${questionData.question_number}`);
-        console.log(`   - Images: ${base64Images.length}`);
-        console.log(`   - Marking scheme: ${questionData.marking_scheme_text ? 'Yes (text)' : 'No'}`);
 
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/exam-assistant`,

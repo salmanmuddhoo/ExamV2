@@ -35,7 +35,6 @@ export async function sendReceiptEmail(transactionId: string): Promise<{
       };
     }
 
-    console.log('Receipt email sent successfully:', data);
     return {
       success: true,
       receiptId: data.receiptId
@@ -68,7 +67,6 @@ export async function sendReceiptEmailWithRetry(
   let lastError: string = '';
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`Attempting to send receipt (attempt ${attempt}/${maxRetries})...`);
 
     const result = await sendReceiptEmail(transactionId);
 

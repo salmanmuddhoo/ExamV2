@@ -224,29 +224,19 @@ export function AdminSubscriptionManager() {
 
       if (tierError) throw tierError;
 
-      console.log('=== ADMIN TIER UPGRADE: TOKEN CARRYOVER ===');
-      console.log('Old tier:', currentSub.subscription_tiers?.name);
-      console.log('New tier:', newTier.name);
 
       // Calculate tokens remaining from old tier
       const oldLimit = (currentSub.subscription_tiers as any)?.token_limit;
       const oldTokensUsed = currentSub.tokens_used_current_period ?? 0;
       const oldTokensRemaining = oldLimit !== null ? Math.max(0, oldLimit - oldTokensUsed) : 0;
 
-      console.log('Old limit:', oldLimit);
-      console.log('Old tokens used:', oldTokensUsed);
-      console.log('Old tokens remaining:', oldTokensRemaining);
-      console.log('New tier limit:', newTier.token_limit);
 
       // Calculate new token limit with carryover
       let newTokenLimit = newTier.token_limit;
       if (newTokenLimit !== null && oldTokensRemaining > 0) {
         // Add remaining tokens to new tier limit
         newTokenLimit = newTier.token_limit + oldTokensRemaining;
-        console.log('✓ CARRYING OVER TOKENS!');
-        console.log('New total token limit:', newTokenLimit, '(', newTier.token_limit, '+', oldTokensRemaining, ')');
       } else {
-        console.log('No token carryover (either unlimited tier or no remaining tokens)');
       }
 
       // Update tier and reset billing cycle dates to today
@@ -254,12 +244,10 @@ export function AdminSubscriptionManager() {
       const periodEnd = new Date(now);
       periodEnd.setDate(periodEnd.getDate() + 30); // 30 days from now
 
-      console.log('Saving to database:', {
         tier_id: editTierId,
         token_limit_override: newTokenLimit,
         tokens_used_current_period: 0
       });
-      console.log('=== END ADMIN UPGRADE DEBUG ===');
 
       const { data: updateResult, error } = await supabase
         .from('user_subscriptions')
@@ -281,7 +269,6 @@ export function AdminSubscriptionManager() {
         throw error;
       }
 
-      console.log('Update successful! Result:', updateResult);
 
       await fetchSubscriptions();
       setEditingUserId(null);

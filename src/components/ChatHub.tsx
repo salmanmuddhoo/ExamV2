@@ -113,8 +113,6 @@ export function ChatHub({
 
       if (error || !data) {
         // No subscription found - try to create one
-        console.log('No subscription found for user, attempting to create free tier...');
-
         try {
           const { data: ensureData, error: ensureError } = await supabase
             .rpc('ensure_user_has_subscription', { p_user_id: user.id });
@@ -122,7 +120,6 @@ export function ChatHub({
           if (ensureError) {
             console.error('Error ensuring subscription:', ensureError);
           } else if (ensureData && ensureData[0]?.success) {
-            console.log('Subscription created, retrying fetch...');
             // Retry fetching the tier
             const { data: retryData } = await supabase
               .from('user_subscriptions')
@@ -474,6 +471,44 @@ export function ChatHub({
                 <Menu className="w-6 h-6 text-gray-700" />
               </button>
             </div>
+
+            {/* Mobile Menu Dropdown - Horizontal style like homepage */}
+            {mobileMenuOpen && (
+              <div className="md:hidden border-t border-gray-200 pt-3 pb-2 space-y-2">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNavigateHome();
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <Home className="w-5 h-5 text-gray-700" />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowProfileModal(true);
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <User className="w-5 h-5 text-gray-700" />
+                  <span>Profile</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <LogOut className="w-5 h-5 text-gray-700" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
             <button
               onClick={handleNewConversation}
               className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"

@@ -156,21 +156,12 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
 
   const handleSelectPlan = (tier: SubscriptionTier) => {
     // Debug logging
-    console.log('=== SUBSCRIPTION TIER SELECTION DEBUG ===');
-    console.log('Selected tier:', tier);
-    console.log('Tier name:', tier.name);
-    console.log('Can select subjects:', tier.can_select_subjects);
-    console.log('Can select grade:', tier.can_select_grade);
-    console.log('Max subjects:', tier.max_subjects);
-    console.log('=== END TIER SELECTION DEBUG ===');
 
     // If tier requires grade/subject selection, show selector
     if (tier.can_select_subjects) {
-      console.log('Showing StudentPackageSelector...');
       setSelectedStudentTier(tier);
       setShowStudentSelector(true);
     } else {
-      console.log('Going directly to payment (no grade/subject selection needed)...');
       // For other tiers, go directly to payment
       proceedToPayment(tier, null, null);
     }
@@ -181,11 +172,6 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
     gradeId: string | null,
     subjectIds: string[] | null
   ) => {
-    console.log('=== PROCEED TO PAYMENT DEBUG ===');
-    console.log('Tier:', tier.name);
-    console.log('Grade ID:', gradeId);
-    console.log('Subject IDs:', subjectIds);
-    console.log('=== END PROCEED TO PAYMENT DEBUG ===');
 
     const price = getPrice(tier);
     const paymentData: PaymentSelectionData = {
@@ -197,7 +183,6 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
       selectedSubjectIds: subjectIds
     };
 
-    console.log('Payment data created:', paymentData);
 
     // Save payment data to sessionStorage FIRST before any navigation
     sessionStorage.setItem('subscription_paymentData', JSON.stringify(paymentData));
@@ -217,11 +202,6 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   };
 
   const handleStudentSelectionComplete = (gradeId: string, subjectIds: string[]) => {
-    console.log('=== STUDENT SELECTION COMPLETE DEBUG ===');
-    console.log('Grade ID:', gradeId);
-    console.log('Subject IDs:', subjectIds);
-    console.log('Selected tier:', selectedStudentTier);
-    console.log('=== END STUDENT SELECTION DEBUG ===');
 
     if (selectedStudentTier) {
       proceedToPayment(selectedStudentTier, gradeId, subjectIds);

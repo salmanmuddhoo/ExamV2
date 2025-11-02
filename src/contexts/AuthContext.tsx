@@ -136,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (profileError) {
         // If profile operations fail, it's likely because email verification is required
         // This is fine - the trigger should have created the profile with first_name and last_name from metadata
-        console.log('Profile created by trigger with user metadata');
       }
     }
   };
