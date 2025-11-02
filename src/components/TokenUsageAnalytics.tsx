@@ -162,7 +162,6 @@ export function TokenUsageAnalytics() {
         setSubjectUsage([]);
       }
     } catch (error) {
-      console.error('Error fetching token usage:', error);
     } finally {
       setLoading(false);
     }

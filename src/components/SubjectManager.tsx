@@ -32,7 +32,6 @@ export function SubjectManager() {
       if (error) throw error;
       setSubjects(data || []);
     } catch (error) {
-      console.error('Error fetching subjects:', error);
     } finally {
       setLoading(false);
     }

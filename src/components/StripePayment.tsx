@@ -157,7 +157,6 @@ function StripeCheckoutForm({
         });
 
         if (couponError) {
-          console.error('Error applying coupon:', couponError);
           // Don't fail the payment, just log the error
         } else {
         }
@@ -165,7 +164,6 @@ function StripeCheckoutForm({
 
       // Send receipt email (non-blocking)
       sendReceiptEmailWithRetry(transaction.id).catch(error => {
-        console.error('Error sending receipt email:', error);
         // Don't fail the payment if receipt fails
       });
 
@@ -173,7 +171,6 @@ function StripeCheckoutForm({
       setTimeout(() => onSuccess(), 2000);
 
     } catch (err: any) {
-      console.error('Stripe payment error:', err);
       setError(err.message || 'Payment failed. Please try again.');
 
       // Clean up: Delete the pending transaction if it was created
@@ -184,7 +181,6 @@ function StripeCheckoutForm({
             .delete()
             .eq('id', transactionId);
         } catch (deleteError) {
-          console.error('Failed to clean up transaction:', deleteError);
         }
       }
     } finally {

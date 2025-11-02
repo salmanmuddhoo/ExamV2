@@ -99,7 +99,6 @@ export function SyllabusManager() {
       setGrades(gradesData || []);
       setSyllabusList(syllabusData || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
       alert('Failed to load data');
     } finally {
       setLoading(false);
@@ -182,7 +181,6 @@ export function SyllabusManager() {
 
       alert('Syllabus uploaded successfully! AI is processing the document...');
     } catch (error: any) {
-      console.error('Error uploading syllabus:', error);
       alert(`Failed to upload syllabus: ${error.message}`);
     } finally {
       setUploading(false);
@@ -199,13 +197,11 @@ export function SyllabusManager() {
 
 
       if (error) {
-        console.error('Supabase function error:', error);
         throw new Error(error.message || 'Edge function failed');
       }
 
       if (!data?.success) {
         const errorMsg = data?.error || data?.details || 'Failed to extract chapters';
-        console.error('Processing failed:', data);
         throw new Error(errorMsg);
       }
 
@@ -215,8 +211,6 @@ export function SyllabusManager() {
       fetchData();
 
     } catch (error: any) {
-      console.error('AI processing error:', error);
-      console.error('Error details:', error);
 
       // Update the syllabus status to failed in the UI
       await supabase
@@ -247,7 +241,6 @@ export function SyllabusManager() {
       setChapters(data || []);
       setViewingSyllabusId(syllabusId);
     } catch (error) {
-      console.error('Error fetching chapters:', error);
       alert('Failed to load chapters');
     }
   };
@@ -277,7 +270,6 @@ export function SyllabusManager() {
       setEditingChapter(null);
       setEditedChapterData({});
     } catch (error) {
-      console.error('Error saving chapter:', error);
       alert('Failed to save chapter');
     }
   };
@@ -298,7 +290,6 @@ export function SyllabusManager() {
         await viewChapters(viewingSyllabusId);
       }
     } catch (error) {
-      console.error('Error deleting chapter:', error);
       alert('Failed to delete chapter');
     }
   };
@@ -326,7 +317,6 @@ export function SyllabusManager() {
       // Refresh list
       fetchData();
     } catch (error) {
-      console.error('Error deleting syllabus:', error);
       alert('Failed to delete syllabus');
     }
   };

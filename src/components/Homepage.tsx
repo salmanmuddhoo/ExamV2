@@ -48,7 +48,6 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
       });
       setTiers(tiersMap);
     } catch (error) {
-      console.error('Error fetching tiers:', error);
     } finally {
       setLoading(false);
     }

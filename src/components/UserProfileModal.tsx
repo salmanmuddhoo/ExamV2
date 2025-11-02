@@ -123,14 +123,12 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
               .rpc('ensure_user_has_subscription', { p_user_id: user.id });
 
             if (ensureError) {
-              console.error('Error ensuring subscription:', ensureError);
             } else if (ensureData && ensureData[0]?.success) {
               // Retry fetching the subscription ONCE
               await fetchSubscriptionTier(1);
               return;
             }
           } catch (err) {
-            console.error('Failed to create subscription:', err);
           }
         }
 
@@ -264,7 +262,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         }
       }
     } catch (error) {
-      console.error('Error fetching subscription tier:', error);
       setSubscriptionTier('Unknown');
     }
   };
@@ -299,7 +296,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         setUpdateMessage({ type: 'error', text: result.message });
       }
     } catch (error: any) {
-      console.error('Error updating selections:', error);
       setUpdateMessage({ type: 'error', text: error.message || 'Failed to update selections' });
     } finally {
       setUpdatingSelections(false);
@@ -320,7 +316,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
       await signOut();
       onClose();
     } catch (error) {
-      console.error('Error signing out:', error);
     }
   };
 
@@ -353,7 +348,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
         throw uploadError;
       }
 
@@ -374,7 +368,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
       setSuccessMessage('Profile picture updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
-      console.error('Error uploading image:', error);
       alert(`Failed to upload image: ${error.message || 'Please try again.'}`);
     } finally {
       setUploadingImage(false);
@@ -398,7 +391,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
       setSuccessMessage('Profile updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
-      console.error('Error updating profile:', error);
       alert('Failed to update profile. Please try again.');
     }
   };
@@ -439,7 +431,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         alert(data[0]?.message || 'Failed to cancel subscription');
       }
     } catch (error: any) {
-      console.error('Error cancelling subscription:', error);
       alert(`Failed to cancel subscription: ${error.message || 'Please try again.'}`);
     } finally {
       setCancelling(false);
@@ -466,7 +457,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         alert(data[0]?.message || 'Failed to reactivate subscription');
       }
     } catch (error: any) {
-      console.error('Error reactivating subscription:', error);
       alert(`Failed to reactivate subscription: ${error.message || 'Please try again.'}`);
     }
   };

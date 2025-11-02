@@ -127,13 +127,11 @@ export function PayPalPayment({
                 });
 
                 if (couponError) {
-                  console.error('Error applying coupon:', couponError);
                 }
               }
 
               // Send receipt email (non-blocking)
               sendReceiptEmailWithRetry(transaction.id).catch(error => {
-                console.error('Error sending receipt email:', error);
                 // Don't fail the payment if receipt fails
               });
 
@@ -141,13 +139,11 @@ export function PayPalPayment({
               setTimeout(() => onSuccess(), 2000);
 
             } catch (err: any) {
-              console.error('PayPal payment error:', err);
               setError(err.message || 'Payment failed. Please try again.');
               setProcessing(false);
             }
           },
           onError: (err: any) => {
-            console.error('PayPal error:', err);
             setError('Payment failed. Please try again.');
           },
           style: {

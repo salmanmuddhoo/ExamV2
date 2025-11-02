@@ -116,7 +116,6 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
       } else {
       }
     } catch (error) {
-      console.error('Error checking for existing conversation:', error);
     }
   };
 
@@ -227,7 +226,6 @@ This helps me give you the most accurate and focused help! 😊`;
           .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
         
         if (signedUrlError || !signedData?.signedUrl) {
-          console.error('Failed to get signed URL:', signedUrlError);
           throw new Error('Failed to get signed URL');
         }
         
@@ -273,11 +271,9 @@ This helps me give you the most accurate and focused help! 😊`;
             setMarkingSchemeImages(schemeImages.map(img => img.inlineData.data));
           }
         } catch (schemeError) {
-          console.error('Error loading marking scheme:', schemeError);
         }
       }
     } catch (error) {
-      console.error('Error loading PDF:', error);
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')
         .getPublicUrl(examPaper.pdf_path);
@@ -301,7 +297,6 @@ This helps me give you the most accurate and focused help! 😊`;
         setIsFullscreen(false);
       }
     } catch (error) {
-      console.error('Error toggling fullscreen:', error);
     }
   };
 
@@ -341,7 +336,6 @@ This helps me give you the most accurate and focused help! 😊`;
           });
 
         if (accessError) {
-          console.error('Error checking paper access:', accessError);
         } else if (accessCheck && accessCheck.length > 0) {
           const access = accessCheck[0];
           setPapersRemaining(access.papers_remaining);
@@ -403,7 +397,6 @@ This helps me give you the most accurate and focused help! 😊`;
                 });
 
               if (chatAccessError) {
-                console.error('Error checking student package chat access:', chatAccessError);
               } else if (canUseChat === false) {
                 setChatLocked(true);
               } else {
@@ -413,7 +406,6 @@ This helps me give you the most accurate and focused help! 😊`;
         }
       }
     } catch (error) {
-      console.error('Error fetching exam paper:', error);
     } finally {
       setLoading(false);
       // Load token counts for display
@@ -471,7 +463,6 @@ This helps me give you the most accurate and focused help! 😊`;
       // Scroll to bottom after loading messages
       setTimeout(() => scrollToBottom(), 100);
     } catch (error) {
-      console.error('Error loading conversation:', error);
     }
   };
 
@@ -546,7 +537,6 @@ This helps me give you the most accurate and focused help! 😊`;
 
       if (assistantMsgError) throw assistantMsgError;
     } catch (error) {
-      console.error('Error saving conversation:', error);
     }
   };
 
@@ -602,7 +592,6 @@ This helps me give you the most accurate and focused help! 😊`;
         setTierName(tierName);
       }
     } catch (error) {
-      console.error('Error refreshing token counts:', error);
     }
   };
 
@@ -654,7 +643,6 @@ This helps me give you the most accurate and focused help! 😊`;
 
         base64Images.push(base64Image);
       } catch (error) {
-        console.error(`Failed to load image ${i + 1}:`, error);
       }
     }
 
@@ -685,7 +673,6 @@ This helps me give you the most accurate and focused help! 😊`;
         });
 
       if (accessError) {
-        console.error('Error checking chat access:', accessError);
       } else if (canUseChat === false) {
         // User cannot use chat with this paper - show restriction message
         setMessages((prev) => [...prev, {
@@ -772,7 +759,6 @@ You can still view and download this exam paper!`
             .eq('status', 'active');
 
           if (updateError) {
-            console.error('Error tracking paper chat usage:', updateError);
           } else {
             const newCount = subscription.papers_accessed_current_period + 1;
             // Update local state immediately
@@ -975,7 +961,6 @@ You can still view and download this exam paper!`
       // 🔹 NEW: Refresh token/paper counts immediately after AI response
       await refreshTokenCounts();
     } catch (error) {
-      console.error('Error sending message:', error);
       setMessages((prev) => [
         ...prev,
         {

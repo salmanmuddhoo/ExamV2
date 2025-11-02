@@ -38,7 +38,6 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
       if (error) throw error;
       setGradeLevels(data || []);
     } catch (error) {
-      console.error('Error fetching grade levels:', error);
     }
   };
 
@@ -48,7 +47,6 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
       setMobileMenuOpen(false);
       onNavigateHome();
     } catch (error) {
-      console.error('Error signing out:', error);
       setMobileMenuOpen(false);
       onNavigateHome();
     }

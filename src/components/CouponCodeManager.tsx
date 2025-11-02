@@ -94,7 +94,6 @@ export function CouponCodeManager() {
       setCoupons(data || []);
       setFilteredCoupons(data || []);
     } catch (error) {
-      console.error('Error fetching coupons:', error);
     } finally {
       setLoading(false);
     }
@@ -110,7 +109,6 @@ export function CouponCodeManager() {
       if (error) throw error;
       setSubscriptionTiers(data || []);
     } catch (error) {
-      console.error('Error fetching subscription tiers:', error);
     }
   };
 
@@ -162,7 +160,6 @@ export function CouponCodeManager() {
       setEditingCoupon(null);
       resetForm();
     } catch (error: any) {
-      console.error('Error saving coupon:', error);
       alert(error.message || 'Failed to save coupon code');
     } finally {
       setSaving(false);
@@ -186,7 +183,6 @@ export function CouponCodeManager() {
       // Refresh the list
       await fetchCoupons();
     } catch (error: any) {
-      console.error('Error deleting coupon:', error);
       alert(error.message || 'Failed to delete coupon code');
     } finally {
       setDeleting(null);

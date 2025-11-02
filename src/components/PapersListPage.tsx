@@ -42,7 +42,6 @@ export function PapersListPage({ gradeId, gradeName, subjectId, subjectName, yea
 
       setPapers(data || []);
     } catch (error) {
-      console.error('Error fetching papers:', error);
     } finally {
       setLoading(false);
     }

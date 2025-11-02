@@ -169,7 +169,6 @@ export function AIPromptAnalytics() {
         setTimeSeriesData([]);
       }
     } catch (error) {
-      console.error('Error fetching prompt analytics:', error);
     } finally {
       setLoading(false);
     }

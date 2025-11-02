@@ -107,7 +107,6 @@ export function UserManagement() {
       setUsers(usersData || []);
       setSubscriptions(subsMap);
     } catch (err) {
-      console.error('Error fetching users:', err);
       setError('Failed to load users. Please try again.');
     } finally {
       setLoading(false);
@@ -137,7 +136,6 @@ export function UserManagement() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      console.error('Error updating user status:', err);
       setError('Failed to update user status. Please try again.');
     } finally {
       setUpdatingUserId(null);
@@ -167,7 +165,6 @@ export function UserManagement() {
         setError(data[0]?.message || 'Failed to delete user');
       }
     } catch (error: any) {
-      console.error('Error deleting user:', error);
       setError(`Failed to delete user: ${error.message || 'Please try again.'}`);
     } finally {
       setDeleting(false);

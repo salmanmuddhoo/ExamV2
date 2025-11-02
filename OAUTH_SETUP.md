@@ -110,24 +110,54 @@ This application now supports social login with popular OAuth providers. Follow 
 3. Click **New registration**
 4. Fill in the details:
    - **Name**: Your app name
-   - **Supported account types**: Choose appropriate option
+   - **Supported account types**: Choose **Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts**
    - **Redirect URI**: Select **Web** and enter:
      ```
      https://<your-project-ref>.supabase.co/auth/v1/callback
      ```
 5. Click **Register**
 6. Copy the **Application (client) ID**
-7. Go to **Certificates & secrets** → **New client secret**
-8. Create and copy the client secret value
 
-### 2. Configure in Supabase
+### 2. Configure API Permissions (CRITICAL)
+
+1. In your app registration, go to **API permissions**
+2. Click **Add a permission** → **Microsoft Graph** → **Delegated permissions**
+3. Add the following permissions:
+   - `openid` (Sign users in)
+   - `profile` (View users' basic profile)
+   - `email` (View users' email address) **← REQUIRED**
+   - `User.Read` (Sign in and read user profile)
+4. Click **Add permissions**
+5. **IMPORTANT**: Click **Grant admin consent** if you have admin rights
+   - If you don't have admin rights, users will need to consent on first login
+
+### 3. Create Client Secret
+
+1. Go to **Certificates & secrets** → **New client secret**
+2. Add a description and expiration period
+3. Click **Add** and copy the client secret value **immediately** (you won't see it again)
+
+### 4. Configure in Supabase
 
 1. In Supabase Dashboard, go to **Authentication** → **Providers**
 2. Find **Azure** and click to expand
 3. Toggle **Enable Sign in with Azure**
-4. Enter your **Client ID** and **Client Secret**
-5. Optionally, configure the **Azure Tenant ID** (for single-tenant apps)
-6. Click **Save**
+4. Enter your **Client ID** (Application/client ID from Azure)
+5. Enter your **Client Secret** (from step 3)
+6. **Azure Tenant ID**:
+   - For personal Microsoft accounts + organizational accounts: use `common`
+   - For single tenant: use your specific tenant ID
+   - For organizational accounts only: use `organizations`
+7. **Scopes**: Leave default or ensure it includes `openid profile email`
+8. Click **Save**
+
+### Troubleshooting Azure OAuth
+
+**Error: "Error getting user email from external provider"**
+- Ensure you've added the `email` permission in Azure API permissions (step 2.3)
+- Make sure you've granted admin consent for the permissions
+- Verify the redirect URI matches exactly: `https://your-project.supabase.co/auth/v1/callback`
+- Check that "Supported account types" includes the type of accounts you're testing with
 
 ---
 

@@ -203,7 +203,6 @@ export function UnifiedPracticeViewer({
         .maybeSingle();
 
       if (convError) {
-        console.error('Error loading conversation:', convError);
         return;
       }
 
@@ -218,7 +217,6 @@ export function UnifiedPracticeViewer({
           .order('created_at', { ascending: true });
 
         if (msgsError) {
-          console.error('Error loading messages:', msgsError);
           return;
         }
 
@@ -230,7 +228,6 @@ export function UnifiedPracticeViewer({
         }
       }
     } catch (error) {
-      console.error('Error in loadExistingConversation:', error);
     }
   };
 
@@ -274,7 +271,6 @@ export function UnifiedPracticeViewer({
         }
       }
     } catch (error) {
-      console.error('Error checking subscription:', error);
     }
   };
 
@@ -313,7 +309,6 @@ export function UnifiedPracticeViewer({
         }
       }
     } catch (error) {
-      console.error('Error refreshing token counts:', error);
     }
   };
 
@@ -327,7 +322,6 @@ export function UnifiedPracticeViewer({
       if (gradeRes.data) setGrade(gradeRes.data);
       if (subjectRes.data) setSubject(subjectRes.data);
     } catch (error) {
-      console.error('Error fetching grade/subject:', error);
     }
   };
 
@@ -350,7 +344,6 @@ export function UnifiedPracticeViewer({
         handlePaperSelect(data[0]);
       }
     } catch (error) {
-      console.error('Error fetching papers:', error);
     } finally {
       setLoading(false);
     }
@@ -376,7 +369,6 @@ export function UnifiedPracticeViewer({
         });
       }
     } catch (error) {
-      console.error('Error fetching chapter info:', error);
     }
   };
 
@@ -393,7 +385,6 @@ export function UnifiedPracticeViewer({
         setIsFullscreen(false);
       }
     } catch (error) {
-      console.error('Error toggling fullscreen:', error);
     }
   };
 
@@ -418,13 +409,11 @@ export function UnifiedPracticeViewer({
         .createSignedUrl(paper.pdf_path, 3600);
 
       if (signedUrlError || !signedData?.signedUrl) {
-        console.error('Failed to get signed URL:', signedUrlError);
         throw new Error('Failed to get signed URL');
       }
 
       setPdfBlobUrl(signedData.signedUrl);
     } catch (error) {
-      console.error('Error loading PDF:', error);
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')
         .getPublicUrl(paper.pdf_path);
@@ -483,7 +472,6 @@ export function UnifiedPracticeViewer({
         setSelectedQuestion(formattedQuestions[0]);
       }
     } catch (error) {
-      console.error('Error fetching questions:', error);
       setQuestions([]);
     } finally {
       setQuestionsLoading(false);
@@ -583,7 +571,6 @@ export function UnifiedPracticeViewer({
 
             base64Images.push(base64Image);
           } catch (error) {
-            console.error('Failed to load image:', error);
           }
         }
 
@@ -664,7 +651,6 @@ export function UnifiedPracticeViewer({
               .single();
 
             if (convError) {
-              console.error('Error creating conversation:', convError);
             } else if (newConv) {
               convId = newConv.id;
             }
@@ -704,7 +690,6 @@ export function UnifiedPracticeViewer({
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
       setMessages((prev) => [
         ...prev,
         {

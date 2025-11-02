@@ -41,7 +41,6 @@ export function TierConfigManager() {
       if (error) throw error;
       setTiers(data || []);
     } catch (error) {
-      console.error('Error fetching tiers:', error);
       showMessage('error', 'Failed to load tier configurations');
     } finally {
       setLoading(false);
@@ -70,7 +69,6 @@ export function TierConfigManager() {
 
       showMessage('success', 'Configuration updated successfully');
     } catch (error) {
-      console.error('Error updating tier:', error);
       showMessage('error', 'Failed to update configuration');
     } finally {
       setSaving(null);

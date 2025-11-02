@@ -32,7 +32,6 @@ export function PaymentMethodManager() {
       if (error) throw error;
       setPaymentMethods(data || []);
     } catch (error) {
-      console.error('Error fetching payment methods:', error);
       alert('Failed to load payment methods');
     } finally {
       setLoading(false);
@@ -58,7 +57,6 @@ export function PaymentMethodManager() {
         )
       );
     } catch (error) {
-      console.error('Error updating payment method:', error);
       alert('Failed to update payment method status');
     } finally {
       setUpdating(null);

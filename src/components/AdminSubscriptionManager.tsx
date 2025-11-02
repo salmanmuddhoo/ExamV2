@@ -90,7 +90,6 @@ export function AdminSubscriptionManager() {
       if (error) throw error;
       setTiers(data || []);
     } catch (error) {
-      console.error('Error fetching tiers:', error);
     }
   };
 
@@ -167,7 +166,6 @@ export function AdminSubscriptionManager() {
         total_revenue: revenue,
       });
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
     } finally {
       setLoading(false);
     }
@@ -260,7 +258,6 @@ export function AdminSubscriptionManager() {
         .select();
 
       if (error) {
-        console.error('Database update error:', error);
         throw error;
       }
 
@@ -269,7 +266,6 @@ export function AdminSubscriptionManager() {
       setEditingUserId(null);
       setEditTierId('');
     } catch (error) {
-      console.error('Error updating tier:', error);
       alert('Failed to update subscription tier');
     } finally {
       setUpdating(false);
@@ -295,7 +291,6 @@ export function AdminSubscriptionManager() {
       await fetchSubscriptions();
       alert('Usage counters reset successfully');
     } catch (error) {
-      console.error('Error resetting usage:', error);
       alert('Failed to reset usage counters');
     }
   };

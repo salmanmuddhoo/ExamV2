@@ -20,7 +20,6 @@ export function PaymentPage({ onBack, onSuccess }: PaymentPageProps) {
         const data = JSON.parse(savedPaymentData);
         setPaymentData(data);
       } catch (error) {
-        console.error('Error parsing payment data:', error);
       }
     }
     setLoading(false);

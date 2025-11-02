@@ -38,7 +38,6 @@ export function AIPromptManager() {
       if (error) throw error;
       setPrompts(data || []);
     } catch (error) {
-      console.error('Error fetching AI prompts:', error);
     } finally {
       setLoading(false);
     }

@@ -33,7 +33,6 @@ export function YearsPage({ gradeId, gradeName, subjectId, subjectName, onBack, 
       const uniqueYears = Array.from(new Set(data.map(paper => paper.year)));
       setYears(uniqueYears);
     } catch (error) {
-      console.error('Error fetching years:', error);
     } finally {
       setLoading(false);
     }

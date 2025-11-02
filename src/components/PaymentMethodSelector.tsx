@@ -46,7 +46,6 @@ export function PaymentMethodSelector({
       if (error) throw error;
       setPaymentMethods(data || []);
     } catch (error) {
-      console.error('Error fetching payment methods:', error);
     } finally {
       setLoading(false);
     }

@@ -83,7 +83,6 @@ export function QuestionBankByChapter() {
       setSubjects(subjectsRes.data || []);
       setGradeLevels(gradesRes.data || []);
     } catch (error) {
-      console.error('Error fetching initial data:', error);
     } finally {
       setLoading(false);
     }
@@ -136,7 +135,6 @@ export function QuestionBankByChapter() {
 
       setChapters(chaptersWithCounts);
     } catch (error) {
-      console.error('Error fetching chapters:', error);
     }
   };
 
@@ -196,7 +194,6 @@ export function QuestionBankByChapter() {
 
       setQuestions(formattedQuestions);
     } catch (error) {
-      console.error('Error fetching questions:', error);
     } finally {
       setLoadingQuestions(false);
     }

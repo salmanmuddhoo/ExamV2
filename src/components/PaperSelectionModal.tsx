@@ -91,7 +91,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         ]);
 
         if (accessibleGrades.error) {
-          console.error('Error fetching accessible grades:', accessibleGrades.error);
           // Fallback to all grades
           const { data: allGrades } = await supabase.from('grade_levels').select('*').order('display_order');
           setGradeLevels(allGrades || []);
@@ -107,7 +106,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
         // Filter to only accessible papers and map to ExamPaper format
         if (accessiblePapers.error) {
-          console.error('Error fetching accessible papers:', accessiblePapers.error);
           // Fallback to all papers if RPC fails
           const { data: allPapers } = await supabase
             .from('exam_papers')
@@ -160,7 +158,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       }
 
     } catch (error) {
-      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -184,7 +181,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         .single();
 
       if (subError) {
-        console.error('Error fetching subscription:', subError);
         setHasChapterAccess(true); // Default to true on error
         return;
       }
@@ -196,7 +192,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         setHasChapterAccess(true); // Default to true if no subscription found
       }
     } catch (error) {
-      console.error('Error checking chapter access:', error);
       setHasChapterAccess(true); // Default to true on error
     }
   };
@@ -221,7 +216,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         });
 
       if (error) {
-        console.error('Error fetching accessible subjects:', error);
         // Fallback to all subjects for this grade
         const subjectIds = new Set(
           papers
@@ -243,7 +237,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         accessibleSubjects?.some((as: any) => as.subject_id === s.id)
       );
     } catch (error) {
-      console.error('Error in getAvailableSubjectsForGrade:', error);
       // Fallback
       const subjectIds = new Set(
         papers
@@ -334,7 +327,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       setSyllabuses(uniqueSyllabuses);
     } catch (error) {
-      console.error('Error fetching syllabuses:', error);
       setSyllabuses([]);
     } finally {
       setLoading(false);
@@ -367,7 +359,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         .eq('syllabus_chapters.syllabus_id', syllabusId);
 
       if (error) {
-        console.error('Error fetching chapters:', error);
         setChapters([]);
         return;
       }
@@ -409,7 +400,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       setChapters(chaptersWithQuestions);
     } catch (error) {
-      console.error('Error fetching chapters:', error);
       setChapters([]);
     } finally {
       setLoading(false);

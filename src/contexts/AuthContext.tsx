@@ -33,13 +33,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set a maximum timeout for initial loading to prevent infinite spinner
     const loadingTimeout = setTimeout(() => {
-      console.warn('Auth loading timeout - setting loading to false');
       setLoading(false);
     }, 10000); // 10 second timeout
 
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        console.error('Error getting session:', error);
         setUser(null);
         setProfile(null);
         setLoading(false);
@@ -57,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(loadingTimeout);
       }
     }).catch((err) => {
-      console.error('Failed to get session:', err);
       setUser(null);
       setProfile(null);
       setLoading(false);
@@ -100,7 +97,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) {
           // Check if it's an auth error (expired session)
           if (error.message?.includes('JWT') || error.message?.includes('expired') || error.code === 'PGRST301') {
-            console.error('Session expired or invalid - clearing auth');
             await supabase.auth.signOut();
             setUser(null);
             setProfile(null);
@@ -115,7 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (userError) {
             // Session is invalid
-            console.error('Invalid session - clearing auth');
             await supabase.auth.signOut();
             setUser(null);
             setProfile(null);
@@ -148,13 +143,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await Promise.race([fetchPromise, timeoutPromise]);
     } catch (error: any) {
       if (error.message === 'Profile fetch timeout') {
-        console.error('Profile fetch timed out - clearing session');
         // Clear the session on timeout as it's likely invalid
         await supabase.auth.signOut().catch(() => {});
         setUser(null);
         setProfile(null);
       } else {
-        console.error('Error fetching profile:', error);
       }
     } finally {
       setLoading(false);
@@ -215,11 +208,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithOAuth = async (provider: OAuthProvider) => {
+    // Configure provider-specific scopes and options
+    const options: any = {
+      redirectTo: `${window.location.origin}`,
+    };
+
+    // Microsoft Azure requires explicit email scope
+    if (provider === 'azure') {
+      options.scopes = 'openid profile email';
+    }
+
+    // Google - ensure we prompt for account selection to handle multiple accounts
+    if (provider === 'google') {
+      options.queryParams = {
+        access_type: 'offline',
+        prompt: 'select_account', // Forces account selection every time
+      };
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}`,
-      },
+      options,
     });
 
     if (error) throw error;
@@ -235,7 +244,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
-      console.error('Sign out error:', error);
       setUser(null);
       setProfile(null);
       throw error;
