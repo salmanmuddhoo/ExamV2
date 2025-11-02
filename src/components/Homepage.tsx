@@ -519,12 +519,8 @@ function AppScreenshotSlider() {
     <div className="relative w-full max-w-2xl mx-auto">
       {/* Screenshot Frame with Border */}
       <div className="relative bg-white rounded-2xl shadow-2xl border-4 border-black overflow-hidden">
-        {/* Slider Container - Dynamic aspect ratio based on slide type */}
-        <div className={`relative overflow-hidden bg-gray-100 ${
-          slides[currentSlide].isDesktop
-            ? 'aspect-[16/10]'
-            : 'aspect-[9/16] sm:aspect-[10/16]'
-        }`}>
+        {/* Slider Container */}
+        <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
           {slides.map((slide, index) => (
             <div
               key={index}
@@ -541,9 +537,7 @@ function AppScreenshotSlider() {
                 <img
                   src={slide.image}
                   alt={slide.title}
-                  className={`w-full h-full ${
-                    slide.isDesktop ? 'object-cover' : 'object-contain'
-                  }`}
+                  className="w-full h-full object-cover"
                   onError={() => handleImageError(index)}
                 />
               ) : (
