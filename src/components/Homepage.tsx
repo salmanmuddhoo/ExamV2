@@ -1,4 +1,4 @@
-import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star } from 'lucide-react';
+import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatTokenCount } from '../lib/formatUtils';
@@ -118,9 +118,9 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </div>
             </div>
 
-            {/* Right - iPhone with Animation */}
+            {/* Right - App Screenshot Slider */}
             <div className="relative flex justify-center lg:justify-end">
-              <IPhoneHero />
+              <AppScreenshotSlider />
             </div>
           </div>
         </div>
@@ -474,85 +474,128 @@ function PricingCard({
   );
 }
 
-function IPhoneHero() {
-  const [phase, setPhase] = useState(0);
+// Image slider for desktop and mobile app views
+function AppScreenshotSlider() {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const slides = [
+    {
+      title: 'Desktop View',
+      description: 'Full-featured experience on desktop',
+      // Placeholder for desktop screenshot - replace with actual image path
+      image: '/screenshots/desktop-view.png',
+      isDesktop: true,
+    },
+    {
+      title: 'Mobile View',
+      description: 'Study on-the-go with our mobile PWA',
+      // Placeholder for mobile screenshot - replace with actual image path
+      image: '/screenshots/mobile-view.png',
+      isDesktop: false,
+    },
+  ];
 
   useEffect(() => {
-    const timers = [
-      setTimeout(() => setPhase(1), 2000),  // Start walking
-      setTimeout(() => setPhase(2), 5000),  // Reaches house
-      setTimeout(() => setPhase(3), 7500),  // Opens laptop
-    ];
-
+    // Auto-advance slides every 5 seconds
     const interval = setInterval(() => {
-      setPhase(0);
-      setTimeout(() => setPhase(1), 2000);
-      setTimeout(() => setPhase(2), 5000);
-      setTimeout(() => setPhase(3), 7500);
-    }, 14000);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
 
-    return () => {
-      timers.forEach(clearTimeout);
-      clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [slides.length]);
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
 
   return (
-    <div className="relative w-full max-w-lg">
-      <svg viewBox="0 0 500 400" className="w-full h-auto" style={{ filter: 'drop-shadow(0 20px 25px rgb(0 0 0 / 0.15))' }}>
-        
-        {/* Mountains and Background */}
-        <g>
-          <rect x="0" y="0" width="500" height="250" fill="#E0F2FE" />
-          <circle cx="420" cy="60" r="25" fill="none" stroke="#F59E0B" strokeWidth="2.5" />
-          <path d="M0 240 L100 180 L200 220 L300 160 L400 200 L500 180 L500 250 L0 250 Z" fill="none" stroke="#1F2937" strokeWidth="3" />
-          <line x1="0" y1="300" x2="500" y2="300" stroke="#1F2937" strokeWidth="2.5" />
-        </g>
+    <div className="relative w-full max-w-2xl mx-auto">
+      {/* Screenshot Frame with Border */}
+      <div className="relative bg-white rounded-2xl shadow-2xl border-4 border-black overflow-hidden">
+        {/* Slider Container */}
+        <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
+          {slides.map((slide, index) => (
+            <div
+              key={index}
+              className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+                index === currentSlide
+                  ? 'opacity-100 translate-x-0'
+                  : index < currentSlide
+                  ? 'opacity-0 -translate-x-full'
+                  : 'opacity-0 translate-x-full'
+              }`}
+            >
+              {/* Placeholder image - replace with actual screenshots */}
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                <div className="text-center p-4 sm:p-8">
+                  <div className={`mx-auto mb-4 ${slide.isDesktop ? 'w-16 h-16 sm:w-24 sm:h-24' : 'w-12 h-24 sm:w-16 sm:h-32'} bg-black rounded-lg flex items-center justify-center`}>
+                    {slide.isDesktop ? (
+                      <svg className="w-8 h-8 sm:w-12 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="2" />
+                        <path d="M8 21h8" strokeWidth="2" strokeLinecap="round" />
+                        <path d="M12 17v4" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      <svg className="w-6 h-10 sm:w-8 sm:h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <rect x="5" y="2" width="14" height="20" rx="2" strokeWidth="2" />
+                        <path d="M12 18h.01" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{slide.title}</h3>
+                  <p className="text-sm sm:text-base text-gray-600">{slide.description}</p>
+                  <p className="mt-4 text-xs sm:text-sm text-gray-500">
+                    Replace /public/screenshots/{slide.isDesktop ? 'desktop' : 'mobile'}-view.png with your screenshot
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        {/* House */}
-        <g>
-          <rect x="200" y="180" width="180" height="120" fill="none" stroke="#1F2937" strokeWidth="3" />
-          <path d="M190 180 L290 120 L390 180 Z" fill="none" stroke="#1F2937" strokeWidth="3" />
-          <rect x="265" y="230" width="50" height="70" rx="3" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-        </g>
+        {/* Navigation Arrows */}
+        <button
+          onClick={prevSlide}
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white p-1.5 sm:p-2 rounded-full transition-all z-10"
+          aria-label="Previous slide"
+        >
+          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
+        <button
+          onClick={nextSlide}
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black text-white p-1.5 sm:p-2 rounded-full transition-all z-10"
+          aria-label="Next slide"
+        >
+          <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
 
-        {/* Walking Person */}
-        {phase === 1 && (
-          <g style={{ transform: `translateX(${phase === 1 ? 0 : 130}px)`, transition: 'transform 3s linear' }}>
-            <circle cx="120" cy="220" r="18" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-            {/* Arms swing */}
-            <path d={`M120 245 L${phase === 1 ? 100 : 110} 268`} stroke="#1F2937" strokeWidth="2.5" />
-            <path d={`M120 245 L${phase === 1 ? 140 : 130} 268`} stroke="#1F2937" strokeWidth="2.5" />
-            {/* Legs swing */}
-            <path d="M120 275 L110 300" stroke="#1F2937" strokeWidth="2.5" />
-            <path d="M120 275 L130 300" stroke="#1F2937" strokeWidth="2.5" />
-          </g>
-        )}
+        {/* Slide Indicators */}
+        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`h-1.5 sm:h-2 rounded-full transition-all ${
+                index === currentSlide
+                  ? 'bg-black w-6 sm:w-8'
+                  : 'bg-black/30 w-1.5 sm:w-2 hover:bg-black/50'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+      </div>
 
-        {/* Person entering house */}
-        {phase === 2 && (
-          <g style={{ transform: 'translateX(250px)', transition: 'transform 1s' }}>
-            <circle cx="250" cy="240" r="18" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-            <line x1="250" y1="258" x2="250" y2="290" stroke="#1F2937" strokeWidth="3" />
-          </g>
-        )}
-
-        {/* Person studying at laptop */}
-        {phase === 3 && (
-          <g>
-            <rect x="170" y="170" width="80" height="60" fill="#E0F2FE" stroke="#1F2937" strokeWidth="2" />
-            <rect x="220" y="260" width="140" height="45" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-            {/* Laptop */}
-            <path d="M245 305 L245 275 L335 275 L335 305" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-            <path d="M248 275 L252 235 L328 235 L332 275" fill="#F9FAFB" stroke="#1F2937" strokeWidth="2.5" />
-            {/* Text bubble */}
-            <text x="260" y="230" fontSize="16" fill="#1F2937">Aixampaper:</text>
-            {/* Person */}
-            <circle cx="290" cy="240" r="16" fill="none" stroke="#1F2937" strokeWidth="2.5" />
-            <line x1="290" y1="256" x2="290" y2="290" stroke="#1F2937" strokeWidth="3" />
-          </g>
-        )}
-      </svg>
+      {/* Caption below frame */}
+      <div className="mt-4 sm:mt-6 text-center">
+        <p className="text-xs sm:text-sm text-gray-600">
+          {slides[currentSlide].description}
+        </p>
+      </div>
     </div>
   );
 }
