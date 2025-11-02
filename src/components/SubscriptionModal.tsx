@@ -117,7 +117,6 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
       setCurrentSubscription(subscriptionData || null);
       sessionStorage.setItem('subscription_current', JSON.stringify(subscriptionData || null));
     } catch (error) {
-      console.error('Error fetching subscription data:', error);
     } finally {
       setLoading(false);
     }
@@ -221,7 +220,6 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
     if (selectedStudentTier) {
       proceedToPayment(selectedStudentTier, gradeId, subjectIds);
     } else {
-      console.error('ERROR: No selected student tier!');
     }
   };
 

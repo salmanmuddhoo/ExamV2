@@ -97,7 +97,6 @@ export function ChapterPractice() {
       if (subjectsRes.data) setSubjects(subjectsRes.data);
       if (gradesRes.data) setGradeLevels(gradesRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
     }
   };
 
@@ -141,7 +140,6 @@ export function ChapterPractice() {
         setChapters(chaptersWithCounts.filter(ch => ch.question_count > 0));
       }
     } catch (error) {
-      console.error('Error fetching chapters:', error);
     }
   };
 
@@ -227,7 +225,6 @@ export function ChapterPractice() {
         loadExistingConversation();
       }
     } catch (error) {
-      console.error('Error fetching questions:', error);
     }
   };
 
@@ -357,7 +354,6 @@ export function ChapterPractice() {
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error sending message:', error);
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again.'

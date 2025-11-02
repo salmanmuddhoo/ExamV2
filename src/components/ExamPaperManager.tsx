@@ -141,7 +141,6 @@ export function ExamPaperManager() {
       setGradeLevels(gradesRes.data || []);
       setAiPrompts(promptsRes.data || []);
     } catch (error) {
-      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -160,7 +159,6 @@ export function ExamPaperManager() {
       if (error) throw error;
       setSyllabuses(data || []);
     } catch (error) {
-      console.error('Error fetching syllabuses:', error);
       setSyllabuses([]);
     }
   };
@@ -200,7 +198,6 @@ export function ExamPaperManager() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Re-tagging error:', errorText);
       throw new Error(`Failed to re-tag questions: ${errorText}`);
     }
 
@@ -263,7 +260,6 @@ export function ExamPaperManager() {
           await retagQuestionsWithNewSyllabus(editingId, newSyllabusId);
           showAlert('Exam paper and questions updated successfully!', 'Success', 'success');
         } catch (retagError: any) {
-          console.error('Re-tagging error:', retagError);
           showAlert(`Exam paper updated, but re-tagging failed: ${retagError.message}`, 'Partial Success', 'warning');
         }
         setProcessingStatus('');
@@ -284,7 +280,6 @@ export function ExamPaperManager() {
       setEditingId(null);
       fetchData();
     } catch (error: any) {
-      console.error('Update error:', error);
       showAlert(error.message || 'Failed to update exam paper', 'Update Failed', 'error');
     } finally {
       setUploading(false);
@@ -394,7 +389,6 @@ export function ExamPaperManager() {
 
         if (!processingResponse.ok) {
           const errorText = await processingResponse.text();
-          console.error('Processing error:', errorText);
           throw new Error(`AI processing failed: ${errorText}`);
         }
 
@@ -414,7 +408,6 @@ export function ExamPaperManager() {
           showAlert('Upload successful but no questions detected.', 'Upload Complete', 'warning');
         }
       } catch (processingError: any) {
-        console.error('Processing error:', processingError);
         setProcessingStatus('');
         setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
         setExamPaperFile(null);
@@ -444,7 +437,6 @@ export function ExamPaperManager() {
             .eq('exam_paper_id', paper.id);
 
           if (fetchError) {
-            console.error('Error fetching exam questions:', fetchError);
           }
 
 
@@ -455,7 +447,6 @@ export function ExamPaperManager() {
             .list(paper.id);
 
           if (listError) {
-            console.error('Error listing files in folder:', listError);
           } else if (files && files.length > 0) {
 
             // Build full paths for deletion
@@ -466,7 +457,6 @@ export function ExamPaperManager() {
               .remove(filePaths);
 
             if (deleteError) {
-              console.error('Error deleting question images:', deleteError);
             } else {
             }
           }
@@ -477,7 +467,6 @@ export function ExamPaperManager() {
             .remove([paper.pdf_path]);
 
           if (pdfDeleteError) {
-            console.error('Error deleting exam paper PDF:', pdfDeleteError);
           }
 
           // Delete marking scheme and its PDF if it exists
@@ -495,7 +484,6 @@ export function ExamPaperManager() {
                 .remove([scheme.pdf_path]);
 
               if (schemeDeleteError) {
-                console.error('Error deleting marking scheme PDF:', schemeDeleteError);
               }
             }
           }
@@ -507,7 +495,6 @@ export function ExamPaperManager() {
           fetchData();
           showAlert('Exam paper and all related files deleted successfully', 'Deleted', 'success');
         } catch (error: any) {
-          console.error('Delete error:', error);
           showAlert(error.message, 'Error', 'error');
         }
       },
@@ -532,7 +519,6 @@ export function ExamPaperManager() {
       const images = await convertPdfToBase64Images(file);
       setExamPaperImages(images);
     } catch (error) {
-      console.error('Error processing PDF:', error);
       showAlert('Error processing PDF. The file will still be uploaded.', 'Processing Warning', 'warning');
     } finally {
       setProcessingPdf(false);

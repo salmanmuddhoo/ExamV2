@@ -91,7 +91,6 @@ export function AdminPaymentApproval() {
       setTransactions(data || []);
       setFilteredTransactions(data || []);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
     } finally {
       setLoading(false);
     }
@@ -117,7 +116,6 @@ export function AdminPaymentApproval() {
 
       // Send receipt email (non-blocking)
       sendReceiptEmailWithRetry(transactionId).catch(error => {
-        console.error('Error sending receipt email:', error);
         // Don't fail the approval if receipt fails
       });
 
@@ -125,7 +123,6 @@ export function AdminPaymentApproval() {
       fetchTransactions();
       setSelectedTransaction(null);
     } catch (error: any) {
-      console.error('Error approving payment:', error);
       alert(`Failed to approve payment: ${error.message}`);
     } finally {
       setProcessingId(null);
@@ -155,7 +152,6 @@ export function AdminPaymentApproval() {
       fetchTransactions();
       setSelectedTransaction(null);
     } catch (error: any) {
-      console.error('Error rejecting payment:', error);
       alert(`Failed to reject payment: ${error.message}`);
     } finally {
       setProcessingId(null);

@@ -158,7 +158,6 @@ function App() {
         sessionStorage.setItem(welcomeShownKey, 'true');
       }
     } catch (error) {
-      console.error('Error checking first-time user:', error);
     }
   };
 
@@ -218,7 +217,6 @@ function App() {
         setView('exam-viewer');
       }
     } catch (error) {
-      console.error('Error checking conversation type:', error);
       // Fallback to exam viewer
       setSelectedConversationId(conversationId);
       setSelectedPaperId(paperId);

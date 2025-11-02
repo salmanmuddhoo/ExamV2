@@ -110,7 +110,6 @@ export function CacheModeAnalytics() {
         .gte('created_at', startDate.toISOString());
 
       if (cacheError) {
-        console.error('Error fetching cache efficiency:', cacheError);
       } else if (cacheData && cacheData.length > 0) {
         const totalCacheHits = cacheData.reduce((sum, row) => sum + (row.use_count || 0), 0);
         const totalCaches = cacheData.length;
@@ -122,7 +121,6 @@ export function CacheModeAnalytics() {
         });
       }
     } catch (error) {
-      console.error('Error fetching cache analytics:', error);
     } finally {
       setLoading(false);
     }

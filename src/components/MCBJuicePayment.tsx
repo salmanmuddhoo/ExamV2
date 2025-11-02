@@ -113,7 +113,6 @@ export function MCBJuicePayment({
         });
 
         if (couponError) {
-          console.error('Error applying coupon:', couponError);
         }
       }
 
@@ -125,7 +124,6 @@ export function MCBJuicePayment({
       }, 2000);
 
     } catch (error: any) {
-      console.error('Error submitting MCB Juice payment:', error);
       alert(`Failed to submit payment: ${error.message}`);
     } finally {
       setUploading(false);

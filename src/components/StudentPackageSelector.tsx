@@ -71,7 +71,6 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
       setSubjects(subjectsResult.data || []);
       setFilteredSubjects(subjectsResult.data || []);
     } catch (err) {
-      console.error('Error fetching data:', err);
       setError('Failed to load grades and subjects. Please try again.');
     } finally {
       setLoading(false);
@@ -116,7 +115,6 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
       setFilteredSubjects(subjectsForGrade);
       setStep('subjects');
     } catch (err) {
-      console.error('Error fetching subjects for grade:', err);
       setError('Failed to load subjects for this grade. Please try again.');
     } finally {
       setLoading(false);

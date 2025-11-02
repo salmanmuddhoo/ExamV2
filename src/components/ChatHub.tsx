@@ -118,7 +118,6 @@ export function ChatHub({
             .rpc('ensure_user_has_subscription', { p_user_id: user.id });
 
           if (ensureError) {
-            console.error('Error ensuring subscription:', ensureError);
           } else if (ensureData && ensureData[0]?.success) {
             // Retry fetching the tier
             const { data: retryData } = await supabase
@@ -133,7 +132,6 @@ export function ChatHub({
             }
           }
         } catch (err) {
-          console.error('Failed to create subscription:', err);
         }
         return;
       }
@@ -142,7 +140,6 @@ export function ChatHub({
         setUserTier((data.subscription_tiers as any).name);
       }
     } catch (error) {
-      console.error('Error fetching user tier:', error);
     }
   };
 
@@ -202,7 +199,6 @@ export function ChatHub({
         setIsInitialLoad(false);
       }
     } catch (error) {
-      console.error('Error fetching conversations:', error);
     } finally {
       setLoading(false);
     }
@@ -273,7 +269,6 @@ export function ChatHub({
       await fetchConversations();
       setDeleteModal({ show: false, conversationId: null });
     } catch (error) {
-      console.error('Error deleting conversation:', error);
       setDeleteModal({ show: false, conversationId: null });
     }
   };
@@ -326,7 +321,6 @@ export function ChatHub({
       await signOut();
       onNavigateHome();
     } catch (error) {
-      console.error('Error signing out:', error);
     }
   };
 

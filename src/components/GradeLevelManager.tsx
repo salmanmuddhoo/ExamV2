@@ -32,7 +32,6 @@ export function GradeLevelManager() {
       if (error) throw error;
       setGradeLevels(data || []);
     } catch (error) {
-      console.error('Error fetching grade levels:', error);
     } finally {
       setLoading(false);
     }

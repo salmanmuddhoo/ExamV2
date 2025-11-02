@@ -125,7 +125,6 @@ export function SubscriptionManager() {
       // Cache subscription data
       sessionStorage.setItem('subscription_current', JSON.stringify(subscriptionData || null));
     } catch (error) {
-      console.error('Error fetching subscription data:', error);
     } finally {
       setLoading(false);
     }
@@ -278,7 +277,6 @@ export function SubscriptionManager() {
         setShowSuccessModal(true);
       }
     } catch (error) {
-      console.error('Error fetching subscription for success modal:', error);
     }
   };
 
@@ -313,7 +311,6 @@ export function SubscriptionManager() {
       await fetchData();
       setShowCancelDialog(false);
     } catch (error: any) {
-      console.error('Error cancelling subscription:', error);
       setCancelError(error.message || 'Failed to cancel subscription');
     } finally {
       setCancelling(false);
@@ -344,7 +341,6 @@ export function SubscriptionManager() {
       // Refresh subscription data
       await fetchData();
     } catch (error: any) {
-      console.error('Error reactivating subscription:', error);
       setCancelError(error.message || 'Failed to reactivate subscription');
     } finally {
       setCancelling(false);

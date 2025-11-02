@@ -20,7 +20,6 @@ export async function sendReceiptEmail(transactionId: string): Promise<{
     });
 
     if (error) {
-      console.error('Error invoking send-receipt-email function:', error);
       return {
         success: false,
         error: error.message || 'Failed to send receipt email'
@@ -28,7 +27,6 @@ export async function sendReceiptEmail(transactionId: string): Promise<{
     }
 
     if (!data?.success) {
-      console.error('Receipt email function returned error:', data?.error);
       return {
         success: false,
         error: data?.error || 'Failed to send receipt email'
@@ -41,7 +39,6 @@ export async function sendReceiptEmail(transactionId: string): Promise<{
     };
 
   } catch (error: any) {
-    console.error('Error sending receipt email:', error);
     return {
       success: false,
       error: error.message || 'Unknown error occurred'
@@ -108,13 +105,11 @@ export async function hasReceiptBeenSent(transactionId: string): Promise<boolean
       .single();
 
     if (error) {
-      console.error('Error checking receipt status:', error);
       return false;
     }
 
     return data?.receipt_sent || false;
   } catch (error) {
-    console.error('Error checking receipt status:', error);
     return false;
   }
 }

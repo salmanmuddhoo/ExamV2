@@ -58,7 +58,6 @@ export function SubjectsPage({ gradeId, gradeName, onBack, onSelectSubject }: Pr
 
       setSubjects(subjectsWithPapers);
     } catch (error) {
-      console.error('Error fetching subjects:', error);
     } finally {
       setLoading(false);
     }

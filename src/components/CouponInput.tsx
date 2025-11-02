@@ -48,7 +48,6 @@ export function CouponInput({
       });
 
       if (rpcError) {
-        console.error('RPC Error:', rpcError);
         setError('Failed to validate coupon code');
         return;
       }
@@ -85,7 +84,6 @@ export function CouponInput({
       // Clear the input
       setCouponCode('');
     } catch (error: any) {
-      console.error('Error validating coupon:', error);
       setError('Failed to validate coupon code');
     } finally {
       setValidating(false);

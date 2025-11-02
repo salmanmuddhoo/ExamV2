@@ -54,7 +54,6 @@ export async function getQuestionImages(
       .maybeSingle();
 
     if (examError) {
-      console.error('Error fetching exam question:', examError);
       return null;
     }
 
@@ -70,7 +69,6 @@ export async function getQuestionImages(
         .download(imagePath);
 
       if (error) {
-        console.error('Error downloading exam question image:', error);
         continue;
       }
 
@@ -86,7 +84,6 @@ export async function getQuestionImages(
       questionText: examQuestion.ocr_text || '',
     };
   } catch (error) {
-    console.error('Error in getQuestionImages:', error);
     return null;
   }
 }
@@ -100,13 +97,11 @@ export async function getAllQuestionsForPaper(examPaperId: string): Promise<stri
       .order('question_number');
 
     if (error) {
-      console.error('Error fetching questions:', error);
       return [];
     }
 
     return questions.map(q => q.question_number);
   } catch (error) {
-    console.error('Error in getAllQuestionsForPaper:', error);
     return [];
   }
 }
