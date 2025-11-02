@@ -15,6 +15,14 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     storage: window.localStorage,
     storageKey: 'supabase.auth.token',
-    flowType: 'pkce'
-  }
+    flowType: 'pkce',
+    // Important for PWA: Ensure debug mode is disabled in production
+    debug: false,
+  },
+  global: {
+    headers: {
+      // Add header to identify PWA requests
+      'X-Client-Info': window.matchMedia('(display-mode: standalone)').matches ? 'pwa' : 'web',
+    },
+  },
 });

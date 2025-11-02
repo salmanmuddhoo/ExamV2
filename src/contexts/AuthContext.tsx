@@ -208,9 +208,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithOAuth = async (provider: OAuthProvider) => {
+    // Detect if running as PWA (installed on device)
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  (window.navigator as any).standalone ||
+                  document.referrer.includes('android-app://');
+
     // Configure provider-specific scopes and options
     const options: any = {
       redirectTo: `${window.location.origin}`,
+      // Skip browser flow in PWA to avoid session issues
+      skipBrowserRedirect: false,
     };
 
     // Microsoft Azure requires explicit email scope
@@ -224,6 +231,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         access_type: 'offline',
         prompt: 'select_account', // Forces account selection every time
       };
+    }
+
+    // In PWA mode, add a flag to help with debugging and tracking
+    if (isPWA) {
+      sessionStorage.setItem('pwa_oauth_initiated', 'true');
+      sessionStorage.setItem('pwa_oauth_provider', provider);
+      sessionStorage.setItem('pwa_oauth_timestamp', Date.now().toString());
     }
 
     const { error } = await supabase.auth.signInWithOAuth({

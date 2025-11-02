@@ -31,8 +31,17 @@ export default defineConfig({
         // Cache strategies for different types of requests
         runtimeCaching: [
           {
-            // Cache API calls to Supabase
-            urlPattern: ({ url }) => url.origin.includes('supabase'),
+            // Cache API calls to Supabase BUT exclude auth endpoints
+            // CRITICAL: Never cache authentication endpoints as it breaks OAuth flows and session management
+            urlPattern: ({ url }) => {
+              const isSupabase = url.origin.includes('supabase');
+              const isAuthEndpoint = url.pathname.includes('/auth/') ||
+                                     url.pathname.includes('/token') ||
+                                     url.pathname.includes('/verify') ||
+                                     url.pathname.includes('/user') ||
+                                     url.pathname.includes('/session');
+              return isSupabase && !isAuthEndpoint;
+            },
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
