@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Minimize } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Minimize, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
@@ -1069,7 +1069,7 @@ You can still view and download this exam paper!`
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">Loading PDF...</p>
+                <p className="text-gray-600">{isMobile ? 'Loading exam paper' : 'Loading PDF...'}...</p>
               </div>
             </div>
          ) : pdfBlobUrl ? (
@@ -1091,17 +1091,21 @@ You can still view and download this exam paper!`
                   {pdfLoadError && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
                       <div className="text-center">
-                        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600 mb-4">PDF failed to load</p>
                         <button
                           onClick={() => {
                             setPdfBlobUrl('');
                             setPdfLoadError(false);
                             setTimeout(() => loadPdfBlob(), 100);
                           }}
-                          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                          className="group flex flex-col items-center justify-center p-6 hover:scale-105 transition-transform duration-200"
+                          aria-label="Reload exam paper"
                         >
-                          Reload PDF
+                          <div className="relative mb-4">
+                            <div className="absolute inset-0 bg-black rounded-full opacity-10 group-hover:opacity-20 transition-opacity"></div>
+                            <RefreshCw className="w-16 h-16 text-black relative z-10 group-hover:rotate-180 transition-transform duration-500" />
+                          </div>
+                          <p className="text-gray-900 font-semibold text-lg mb-1">Tap to reload</p>
+                          <p className="text-gray-600 text-sm">Exam paper failed to load</p>
                         </button>
                       </div>
                     </div>
