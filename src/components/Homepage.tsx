@@ -522,8 +522,8 @@ function IPhoneHero() {
           <g style={{ transform: `translateX(${phase === 1 ? 0 : 130}px)`, transition: 'transform 3s linear' }}>
             <circle cx="120" cy="220" r="18" fill="none" stroke="#1F2937" strokeWidth="2.5" />
             {/* Arms swing */}
-            <path d="M120 245 L{phase === 1 ? 100 : 110} 268" stroke="#1F2937" strokeWidth="2.5" />
-            <path d="M120 245 L{phase === 1 ? 140 : 130} 268" stroke="#1F2937" strokeWidth="2.5" />
+            <path d={`M120 245 L${phase === 1 ? 100 : 110} 268`} stroke="#1F2937" strokeWidth="2.5" />
+            <path d={`M120 245 L${phase === 1 ? 140 : 130} 268`} stroke="#1F2937" strokeWidth="2.5" />
             {/* Legs swing */}
             <path d="M120 275 L110 300" stroke="#1F2937" strokeWidth="2.5" />
             <path d="M120 275 L130 300" stroke="#1F2937" strokeWidth="2.5" />
