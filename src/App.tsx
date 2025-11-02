@@ -82,6 +82,22 @@ function App() {
     const refreshToken = hashParams.get('refresh_token');
     const isOAuthCallback = !!(accessToken && refreshToken);
 
+    // Check if we're in PWA mode and returning from OAuth
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  (window.navigator as any).standalone ||
+                  document.referrer.includes('android-app://');
+    const pwaOAuthInitiated = sessionStorage.getItem('pwa_oauth_initiated') === 'true';
+
+    // If PWA OAuth was initiated, log callback status for debugging
+    if (isPWA && pwaOAuthInitiated && isOAuthCallback) {
+      const provider = sessionStorage.getItem('pwa_oauth_provider');
+      const timestamp = sessionStorage.getItem('pwa_oauth_timestamp');
+      // Clear the flags
+      sessionStorage.removeItem('pwa_oauth_initiated');
+      sessionStorage.removeItem('pwa_oauth_provider');
+      sessionStorage.removeItem('pwa_oauth_timestamp');
+    }
+
     // Handle initial load or OAuth redirect
     if (!initialLoadComplete && !isPasswordReset) {
       if (user && profile?.role !== 'admin') {
@@ -108,6 +124,19 @@ function App() {
       // Clean up OAuth params from URL
       window.history.replaceState({}, document.title, window.location.pathname);
       setHasHandledOAuthRedirect(true);
+    }
+    // Special handling: If OAuth callback detected but no user yet, wait a bit longer
+    else if (isOAuthCallback && !user && !hasHandledOAuthRedirect) {
+      // Give Supabase more time to process the OAuth callback in PWA mode
+      const waitTimer = setTimeout(() => {
+        // If still no user after waiting, something went wrong - clean up URL
+        if (!user) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setHasHandledOAuthRedirect(true);
+        }
+      }, 3000); // Wait 3 seconds for auth to complete
+
+      return () => clearTimeout(waitTimer);
     }
   }, [loading, user, profile, initialLoadComplete, isPasswordReset, hasHandledOAuthRedirect]);
 

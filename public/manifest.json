@@ -3,6 +3,7 @@
   "short_name": "Aixampapers",
   "description": "AI-powered exam preparation platform with smart study assistance",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
@@ -20,5 +21,6 @@
       "type": "logo/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }
