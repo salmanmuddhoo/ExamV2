@@ -425,9 +425,9 @@ function PricingCard({
   return (
     <div className={`relative rounded-2xl border-2 ${
       popular
-        ? 'border-black shadow-2xl scale-105 bg-white'
+        ? 'border-black shadow-2xl bg-white'
         : 'border-gray-200 bg-white shadow-lg'
-    } p-8 transition-all hover:shadow-xl`}>
+    } p-8 transition-all hover:shadow-xl flex flex-col h-full`}>
       {popular && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-xs font-semibold uppercase tracking-wide shadow-lg">
@@ -450,18 +450,7 @@ function PricingCard({
         </div>
       </div>
 
-      <button
-        onClick={onButtonClick}
-        className={`w-full py-3 px-6 rounded-xl font-semibold transition-all mb-6 ${
-          popular
-            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
-            : 'bg-gray-900 text-white hover:bg-gray-800'
-        }`}
-      >
-        {buttonText}
-      </button>
-
-      <div className="space-y-3">
+      <div className="space-y-3 mb-6 flex-grow">
         {features.map((feature, index) => (
           <div key={index} className="flex items-start space-x-3">
             <CheckCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
@@ -471,6 +460,17 @@ function PricingCard({
           </div>
         ))}
       </div>
+
+      <button
+        onClick={onButtonClick}
+        className={`w-full py-3 px-6 rounded-xl font-semibold transition-all ${
+          popular
+            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
+            : 'bg-gray-900 text-white hover:bg-gray-800'
+        }`}
+      >
+        {buttonText}
+      </button>
     </div>
   );
 }
