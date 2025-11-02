@@ -166,28 +166,11 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         // For non-admin users, cap displayed usage at the limit
         const displayedTokensUsed = isAdmin ? tokensUsed : (finalLimit !== null ? Math.min(tokensUsed, finalLimit) : tokensUsed);
 
-          tier_name: data.subscription_tiers?.name,
-          tier_base_limit: tierLimit,
-          token_limit_override: overrideLimit,
-          carryover_calculated: carryover,
-          final_limit: finalLimit,
-          tokens_used: tokensUsed,
-          tokens_used_displayed: displayedTokensUsed,
-          tokens_remaining: tokensRemaining,
-          is_admin: isAdmin
-        });
-
         setTokensTierLimit(tierLimit);
         setTokensCarryover(carryover);
         setTokensLimit(finalLimit);
         setTokensUsed(displayedTokensUsed);
         setTokensRemaining(isAdmin ? tokensRemaining : Math.max(0, tokensRemaining || 0));
-
-          tierLimit,
-          carryover,
-          totalLimit: finalLimit,
-          remaining: tokensRemaining
-        });
 
         // Set papers information
         const paperLimit = tierData?.papers_limit;

@@ -375,11 +375,6 @@ export function ExamPaperManager() {
 
         setProcessingStatus('Running AI to extract and split questions...');
 
-          examPaperId: examPaper.id,
-          pageImagesCount: pageImages.length,
-          markingSchemeImagesCount: markingSchemeImageData.length
-        });
-
         const processingResponse = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-exam-paper`,
           {
