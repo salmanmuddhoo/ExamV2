@@ -1010,62 +1010,8 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Settings</h3>
                 <div className="space-y-4 md:space-y-6">
-                  {/* Email Notifications */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Email Notifications</h4>
-                    <div className="space-y-3">
-                      <label className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                          defaultChecked
-                        />
-                        <span className="text-sm text-gray-700">Receive updates about new exam papers</span>
-                      </label>
-                      <label className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                          defaultChecked
-                        />
-                        <span className="text-sm text-gray-700">Subscription renewal reminders</span>
-                      </label>
-                      <label className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                        />
-                        <span className="text-sm text-gray-700">Marketing and promotional emails</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Privacy */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Privacy</h4>
-                    <div className="space-y-3">
-                      <label className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                          defaultChecked
-                        />
-                        <span className="text-sm text-gray-700">Allow data collection for improvement</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Danger Zone */}
-                  <div className="pt-6 border-t border-gray-200">
-                    <h4 className="text-sm font-semibold text-red-600 mb-3">Danger Zone</h4>
-                    <button
-                      className="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                    >
-                      Delete Account
-                    </button>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Once deleted, your account cannot be recovered.
-                    </p>
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">Settings coming soon...</p>
                   </div>
                 </div>
               </div>

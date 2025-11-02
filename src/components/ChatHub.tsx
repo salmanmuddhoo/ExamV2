@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
@@ -86,6 +86,7 @@ export function ChatHub({
     conversationId: null,
   });
   const [userTier, setUserTier] = useState<string>('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -112,8 +113,6 @@ export function ChatHub({
 
       if (error || !data) {
         // No subscription found - try to create one
-        console.log('No subscription found for user, attempting to create free tier...');
-
         try {
           const { data: ensureData, error: ensureError } = await supabase
             .rpc('ensure_user_has_subscription', { p_user_id: user.id });
@@ -121,7 +120,6 @@ export function ChatHub({
           if (ensureError) {
             console.error('Error ensuring subscription:', ensureError);
           } else if (ensureData && ensureData[0]?.success) {
-            console.log('Subscription created, retrying fetch...');
             // Retry fetching the tier
             const { data: retryData } = await supabase
               .from('user_subscriptions')
@@ -378,7 +376,9 @@ export function ChatHub({
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
-              <div className="flex items-center space-x-1">
+
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-1">
                 <button
                   onClick={onNavigateHome}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -401,7 +401,54 @@ export function ChatHub({
                   <LogOut className="w-5 h-5 text-gray-700" />
                 </button>
               </div>
+
+              {/* Mobile Hamburger Menu */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 text-gray-700 hover:text-black"
+                title="Menu"
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
             </div>
+
+            {/* Mobile Menu Dropdown - Horizontal style like homepage */}
+            {mobileMenuOpen && (
+              <div className="md:hidden border-t border-gray-200 pt-3 pb-2 space-y-2">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNavigateHome();
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <Home className="w-5 h-5 text-gray-700" />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowProfileModal(true);
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <User className="w-5 h-5 text-gray-700" />
+                  <span>Profile</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <LogOut className="w-5 h-5 text-gray-700" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
             <button
               onClick={handleNewConversation}
               className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"

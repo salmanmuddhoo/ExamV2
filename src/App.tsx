@@ -66,7 +66,6 @@ function App() {
 
   const checkFirstTimeUser = async () => {
     if (!user) {
-      console.log('❌ No user found');
       return;
     }
 
@@ -75,11 +74,8 @@ function App() {
     const welcomeShown = sessionStorage.getItem(welcomeShownKey);
 
     if (welcomeShown === 'true') {
-      console.log('ℹ️ Welcome modal already shown in this session');
       return;
     }
-
-    console.log('🔍 Checking subscription for user:', user.id);
 
     try {
       // Fetch user's subscription info
@@ -94,9 +90,6 @@ function App() {
         .eq('status', 'active')
         .single();
 
-      console.log('📊 Subscription data:', subscription);
-      console.log('❗ Subscription error:', error);
-
       if (subscription && subscription.subscription_tiers.name === 'free') {
         const tokenLimit = subscription.subscription_tiers.token_limit || 0;
         const papersLimit = subscription.subscription_tiers.papers_limit || 0;
@@ -105,17 +98,12 @@ function App() {
         const tokensLeft = Math.max(0, tokenLimit - subscription.tokens_used_current_period);
         const papersLeft = Math.max(0, papersLimit - subscription.papers_accessed_current_period);
 
-        console.log('✅ Free tier user! Tokens:', tokensLeft, 'Papers:', papersLeft);
-
         setTokensRemaining(tokensLeft);
         setPapersRemaining(papersLeft);
         setShowWelcomeModal(true);
 
         // Mark welcome modal as shown for this session
         sessionStorage.setItem(welcomeShownKey, 'true');
-        console.log('🎉 Welcome modal should show now');
-      } else {
-        console.log('⚠️ Not a free tier user or no subscription found');
       }
     } catch (error) {
       console.error('Error checking first-time user:', error);
