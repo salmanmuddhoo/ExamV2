@@ -35,6 +35,29 @@ function App() {
     return sessionStorage.getItem('showSubscriptionModal') === 'true';
   });
   const [isPasswordReset, setIsPasswordReset] = useState(false);
+  const [hasHandledOAuthRedirect, setHasHandledOAuthRedirect] = useState(false);
+
+  // Browser back button handler - Prevent logout on back navigation
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // Prevent default back behavior that might log out user
+      if (user) {
+        event.preventDefault();
+        // If authenticated, navigate to chat-hub instead of going back
+        if (profile?.role !== 'admin') {
+          setView('chat-hub');
+        }
+      }
+    };
+
+    // Add history entry for current state to enable back button handling
+    if (user && view) {
+      window.history.pushState({ view }, '', window.location.pathname);
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user, profile, view]);
 
   // Check for password reset token in URL (must run first)
   useEffect(() => {
@@ -49,15 +72,44 @@ function App() {
     }
   }, []);
 
+  // Handle OAuth redirect and initial authentication state
   useEffect(() => {
-    if (!loading && !initialLoadComplete && !isPasswordReset) {
+    if (loading) return;
+
+    // Check if this is an OAuth callback
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const isOAuthCallback = !!(accessToken && refreshToken);
+
+    // Handle initial load or OAuth redirect
+    if (!initialLoadComplete && !isPasswordReset) {
       if (user && profile?.role !== 'admin') {
         setView('chat-hub');
         checkFirstTimeUser();
+
+        // Clean up OAuth params from URL after successful login
+        if (isOAuthCallback) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       }
       setInitialLoadComplete(true);
+      setHasHandledOAuthRedirect(true);
     }
-  }, [loading, user, profile, initialLoadComplete, isPasswordReset]);
+    // Handle late OAuth redirects (when user/profile become available after initial load)
+    else if (!hasHandledOAuthRedirect && isOAuthCallback && user && profile) {
+      if (profile.role !== 'admin') {
+        setView('chat-hub');
+        checkFirstTimeUser();
+      } else {
+        setView('admin');
+      }
+
+      // Clean up OAuth params from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setHasHandledOAuthRedirect(true);
+    }
+  }, [loading, user, profile, initialLoadComplete, isPasswordReset, hasHandledOAuthRedirect]);
 
   // Persist subscription modal state to sessionStorage
   useEffect(() => {
