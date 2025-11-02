@@ -428,8 +428,15 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                       : 'border-gray-200'
                   }`}
                 >
+                  {/* Coming Soon Badge */}
+                  {tier.coming_soon && (
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
+                      COMING SOON
+                    </div>
+                  )}
+
                   {/* Popular Badge for Student */}
-                  {tier.name === 'student' && (
+                  {tier.name === 'student' && !tier.coming_soon && (
                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       POPULAR
                     </div>
@@ -504,9 +511,11 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                   <div className="mt-auto">
                     <button
                       onClick={() => handleSelectPlan(tier)}
-                      disabled={isCurrent || canDown || isFree}
+                      disabled={isCurrent || canDown || isFree || tier.coming_soon}
                       className={`w-full py-1.5 text-xs rounded-md font-medium transition-colors ${
-                        isCurrent
+                        tier.coming_soon
+                          ? 'bg-amber-100 text-amber-700 cursor-not-allowed border border-amber-300'
+                          : isCurrent
                           ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                           : isFree
                           ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
@@ -517,7 +526,9 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                           : 'bg-black text-white hover:bg-gray-800'
                       }`}
                     >
-                      {isCurrent
+                      {tier.coming_soon
+                        ? 'Coming Soon'
+                        : isCurrent
                         ? 'Current Plan'
                         : isFree
                         ? 'Free Tier'
