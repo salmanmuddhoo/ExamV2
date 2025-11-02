@@ -244,11 +244,6 @@ export function AdminSubscriptionManager() {
       const periodEnd = new Date(now);
       periodEnd.setDate(periodEnd.getDate() + 30); // 30 days from now
 
-        tier_id: editTierId,
-        token_limit_override: newTokenLimit,
-        tokens_used_current_period: 0
-      });
-
       const { data: updateResult, error } = await supabase
         .from('user_subscriptions')
         .update({
