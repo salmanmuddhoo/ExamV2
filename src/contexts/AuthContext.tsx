@@ -31,13 +31,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Set a maximum timeout for initial loading to prevent infinite spinner
+    const loadingTimeout = setTimeout(() => {
+      console.warn('Auth loading timeout - setting loading to false');
+      setLoading(false);
+    }, 10000); // 10 second timeout
+
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting session:', error);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        clearTimeout(loadingTimeout);
+        return;
+      }
+
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id).finally(() => {
+          clearTimeout(loadingTimeout);
+        });
       } else {
         setLoading(false);
+        clearTimeout(loadingTimeout);
       }
+    }).catch((err) => {
+      console.error('Failed to get session:', err);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      clearTimeout(loadingTimeout);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -52,45 +76,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    // Create a timeout promise to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 8000); // 8 second timeout
+    });
+
     try {
-      let { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // Race between the actual fetch and timeout
+      const fetchPromise = (async () => {
+        let { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
 
-      if (error) throw error;
-
-      // If profile doesn't exist (e.g., OAuth user), create it
-      if (!data) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: newProfile, error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: userId,
-              email: user.email,
-              role: 'student',
-              first_name: user.user_metadata?.full_name?.split(' ')[0] || user.user_metadata?.name?.split(' ')[0] || '',
-              last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
-              profile_picture_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-              is_active: true
-            })
-            .select()
-            .single();
-
-          if (insertError) throw insertError;
-          data = newProfile;
+        if (error) {
+          // Check if it's an auth error (expired session)
+          if (error.message?.includes('JWT') || error.message?.includes('expired') || error.code === 'PGRST301') {
+            console.error('Session expired or invalid - clearing auth');
+            await supabase.auth.signOut();
+            setUser(null);
+            setProfile(null);
+            return;
+          }
+          throw error;
         }
-      }
 
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+        // If profile doesn't exist (e.g., OAuth user), create it
+        if (!data) {
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+          if (userError) {
+            // Session is invalid
+            console.error('Invalid session - clearing auth');
+            await supabase.auth.signOut();
+            setUser(null);
+            setProfile(null);
+            return;
+          }
+
+          if (user) {
+            const { data: newProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                email: user.email,
+                role: 'student',
+                first_name: user.user_metadata?.full_name?.split(' ')[0] || user.user_metadata?.name?.split(' ')[0] || '',
+                last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+                profile_picture_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+                is_active: true
+              })
+              .select()
+              .single();
+
+            if (insertError) throw insertError;
+            data = newProfile;
+          }
+        }
+
+        setProfile(data);
+      })();
+
+      await Promise.race([fetchPromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'Profile fetch timeout') {
+        console.error('Profile fetch timed out - clearing session');
+        // Clear the session on timeout as it's likely invalid
+        await supabase.auth.signOut().catch(() => {});
+        setUser(null);
+        setProfile(null);
+      } else {
+        console.error('Error fetching profile:', error);
+      }
     } finally {
       setLoading(false);
     }
