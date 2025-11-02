@@ -111,21 +111,12 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         .single();
 
       // Debug logging for subscription data
-      console.log('=== SUBSCRIPTION DATA DEBUG ===');
-      console.log('Query error:', error);
-      console.log('Subscription data:', data);
       if (data) {
-        console.log('Selected grade ID:', data.selected_grade_id);
-        console.log('Selected subject IDs:', data.selected_subject_ids);
-        console.log('Grade levels data:', data.grade_levels);
-        console.log('Tier name:', data.subscription_tiers?.name);
       }
-      console.log('=== END SUBSCRIPTION DEBUG ===');
 
       if (error || !data) {
         // Only try to create subscription once (prevent infinite loop)
         if (retryCount === 0) {
-          console.log('No subscription found, attempting to create free tier subscription...');
 
           try {
             const { data: ensureData, error: ensureError } = await supabase
@@ -134,7 +125,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
             if (ensureError) {
               console.error('Error ensuring subscription:', ensureError);
             } else if (ensureData && ensureData[0]?.success) {
-              console.log('Subscription created:', ensureData[0].message);
               // Retry fetching the subscription ONCE
               await fetchSubscriptionTier(1);
               return;
@@ -145,7 +135,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         }
 
         // If we still don't have a subscription, show error state
-        console.log('Could not fetch or create subscription, showing error state');
         setSubscriptionTier('No active subscription');
         setTierName('');
         setTokensRemaining(null);
@@ -177,8 +166,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         // For non-admin users, cap displayed usage at the limit
         const displayedTokensUsed = isAdmin ? tokensUsed : (finalLimit !== null ? Math.min(tokensUsed, finalLimit) : tokensUsed);
 
-        console.log('=== TOKEN CARRYOVER DEBUG ===');
-        console.log('Raw data from DB:', {
           tier_name: data.subscription_tiers?.name,
           tier_base_limit: tierLimit,
           token_limit_override: overrideLimit,
@@ -196,13 +183,11 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         setTokensUsed(displayedTokensUsed);
         setTokensRemaining(isAdmin ? tokensRemaining : Math.max(0, tokensRemaining || 0));
 
-        console.log('Final state:', {
           tierLimit,
           carryover,
           totalLimit: finalLimit,
           remaining: tokensRemaining
         });
-        console.log('=== END TOKEN DEBUG ===');
 
         // Set papers information
         const paperLimit = tierData?.papers_limit;

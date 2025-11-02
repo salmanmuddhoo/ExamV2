@@ -192,7 +192,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       if (subscription && subscription.subscription_tiers) {
         const tierData = subscription.subscription_tiers as any;
         setHasChapterAccess(tierData.chapter_wise_access ?? true);
-        console.log('Chapter-wise access:', tierData.chapter_wise_access);
       } else {
         setHasChapterAccess(true); // Default to true if no subscription found
       }
@@ -374,7 +373,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       }
 
       if (!tagsData || tagsData.length === 0) {
-        console.log('No chapters with questions found for this syllabus');
         setChapters([]);
         return;
       }
@@ -409,7 +407,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       // Sort by chapter number
       chaptersWithQuestions.sort((a, b) => a.chapter_number - b.chapter_number);
 
-      console.log(`Found ${chaptersWithQuestions.length} chapters with questions`);
       setChapters(chaptersWithQuestions);
     } catch (error) {
       console.error('Error fetching chapters:', error);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, Trash2, Upload, X, Edit } from 'lucide-react';
+import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createPdfPreviewUrl, revokePdfPreviewUrl, convertPdfToBase64Images, PdfImagePart } from '../lib/pdfUtils';
 import { Modal } from './Modal';
@@ -96,6 +96,8 @@ export function ExamPaperManager() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
+  const [collapsedGrades, setCollapsedGrades] = useState<Set<string>>(new Set());
+  const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchData();
@@ -180,7 +182,6 @@ export function ExamPaperManager() {
   };
 
   const retagQuestionsWithNewSyllabus = async (examPaperId: string, newSyllabusId: string) => {
-    console.log(`Re-tagging questions for exam paper ${examPaperId} with syllabus ${newSyllabusId}`);
 
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retag-questions`,
@@ -204,7 +205,6 @@ export function ExamPaperManager() {
     }
 
     const result = await response.json();
-    console.log('Re-tagging result:', result);
     return result;
   };
 
@@ -361,7 +361,6 @@ export function ExamPaperManager() {
           base64Image: part.inlineData.data,
         }));
 
-        console.log(`Prepared ${pageImages.length} pages for AI processing`);
 
         let markingSchemeImageData: Array<{ pageNumber: number; base64Image: string }> = [];
         
@@ -372,12 +371,10 @@ export function ExamPaperManager() {
             pageNumber: index + 1,
             base64Image: part.inlineData.data,
           }));
-          console.log(`Prepared ${markingSchemeImageData.length} marking scheme pages`);
         }
 
         setProcessingStatus('Running AI to extract and split questions...');
 
-        console.log('Sending to Edge Function:', {
           examPaperId: examPaper.id,
           pageImagesCount: pageImages.length,
           markingSchemeImagesCount: markingSchemeImageData.length
@@ -399,7 +396,6 @@ export function ExamPaperManager() {
           }
         );
 
-        console.log(`Response status: ${processingResponse.status}`);
 
         if (!processingResponse.ok) {
           const errorText = await processingResponse.text();
@@ -408,7 +404,6 @@ export function ExamPaperManager() {
         }
 
         const processingResult = await processingResponse.json();
-        console.log('AI Result:', processingResult);
 
         setProcessingStatus('');
         setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
@@ -446,7 +441,6 @@ export function ExamPaperManager() {
       'Are you sure you want to delete this exam paper? This action cannot be undone.',
       async () => {
         try {
-          console.log('Deleting exam paper:', paper.id);
 
           // Get all question images for this exam paper
           const { data: examQuestions, error: fetchError } = await supabase
@@ -458,7 +452,6 @@ export function ExamPaperManager() {
             console.error('Error fetching exam questions:', fetchError);
           }
 
-          console.log('Found questions:', examQuestions?.length || 0);
 
           // Delete all question images from storage by deleting the entire folder
           // Images are stored in format: {examPaperId}/q{number}_page{page}.jpg
@@ -469,11 +462,9 @@ export function ExamPaperManager() {
           if (listError) {
             console.error('Error listing files in folder:', listError);
           } else if (files && files.length > 0) {
-            console.log(`Found ${files.length} files in folder ${paper.id}`);
 
             // Build full paths for deletion
             const filePaths = files.map(file => `${paper.id}/${file.name}`);
-            console.log('Deleting files:', filePaths);
 
             const { error: deleteError } = await supabase.storage
               .from('exam-questions')
@@ -482,7 +473,6 @@ export function ExamPaperManager() {
             if (deleteError) {
               console.error('Error deleting question images:', deleteError);
             } else {
-              console.log('Successfully deleted question images');
             }
           }
 
@@ -546,7 +536,6 @@ export function ExamPaperManager() {
     try {
       const images = await convertPdfToBase64Images(file);
       setExamPaperImages(images);
-      console.log(`PDF converted to ${images.length} images for AI processing`);
     } catch (error) {
       console.error('Error processing PDF:', error);
       showAlert('Error processing PDF. The file will still be uploaded.', 'Processing Warning', 'warning');
@@ -585,6 +574,42 @@ export function ExamPaperManager() {
     setExamPaperImages([]);
     setSyllabuses([]);
   };
+
+  const toggleGrade = (gradeId: string) => {
+    const newCollapsed = new Set(collapsedGrades);
+    if (newCollapsed.has(gradeId)) {
+      newCollapsed.delete(gradeId);
+    } else {
+      newCollapsed.add(gradeId);
+    }
+    setCollapsedGrades(newCollapsed);
+  };
+
+  const toggleSubject = (subjectKey: string) => {
+    const newCollapsed = new Set(collapsedSubjects);
+    if (newCollapsed.has(subjectKey)) {
+      newCollapsed.delete(subjectKey);
+    } else {
+      newCollapsed.add(subjectKey);
+    }
+    setCollapsedSubjects(newCollapsed);
+  };
+
+  // Group exam papers by grade and subject
+  const groupedPapers = examPapers.reduce((acc, paper) => {
+    const gradeName = paper.grade_levels.name;
+    const subjectName = paper.subjects.name;
+
+    if (!acc[gradeName]) {
+      acc[gradeName] = {};
+    }
+    if (!acc[gradeName][subjectName]) {
+      acc[gradeName][subjectName] = [];
+    }
+    acc[gradeName][subjectName].push(paper);
+
+    return acc;
+  }, {} as Record<string, Record<string, ExamPaper[]>>);
 
   if (loading) {
     return <div className="text-center py-8 text-gray-600">Loading exam papers...</div>;
@@ -914,55 +939,114 @@ export function ExamPaperManager() {
             No exam papers uploaded yet. Click "Upload Exam Paper" to get started.
           </div>
         ) : (
-          examPapers.map((paper) => (
-            <div
-              key={paper.id}
-              className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-            >
-              <div>
-                <h3 className="font-semibold text-gray-900">{paper.title}</h3>
-                <div className="flex items-center space-x-4 mt-1">
-                  <span className="text-sm text-gray-600">
-                    {paper.subjects.name} • {paper.grade_levels.name} • {paper.month ? `${getMonthName(paper.month)} ` : ''}{paper.year}
-                  </span>
-                  {paper.marking_schemes && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                      Has Marking Scheme
-                    </span>
-                  )}
-                  {paper.ai_prompts && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                      AI: {paper.ai_prompts.name}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <a
-                  href={paper.pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 text-sm text-black hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  View PDF
-                </a>
+          Object.entries(groupedPapers).map(([gradeName, subjects]) => {
+            const gradeId = gradeName;
+            const isGradeCollapsed = collapsedGrades.has(gradeId);
+            const totalPapers = Object.values(subjects).reduce((sum, papers) => sum + papers.length, 0);
+
+            return (
+              <div key={gradeId} className="mb-3">
+                {/* Grade Level Folder */}
                 <button
-                  onClick={() => handleEdit(paper)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Edit exam paper details"
+                  onClick={() => toggleGrade(gradeId)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-50 hover:from-gray-200 hover:to-gray-100 rounded-lg transition-all border border-gray-200"
                 >
-                  <Edit className="w-4 h-4" />
+                  <div className="flex items-center space-x-3">
+                    <GraduationCap className="w-5 h-5 text-gray-700" />
+                    <div className="text-left">
+                      <h3 className="text-base font-bold text-gray-900">{gradeName}</h3>
+                      <p className="text-xs text-gray-500">{totalPapers} paper{totalPapers !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isGradeCollapsed ? '' : 'rotate-180'}`} />
                 </button>
-                <button
-                  onClick={() => handleDelete(paper)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete exam paper"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                {/* Subjects under this grade */}
+                {!isGradeCollapsed && (
+                  <div className="mt-2 ml-6 pl-4 border-l-2 border-gray-300 space-y-2">
+                    {Object.entries(subjects).map(([subjectName, papers]) => {
+                      const subjectKey = `${gradeId}:${subjectName}`;
+                      const isSubjectCollapsed = collapsedSubjects.has(subjectKey);
+
+                      return (
+                        <div key={subjectKey}>
+                          {/* Subject Folder */}
+                          <button
+                            onClick={() => toggleSubject(subjectKey)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-gray-50 rounded-lg transition-all border border-gray-200"
+                          >
+                            <div className="flex items-center space-x-2.5">
+                              <BookOpen className="w-4 h-4 text-gray-600" />
+                              <div className="text-left">
+                                <h4 className="text-sm font-semibold text-gray-900">{subjectName}</h4>
+                                <p className="text-xs text-gray-500">{papers.length} paper{papers.length !== 1 ? 's' : ''}</p>
+                              </div>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isSubjectCollapsed ? '' : 'rotate-180'}`} />
+                          </button>
+
+                          {/* Papers under this subject */}
+                          {!isSubjectCollapsed && (
+                            <div className="mt-1 ml-4 pl-3 border-l-2 border-gray-200 space-y-2">
+                              {papers.map((paper) => (
+                                <div
+                                  key={paper.id}
+                                  className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="font-semibold text-gray-900 text-sm truncate">{paper.title}</h3>
+                                    <div className="flex items-center space-x-3 mt-1">
+                                      <span className="text-xs text-gray-600">
+                                        {paper.month ? `${getMonthName(paper.month)} ` : ''}{paper.year}
+                                      </span>
+                                      {paper.marking_schemes && (
+                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                          Has MS
+                                        </span>
+                                      )}
+                                      {paper.ai_prompts && (
+                                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                          AI: {paper.ai_prompts.name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-1 ml-3">
+                                    <a
+                                      href={paper.pdf_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-2 py-1.5 text-xs text-black hover:bg-gray-50 rounded transition-colors"
+                                    >
+                                      View PDF
+                                    </a>
+                                    <button
+                                      onClick={() => handleEdit(paper)}
+                                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                      title="Edit"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(paper)}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

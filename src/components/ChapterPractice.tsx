@@ -175,7 +175,6 @@ export function ChapterPractice() {
       }
     } catch (error) {
       // No existing conversation found, will create new one when user sends first message
-      console.log('No existing conversation found');
     }
   };
 

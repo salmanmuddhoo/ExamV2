@@ -74,13 +74,6 @@ function StripeCheckoutForm({
       }
 
       // Debug logging for payment data
-      console.log('=== STRIPE PAYMENT DEBUG ===');
-      console.log('Payment data:', paymentData);
-      console.log('Coupon data:', couponData);
-      console.log('Selected grade ID:', paymentData.selectedGradeId);
-      console.log('Selected subject IDs:', paymentData.selectedSubjectIds);
-      console.log('Tier ID:', paymentData.tierId);
-      console.log('=== END STRIPE PAYMENT DEBUG ===');
 
       // Calculate final amount (use coupon final amount if present, otherwise original amount)
       const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
@@ -112,9 +105,6 @@ function StripeCheckoutForm({
         .select()
         .single();
 
-      console.log('Transaction created:', transaction);
-      console.log('Transaction selected_grade_id:', transaction?.selected_grade_id);
-      console.log('Transaction selected_subject_ids:', transaction?.selected_subject_ids);
 
       if (transactionError) throw transactionError;
       transactionId = transaction.id;
@@ -159,7 +149,6 @@ function StripeCheckoutForm({
 
       // Apply coupon if present
       if (couponData) {
-        console.log('Applying coupon code:', couponData.code);
         const { data: couponResult, error: couponError } = await supabase.rpc('apply_coupon_code', {
           p_coupon_code: couponData.code,
           p_payment_transaction_id: transaction.id,
@@ -171,7 +160,6 @@ function StripeCheckoutForm({
           console.error('Error applying coupon:', couponError);
           // Don't fail the payment, just log the error
         } else {
-          console.log('Coupon applied successfully:', couponResult);
         }
       }
 
@@ -195,7 +183,6 @@ function StripeCheckoutForm({
             .from('payment_transactions')
             .delete()
             .eq('id', transactionId);
-          console.log('Cleaned up failed transaction:', transactionId);
         } catch (deleteError) {
           console.error('Failed to clean up transaction:', deleteError);
         }

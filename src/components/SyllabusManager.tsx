@@ -191,14 +191,12 @@ export function SyllabusManager() {
 
   const processWithAI = async (syllabusId: string, fileUrl: string) => {
     try {
-      console.log('Calling extract-syllabus-chapters function...', { syllabusId, fileUrl });
 
       // Call Supabase Edge Function to extract chapters using Gemini
       const { data, error } = await supabase.functions.invoke('extract-syllabus-chapters', {
         body: { syllabusId, fileUrl }
       });
 
-      console.log('Function response:', { data, error });
 
       if (error) {
         console.error('Supabase function error:', error);
@@ -211,7 +209,6 @@ export function SyllabusManager() {
         throw new Error(errorMsg);
       }
 
-      console.log('Chapters extracted successfully:', data);
       alert('Syllabus processed successfully! You can now view the extracted chapters.');
 
       // Refresh the syllabus list to show updated status

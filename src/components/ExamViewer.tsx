@@ -111,11 +111,9 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
       if (error) throw error;
 
       if (data) {
-        console.log('Existing conversation found, loading...');
         setCurrentConversationId(data.id);
         loadConversation(data.id);
       } else {
-        console.log('No existing conversation for this paper');
       }
     } catch (error) {
       console.error('Error checking for existing conversation:', error);
@@ -370,16 +368,13 @@ This helps me give you the most accurate and focused help! 😊`;
               if (subscription.tokens_used_current_period >= tokenLimit) {
                 shouldLockChat = true;
                 lockReason = 'token_limit';
-                console.log(`🔒 Free tier: Chat locked - Token limit reached (${subscription.tokens_used_current_period}/${tokenLimit})`);
               }
               // Then check paper limit (only if this paper hasn't been accessed yet)
               else if (subscription.papers_accessed_current_period >= papersLimit && !alreadyAccessed) {
                 shouldLockChat = true;
                 lockReason = 'paper_limit';
-                console.log(`🔒 Free tier: Chat locked - Paper limit reached (${subscription.papers_accessed_current_period}/${papersLimit} papers)`);
               }
               else {
-                console.log(`✅ Free tier: Chat available - ${subscription.papers_accessed_current_period}/${papersLimit} papers, ${subscription.tokens_used_current_period}/${tokenLimit} tokens used`);
               }
 
               setChatLocked(shouldLockChat);
@@ -397,7 +392,6 @@ This helps me give you the most accurate and focused help! 😊`;
             // Lock chat if no tokens remaining for paid tiers with limits
             if (access.tokens_remaining !== null && access.tokens_remaining <= 0) {
               setChatLocked(true);
-              console.log('🔒 Paid tier: Chat locked - Token limit reached');
             }
 
             // For student/student_lite tiers, check grade/subject restrictions
@@ -412,9 +406,7 @@ This helps me give you the most accurate and focused help! 😊`;
                 console.error('Error checking student package chat access:', chatAccessError);
               } else if (canUseChat === false) {
                 setChatLocked(true);
-                console.log('🔒 Student/Student Lite tier: Chat locked - Paper not in selected grade/subjects');
               } else {
-                console.log('✅ Student/Student Lite tier: Chat available - Paper matches selected grade/subjects');
               }
             }
           }
@@ -447,7 +439,6 @@ This helps me give you the most accurate and focused help! 😊`;
         questionNumber: msg.question_number
       }));
 
-      console.log('📨 Loaded messages order:', loadedMessages.map((m, i) => `${i}: ${m.role} - ${m.content.substring(0, 30)}...`));
 
       // Check if conversation is from a previous day
       if (loadedMessages.length > 0) {
@@ -595,12 +586,10 @@ This helps me give you the most accurate and focused help! 😊`;
         if (tokenLimit !== null) {
           const remaining = Math.max(0, tokenLimit - actualUsed);
           setTokensRemaining(remaining);
-          console.log(`🔄 Token count updated: ${remaining} tokens remaining`);
 
           // Lock chat if tokens depleted
           if (remaining === 0) {
             setChatLocked(true);
-            console.log('🔒 Chat locked - Token limit reached');
           }
         }
 
@@ -608,7 +597,6 @@ This helps me give you the most accurate and focused help! 😊`;
         if (tierName === 'free' && papersLimit !== null) {
           const remaining = Math.max(0, papersLimit - subscription.papers_accessed_current_period);
           setPapersRemaining(remaining);
-          console.log(`🔄 Paper count updated: ${remaining} papers remaining`);
         }
 
         setTierName(tierName);
@@ -622,11 +610,9 @@ This helps me give you the most accurate and focused help! 😊`;
   const fetchQuestionData = async (questionNumber: string) => {
     // Check cache first
     if (imageCache.has(questionNumber)) {
-      console.log(`📦 Using cached data for Question ${questionNumber}`);
       return imageCache.get(questionNumber)!;
     }
 
-    console.log(`🔍 Fetching data for Question ${questionNumber}`);
 
     const { data: questionData, error: questionError } = await supabase
       .from('exam_questions')
@@ -680,8 +666,6 @@ This helps me give you the most accurate and focused help! 😊`;
 
     // Cache the data
     setImageCache(prev => new Map(prev).set(questionNumber, result));
-    console.log(`💾 Cached data for Question ${questionNumber}`);
-    console.log(`📝 Marking scheme text available: ${!!result.markingSchemeText}`);
 
     return result;
   };
@@ -791,8 +775,6 @@ You can still view and download this exam paper!`
             console.error('Error tracking paper chat usage:', updateError);
           } else {
             const newCount = subscription.papers_accessed_current_period + 1;
-            console.log(`✅ Free tier: Tracked chat usage for paper ${paperId} (${newCount}/${papersLimit} papers used)`);
-            console.log(`📊 Remaining: ${papersLimit - newCount} papers, ${tokenLimit ? tokenLimit - subscription.tokens_used_current_period : 'unlimited'} tokens`);
             // Update local state immediately
             setPapersRemaining((papersLimit || 2) - newCount);
           }
@@ -809,9 +791,6 @@ You can still view and download this exam paper!`
     try {
       const questionNumber = extractQuestionNumber(userMessage);
 
-      console.log('Original input:', userMessage);
-      console.log('Extracted question number:', questionNumber);
-      console.log('Last question number:', lastQuestionNumber);
 
       // 🔹 NEW: Check if this is a follow-up on the same question
       const isFollowUp = questionNumber && lastQuestionNumber && questionNumber === lastQuestionNumber;
@@ -828,20 +807,17 @@ You can still view and download this exam paper!`
       if (isFollowUp) {
         // 🔹 FOLLOW-UP: Still send images in case backend cache is empty
         // Backend will decide whether to use images or cached history
-        console.log(`💬 Follow-up question detected - backend will use cache if available`);
         setAiProcessingStatus('Analyzing your follow-up question...');
 
         const questionData = await fetchQuestionData(questionNumber);
 
         if (questionData && questionData.exam.length > 0) {
-          console.log(`✅ Fetched Question ${questionNumber} data for follow-up (backend may use cache instead)`);
           requestBody.optimizedMode = true;
           requestBody.questionNumber = questionNumber;
           requestBody.examPaperImages = questionData.exam; // Send images - backend uses only if no cache
           requestBody.markingSchemeText = questionData.markingSchemeText;
           requestBody.questionText = questionData.questionText;
         } else {
-          console.log(`❌ Could not fetch Question ${questionNumber} data for follow-up`);
           requestBody.optimizedMode = false;
           requestBody.questionNumber = questionNumber;
           requestBody.examPaperImages = examPaperImages;
@@ -853,10 +829,6 @@ You can still view and download this exam paper!`
         const questionData = await fetchQuestionData(questionNumber);
 
         if (questionData && questionData.exam.length > 0) {
-          console.log(`✅ Question ${questionNumber} found`);
-          console.log(`   - Exam images: ${questionData.exam.length}`);
-          console.log(`   - Marking scheme: TEXT (not images)`);
-          console.log(`💰 Cost optimization: Using text instead of marking scheme images`);
 
           setAiProcessingStatus(`Analyzing Question ${questionNumber}...`);
           requestBody.optimizedMode = true;
@@ -868,7 +840,6 @@ You can still view and download this exam paper!`
           // Update last question number
           setLastQuestionNumber(questionNumber);
         } else {
-          console.log(`❌ Question ${questionNumber} not found in database, using fallback mode`);
           setAiProcessingStatus(`Analyzing Question ${questionNumber}...`);
           requestBody.optimizedMode = false;
           requestBody.examPaperImages = examPaperImages;
@@ -876,11 +847,9 @@ You can still view and download this exam paper!`
         }
       } else {
         // 🔹 NO QUESTION NUMBER: Use last question if available, otherwise ask for clarification
-        console.log('⚠️ No question number detected');
 
         if (lastQuestionNumber) {
           // User is continuing with the same question
-          console.log(`✅ Assuming continuation of Question ${lastQuestionNumber}`);
 
           const questionData = await fetchQuestionData(lastQuestionNumber);
 
@@ -890,16 +859,13 @@ You can still view and download this exam paper!`
             requestBody.examPaperImages = questionData.exam;
             requestBody.markingSchemeText = questionData.markingSchemeText;
             requestBody.questionText = questionData.questionText;
-            console.log(`💬 Continuing conversation for Question ${lastQuestionNumber}`);
           } else {
-            console.log(`❌ Question ${lastQuestionNumber} data not found`);
             requestBody.optimizedMode = false;
             requestBody.examPaperImages = examPaperImages;
             requestBody.markingSchemeImages = markingSchemeImages;
           }
         } else if (messages.length === 1) {
           // First message in a brand new conversation - ask if they mean Question 1
-          console.log('🆕 First message in new conversation - asking if they mean Question 1');
 
           const firstQuestionConfirm = `Hey there! 👋\n\nI'd love to help you with that! Since this is your first question, are you asking about **Question 1**?\n\nIf yes, just type "yes" or "Question 1".\nIf you meant a different question, just tell me the question number like:\n- "Question 2"\n- "Q5"\n- "No, question 3"\n\nLet me know! 😊`;
 
@@ -916,7 +882,6 @@ You can still view and download this exam paper!`
           return;
         } else {
           // Not the first message but no lastQuestionNumber - ask for clarification
-          console.log('❓ Asking student for clarification');
 
           const clarificationMessage = generateClarificationMessage(userMessage);
 
@@ -964,7 +929,6 @@ You can still view and download this exam paper!`
       const data = await response.json();
       
       if (data.questionNotFound) {
-        console.log('⚠️ Question does not exist in exam paper');
         setMessages((prev) => {
           const newMessages = [...prev, { 
             role: 'assistant', 
@@ -981,22 +945,15 @@ You can still view and download this exam paper!`
 
       // 🔹 Log savings
       if (data.isFollowUp) {
-        console.log(`💰 FOLLOW-UP: Saved 100% of image costs (0 images sent, used conversation history)`);
       } else if (requestBody.optimizedMode) {
         const totalPossible = examPaperImages.length + markingSchemeImages.length;
         const examImagesSent = requestBody.examPaperImages?.length || 0;
         const markingSchemeImagesSaved = markingSchemeImages.length;
         const usedText = requestBody.markingSchemeText ? true : false;
 
-        console.log(`✅ OPTIMIZED MODE:`);
-        console.log(`   - Exam images sent: ${examImagesSent} (only for this question)`);
-        console.log(`   - Marking scheme: ${usedText ? 'TEXT (0 images)' : 'No marking scheme'}`);
-        console.log(`   - Total images saved: ${totalPossible - examImagesSent} out of ${totalPossible}`);
 
         const savings = Math.round(((totalPossible - examImagesSent) / totalPossible) * 100);
-        console.log(`💰 Cost savings: approximately ${savings}%`);
       } else {
-        console.log(`⚠️ Used full PDF fallback mode (${examPaperImages.length + markingSchemeImages.length} images)`);
       }
 
       setMessages((prev) => {
