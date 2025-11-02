@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, ChevronDown, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare } from 'lucide-react';
+import { Menu, X, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -23,7 +23,6 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
-  const [openMobileGrades, setOpenMobileGrades] = useState(false);
 
   useEffect(() => {
     fetchGradeLevels();
@@ -58,7 +57,6 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   const handleGradeClick = (gradeId: string, gradeName: string) => {
     onSelectGrade(gradeId, gradeName);
     setMobileMenuOpen(false);
-    setOpenMobileGrades(false);
   };
 
   return (
@@ -141,29 +139,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4">
             <div className="space-y-2">
-              <div className="border-b border-gray-200 pb-3 mb-3">
+              {/* Show grades directly without nesting */}
+              {gradeLevels.map((grade) => (
                 <button
-                  onClick={() => setOpenMobileGrades(!openMobileGrades)}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold text-gray-900"
+                  key={grade.id}
+                  onClick={() => handleGradeClick(grade.id, grade.name)}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
                 >
-                  <span>Grades</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${openMobileGrades ? 'rotate-180' : ''}`} />
+                  <span>{grade.name}</span>
                 </button>
+              ))}
 
-                {openMobileGrades && (
-                  <div className="mt-2 space-y-1">
-                    {gradeLevels.map((grade) => (
-                      <button
-                        key={grade.id}
-                        onClick={() => handleGradeClick(grade.id, grade.name)}
-                        className="w-full text-left px-6 py-2 text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
-                      >
-                        {grade.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {gradeLevels.length > 0 && <div className="border-b border-gray-200 pb-1 mb-1" />}
 
               {user ? (
                 <>
