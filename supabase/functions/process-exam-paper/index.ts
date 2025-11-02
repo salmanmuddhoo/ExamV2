@@ -125,13 +125,13 @@ Deno.serve(async (req: Request) => {
     if (examPaper) {
       const { data: syllabus } = await supabase
         .from('syllabus')
-        .select('id, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
+        .select('id, file_url, syllabus_chapters(id, chapter_number, chapter_title, chapter_description, subtopics)')
         .eq('subject_id', examPaper.subject_id)
         .eq('grade_id', examPaper.grade_level_id)
         .eq('processing_status', 'completed')
         .single();
 
-      if (syllabus && syllabus.syllabus_chapters && syllabus.syllabus_chapters.length > 0) {
+      if (syllabus && syllabus.file_url && syllabus.syllabus_chapters && syllabus.syllabus_chapters.length > 0) {
         console.log(`Found syllabus with ${syllabus.syllabus_chapters.length} chapters. Starting chapter tagging...`);
 
         // Tag questions with chapters using AI
@@ -140,6 +140,7 @@ Deno.serve(async (req: Request) => {
           questions,
           syllabus.syllabus_chapters,
           syllabus.id,
+          syllabus.file_url,
           supabase,
           geminiApiKey
         );
@@ -246,7 +247,8 @@ async function extractAndSplitQuestions(
 **CRITICAL INSTRUCTIONS:**
 1. Return ONLY a JSON array - no other text
 2. Keep "fullText" SHORT - just the first 100 characters of each question
-3. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Question 1: ...","hasSubParts":false}]
+3. In "fullText", replace ALL newlines and line breaks with spaces
+4. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Question 1: ...","hasSubParts":false}]
 
 **IMPORTANT FOR MULTI-PAGE QUESTIONS:**
 - Look CAREFULLY at where each question ENDS
@@ -349,16 +351,30 @@ Return ONLY the JSON array, nothing else.`;
 
     jsonText = jsonText.trim();
 
+    // Sanitize JSON to handle control characters that break JSON parsing
+    // This is a fallback since responseMimeType: "application/json" should handle this
+    console.log("Raw JSON length:", jsonText.length);
+
+    // Check if there are unescaped control characters
+    const hasControlChars = /[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/.test(jsonText);
+    if (hasControlChars) {
+      console.warn("Found unescaped control characters in JSON, sanitizing...");
+      // Replace control characters (except already-escaped ones)
+      jsonText = jsonText.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, ' ');
+    }
+
     let questions;
     try {
       questions = JSON.parse(jsonText);
       console.log(`Successfully parsed ${questions.length} questions`);
     } catch (parseError) {
       console.error("JSON parse error:", parseError.message);
-      
+      console.error("First 500 chars of problematic JSON:", jsonText.substring(0, 500));
+
       try {
+        // Try to salvage partial response
         const lastCompleteMatch = jsonText.match(/\{[^}]*\}(?=\s*,|\s*\])/g);
-        
+
         if (lastCompleteMatch && lastCompleteMatch.length > 0) {
           const salvaged = '[' + lastCompleteMatch.join(',') + ']';
           questions = JSON.parse(salvaged);
@@ -367,6 +383,7 @@ Return ONLY the JSON array, nothing else.`;
           throw parseError;
         }
       } catch (salvageError) {
+        console.error("Salvage also failed:", salvageError.message);
         throw new Error(`JSON parse failed. The response may be too large or malformed.`);
       }
     }
@@ -638,23 +655,23 @@ Return ONLY the JSON object.`;
 
 /**
  * Tag questions with syllabus chapters using AI analysis
+ * Uses the full syllabus PDF for more accurate matching
  */
 async function tagQuestionsWithChapters(
   examPaperId: string,
   questions: any[],
   chapters: any[],
   syllabusId: string,
+  fileUrl: string,
   supabase: any,
   geminiApiKey: string
 ): Promise<{ taggedCount: number; tokenUsage: any }> {
 
-  // Build chapter information for AI
+  // Build chapter information for AI (to provide chapter IDs)
   const chapterInfo = chapters.map(ch => ({
     id: ch.id,
     number: ch.chapter_number,
-    title: ch.chapter_title,
-    description: ch.chapter_description || '',
-    subtopics: Array.isArray(ch.subtopics) ? ch.subtopics.join(', ') : ''
+    title: ch.chapter_title
   }));
 
   // Build question information for AI (using the extracted questions data)
@@ -668,21 +685,40 @@ async function tagQuestionsWithChapters(
     console.log(`  - ID: ${ch.id}, Chapter ${ch.number}: ${ch.title}`);
   });
 
-  const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters.
+  console.log('Fetching syllabus PDF from:', fileUrl);
 
-**CHAPTERS:**
+  // Fetch and convert PDF to base64
+  const pdfResponse = await fetch(fileUrl);
+  if (!pdfResponse.ok) {
+    throw new Error(`Failed to fetch syllabus PDF: ${pdfResponse.statusText}`);
+  }
+  const pdfBlob = await pdfResponse.blob();
+  const arrayBuffer = await pdfBlob.arrayBuffer();
+  const base64Pdf = await arrayBufferToBase64(arrayBuffer);
+
+  console.log(`Syllabus PDF fetched and converted to base64, size: ${pdfBlob.size} bytes`);
+
+  const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters from the provided PDF.
+
+**REFERENCE CHAPTERS:**
 ${chapterInfo.map(ch => `ID: ${ch.id}
-Chapter ${ch.number}: ${ch.title}
-Description: ${ch.description}
-Subtopics: ${ch.subtopics || 'None listed'}`).join('\n\n')}
+Chapter ${ch.number}: ${ch.title}`).join('\n\n')}
 
 **QUESTIONS:**
 ${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
 
 **Task:**
-For each question, identify which chapter(s) it belongs to. A question may relate to multiple chapters.
+Read the FULL SYLLABUS PDF provided and compare each question against the COMPLETE CONTENT of each chapter in the PDF.
+For each question, identify which chapter(s) it belongs to by reading the detailed content, subtopics, and learning objectives in the PDF.
 
-**IMPORTANT:** Use the EXACT chapter IDs provided above. Copy them exactly as shown in the "ID:" field.
+**Instructions:**
+1. Read through the ENTIRE syllabus PDF to understand all chapter content
+2. For each question, carefully compare it against the full chapter content in the PDF (not just the titles above)
+3. Match questions to chapters based on the detailed content, subtopics, and concepts in the PDF
+4. A question may relate to multiple chapters if it spans multiple topics
+5. Use the chapter reference list above ONLY to get the correct chapter IDs - the PDF is your source for content matching
+
+**IMPORTANT:** Use the EXACT chapter IDs from the "Reference Chapters" list above. Match the chapter numbers from the PDF to the IDs in the list.
 
 Return a JSON array with this format:
 [
@@ -694,7 +730,7 @@ Return a JSON array with this format:
         "chapterNumber": 1,
         "confidence": 0.95,
         "isPrimary": true,
-        "reasoning": "Question directly tests concepts from this chapter"
+        "reasoning": "Question tests concepts from this chapter based on PDF content"
       }
     ]
   }
@@ -704,15 +740,15 @@ Return a JSON array with this format:
 1. confidence should be a number from 0.00 to 1.00 (1.00 = perfect match)
 2. Only include matches with confidence >= 0.60
 3. Mark ONE chapter as isPrimary: true (the best match)
-4. **CRITICAL:** Use the EXACT chapter UUID from the "ID:" field above - copy it character-for-character
-5. reasoning should be brief (1 sentence)
+4. **CRITICAL:** Use the EXACT chapter UUID from the reference list above
+5. reasoning should explain what content in the PDF matched the question
 6. If a question doesn't match any chapter well, return empty matches array
 7. chapterNumber should be the integer chapter number
 
 Return ONLY the JSON array, no other text.`;
 
   try {
-    console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using AI...`);
+    console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using full PDF...`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -722,7 +758,15 @@ Return ONLY the JSON array, no other text.`;
         body: JSON.stringify({
           contents: [{
             role: "user",
-            parts: [{ text: CHAPTER_TAGGING_PROMPT }]
+            parts: [
+              { text: CHAPTER_TAGGING_PROMPT },
+              {
+                inline_data: {
+                  mime_type: 'application/pdf',
+                  data: base64Pdf
+                }
+              }
+            ]
           }],
           generationConfig: {
             temperature: 0.2,
@@ -881,4 +925,18 @@ Return ONLY the JSON array, no other text.`;
       tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
     };
   }
+}
+
+/**
+ * Helper function to convert ArrayBuffer to base64 in chunks (avoids stack overflow)
+ */
+async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // Process 8KB at a time
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
 }
