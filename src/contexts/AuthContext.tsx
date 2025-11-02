@@ -11,7 +11,7 @@ interface Profile {
   profile_picture_url?: string;
 }
 
-export type OAuthProvider = 'google' | 'apple' | 'azure' | 'facebook';
+export type OAuthProvider = 'google' | 'azure' | 'facebook';
 
 interface AuthContextType {
   user: User | null;
