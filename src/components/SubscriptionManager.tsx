@@ -135,6 +135,21 @@ export function SubscriptionManager() {
     return selectedBillingCycle === 'monthly' ? tier.price_monthly : tier.price_yearly;
   };
 
+  // Calculate maximum yearly discount percentage across all tiers
+  const getMaxYearlyDiscount = () => {
+    if (tiers.length === 0) return 0;
+
+    const discounts = tiers
+      .filter(tier => tier.price_monthly > 0 && tier.price_yearly > 0)
+      .map(tier => {
+        const monthlyAnnual = tier.price_monthly * 12;
+        const discount = ((monthlyAnnual - tier.price_yearly) / monthlyAnnual) * 100;
+        return Math.round(discount);
+      });
+
+    return discounts.length > 0 ? Math.max(...discounts) : 0;
+  };
+
   // Use the new formatTokenCount utility for better formatting (K/M)
   const formatTokens = (tokens: number | null) => {
     return formatTokenCount(tokens, 1);
@@ -500,9 +515,11 @@ export function SubscriptionManager() {
             }`}
           >
             Yearly
-            <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-              Save 17%
-            </span>
+            {getMaxYearlyDiscount() > 0 && (
+              <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                Save {getMaxYearlyDiscount()}%
+              </span>
+            )}
           </button>
         </div>
       </div>
