@@ -17,6 +17,8 @@ interface Subject {
 interface ExamPaper {
   id: string;
   title: string;
+  year: number;
+  month?: number | null;
   subject_id: string;
   grade_level_id: string;
   is_accessible?: boolean; // Added for tier-based access control
@@ -38,7 +40,7 @@ interface Props {
   onSelectMode?: (mode: 'year' | 'chapter', gradeId: string, subjectId: string, chapterId?: string) => void;
 }
 
-type Step = 'grade' | 'subject' | 'mode' | 'syllabus' | 'chapter' | 'paper';
+type Step = 'grade' | 'subject' | 'mode' | 'year' | 'syllabus' | 'chapter' | 'paper';
 type PracticeMode = 'year' | 'chapter';
 
 interface Chapter {
@@ -60,6 +62,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedMode, setSelectedMode] = useState<PracticeMode | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedSyllabus, setSelectedSyllabus] = useState<Syllabus | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [existingConvs, setExistingConvs] = useState<Record<string, boolean>>({});
@@ -73,6 +76,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setSelectedGrade(null);
       setSelectedSubject(null);
       setSelectedMode(null);
+      setSelectedYear(null);
       setSelectedSyllabus(null);
       setSelectedChapter(null);
     }
@@ -104,25 +108,32 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
         setSubjects(allSubjects.data || []);
 
+        // Fetch all papers with year/month information
+        const { data: allPapersData } = await supabase
+          .from('exam_papers')
+          .select('id, title, year, month, subject_id, grade_level_id')
+          .order('year', { ascending: false })
+          .order('title');
+
         // Filter to only accessible papers and map to ExamPaper format
-        if (accessiblePapers.error) {
+        if (accessiblePapers.error || !accessiblePapers.data) {
           // Fallback to all papers if RPC fails
-          const { data: allPapers } = await supabase
-            .from('exam_papers')
-            .select('id, title, subject_id, grade_level_id')
-            .order('title');
-          setPapers(allPapers || []);
+          setPapers(allPapersData || []);
         } else {
-          // Map accessible papers from RPC result
-          const papers = (accessiblePapers.data || [])
-            .filter((p: any) => p.is_accessible) // Only show accessible papers
-            .map((p: any) => ({
-              id: p.paper_id,
-              title: p.paper_title,
-              subject_id: p.subject_id,
-              grade_level_id: p.grade_level_id,
-              is_accessible: p.is_accessible,
-              access_status: p.access_status
+          // Get accessible paper IDs from RPC
+          const accessibleIds = new Set(
+            accessiblePapers.data
+              .filter((p: any) => p.is_accessible)
+              .map((p: any) => p.paper_id)
+          );
+
+          // Filter papers to only accessible ones
+          const papers = (allPapersData || [])
+            .filter(p => accessibleIds.has(p.id))
+            .map(p => ({
+              ...p,
+              is_accessible: true,
+              access_status: 'accessible'
             }));
 
           setPapers(papers);
@@ -149,7 +160,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         const [gradesRes, subjectsRes, papersRes] = await Promise.all([
           supabase.from('grade_levels').select('*').order('display_order'),
           supabase.from('subjects').select('*').order('name'),
-          supabase.from('exam_papers').select('id, title, subject_id, grade_level_id').order('title'),
+          supabase.from('exam_papers').select('id, title, year, month, subject_id, grade_level_id').order('year', { ascending: false }).order('title'),
         ]);
 
         setGradeLevels(gradesRes.data || []);
@@ -251,6 +262,24 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     return papers.filter(p => p.subject_id === subjectId && p.grade_level_id === gradeId);
   };
 
+  const getAvailableYears = () => {
+    if (!selectedGrade || !selectedSubject) return [];
+
+    const papersForSubject = getPapersForSubjectAndGrade(selectedSubject.id, selectedGrade.id);
+    const years = Array.from(new Set(papersForSubject.map(p => p.year)));
+    return years.sort((a, b) => b - a); // Descending order
+  };
+
+  const getPapersForYear = (year: number) => {
+    if (!selectedGrade || !selectedSubject) return [];
+
+    return papers.filter(p =>
+      p.subject_id === selectedSubject.id &&
+      p.grade_level_id === selectedGrade.id &&
+      p.year === year
+    );
+  };
+
   const handleGradeClick = async (grade: GradeLevel) => {
     setSelectedGrade(grade);
     setSelectedSubject(null);
@@ -278,9 +307,14 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       await fetchSyllabusesForSelection();
       setCurrentStep('syllabus');
     } else {
-      // For year mode, continue to paper selection
-      setCurrentStep('paper');
+      // For year mode, show year selection first
+      setCurrentStep('year');
     }
+  };
+
+  const handleYearClick = (year: number) => {
+    setSelectedYear(year);
+    setCurrentStep('paper');
   };
 
   const fetchSyllabusesForSelection = async () => {
@@ -420,7 +454,13 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   };
 
   const handleBack = () => {
-    if (currentStep === 'paper') {
+    if (currentStep === 'paper' && selectedMode === 'year') {
+      setSelectedYear(null);
+      setCurrentStep('year');
+    } else if (currentStep === 'paper') {
+      setSelectedMode(null);
+      setCurrentStep('mode');
+    } else if (currentStep === 'year') {
       setSelectedMode(null);
       setCurrentStep('mode');
     } else if (currentStep === 'chapter') {
@@ -452,8 +492,9 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
   if (!isOpen) return null;
 
-  const availablePapers = selectedGrade && selectedSubject
-    ? getPapersForSubjectAndGrade(selectedSubject.id, selectedGrade.id)
+  const availableYears = getAvailableYears();
+  const availablePapers = selectedGrade && selectedSubject && selectedYear
+    ? getPapersForYear(selectedYear)
     : [];
 
   return (
@@ -472,9 +513,10 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                 {currentStep === 'grade' && 'Select Grade Level'}
                 {currentStep === 'subject' && `Grade ${selectedGrade?.name} - Select Subject`}
                 {currentStep === 'mode' && `${selectedSubject?.name} - Choose Practice Mode`}
+                {currentStep === 'year' && `Practice by Year - Select Year`}
                 {currentStep === 'syllabus' && `Select Your Syllabus / Region`}
                 {currentStep === 'chapter' && `Practice by Chapter - Select Chapter`}
-                {currentStep === 'paper' && `Practice by Year - Select Paper`}
+                {currentStep === 'paper' && `${selectedYear} - Select Paper`}
               </h2>
             </div>
           </div>
@@ -529,6 +571,41 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                   <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
                 </button>
               ))}
+
+              {currentStep === 'year' && (
+                <div className="space-y-3">
+                  {availableYears.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600">No papers available for this subject</p>
+                    </div>
+                  ) : (
+                    availableYears.map((year) => {
+                      const yearPapers = getPapersForYear(year);
+                      return (
+                        <button
+                          key={year}
+                          onClick={() => handleYearClick(year)}
+                          className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
+                              <Calendar className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900 text-lg">{year}</p>
+                              <p className="text-sm text-gray-500 mt-0.5">
+                                {yearPapers.length} {yearPapers.length === 1 ? 'paper' : 'papers'} available
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
 
               {currentStep === 'mode' && (
                 <div className="space-y-3">
@@ -664,6 +741,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
             {currentStep === 'grade' && 'Select a grade level to view available subjects'}
             {currentStep === 'subject' && 'Select a subject to choose your practice mode'}
             {currentStep === 'mode' && 'Choose how you want to practice - by year or by chapter'}
+            {currentStep === 'year' && 'Select a year to view exam papers from that year'}
             {currentStep === 'syllabus' && 'Select your syllabus/region to see relevant chapters'}
             {currentStep === 'chapter' && 'Select a chapter to practice questions from that topic'}
             {currentStep === 'paper' && 'Select an exam paper to start or continue a conversation'}
