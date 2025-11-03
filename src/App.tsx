@@ -539,19 +539,41 @@ function App() {
   // Blog views
   if (view === 'blog') {
     return (
-      <BlogList
-        onSelectPost={handleSelectBlogPost}
-        onBack={handleBackToHome}
-      />
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
+        <BlogList
+          onSelectPost={handleSelectBlogPost}
+          onBack={handleBackToHome}
+        />
+      </>
     );
   }
 
   if (view === 'blog-post' && selectedBlogPost) {
     return (
-      <BlogPost
-        post={selectedBlogPost}
-        onBack={handleBackToBlogList}
-      />
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
+        <BlogPost
+          post={selectedBlogPost}
+          onBack={handleBackToBlogList}
+        />
+      </>
     );
   }
 
