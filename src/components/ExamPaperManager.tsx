@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap } from 'lucide-react';
+import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap, List } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createPdfPreviewUrl, revokePdfPreviewUrl, convertPdfToBase64Images, PdfImagePart } from '../lib/pdfUtils';
 import { Modal } from './Modal';
 import { useModal } from '../hooks/useModal';
+import { QuestionChapterSummary } from './QuestionChapterSummary';
 
 interface ExamPaper {
   id: string;
@@ -98,6 +99,7 @@ export function ExamPaperManager() {
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [collapsedGrades, setCollapsedGrades] = useState<Set<string>>(new Set());
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
+  const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -993,6 +995,13 @@ export function ExamPaperManager() {
                                     </div>
                                   </div>
                                   <div className="flex space-x-1 ml-3">
+                                    <button
+                                      onClick={() => setViewingSummaryPaper({ id: paper.id, title: paper.title })}
+                                      className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                                      title="View Question-Chapter Summary"
+                                    >
+                                      <List className="w-3.5 h-3.5" />
+                                    </button>
                                     <a
                                       href={paper.pdf_url}
                                       target="_blank"
@@ -1031,6 +1040,15 @@ export function ExamPaperManager() {
         )}
       </div>
     </div>
+
+      {/* Question-Chapter Summary Modal */}
+      {viewingSummaryPaper && (
+        <QuestionChapterSummary
+          examPaperId={viewingSummaryPaper.id}
+          examTitle={viewingSummaryPaper.title}
+          onClose={() => setViewingSummaryPaper(null)}
+        />
+      )}
     </>
   );
 }
