@@ -414,6 +414,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
           hideSignInButton={true}
@@ -431,6 +432,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -491,6 +493,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -559,6 +562,7 @@ function App() {
         onNavigateAdmin={handleNavigateToAdmin}
         onNavigateLogin={handleNavigateToLogin}
         onNavigateChatHub={handleNavigateToChatHub}
+        onNavigateBlog={handleNavigateToBlog}
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
