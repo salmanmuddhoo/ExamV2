@@ -17,6 +17,8 @@ interface Subject {
 interface ExamPaper {
   id: string;
   title: string;
+  year: number;
+  month?: number | null;
   subject_id: string;
   grade_level_id: string;
   is_accessible?: boolean; // Added for tier-based access control
@@ -106,25 +108,32 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
         setSubjects(allSubjects.data || []);
 
+        // Fetch all papers with year/month information
+        const { data: allPapersData } = await supabase
+          .from('exam_papers')
+          .select('id, title, year, month, subject_id, grade_level_id')
+          .order('year', { ascending: false })
+          .order('title');
+
         // Filter to only accessible papers and map to ExamPaper format
-        if (accessiblePapers.error) {
+        if (accessiblePapers.error || !accessiblePapers.data) {
           // Fallback to all papers if RPC fails
-          const { data: allPapers } = await supabase
-            .from('exam_papers')
-            .select('id, title, subject_id, grade_level_id')
-            .order('title');
-          setPapers(allPapers || []);
+          setPapers(allPapersData || []);
         } else {
-          // Map accessible papers from RPC result
-          const papers = (accessiblePapers.data || [])
-            .filter((p: any) => p.is_accessible) // Only show accessible papers
-            .map((p: any) => ({
-              id: p.paper_id,
-              title: p.paper_title,
-              subject_id: p.subject_id,
-              grade_level_id: p.grade_level_id,
-              is_accessible: p.is_accessible,
-              access_status: p.access_status
+          // Get accessible paper IDs from RPC
+          const accessibleIds = new Set(
+            accessiblePapers.data
+              .filter((p: any) => p.is_accessible)
+              .map((p: any) => p.paper_id)
+          );
+
+          // Filter papers to only accessible ones
+          const papers = (allPapersData || [])
+            .filter(p => accessibleIds.has(p.id))
+            .map(p => ({
+              ...p,
+              is_accessible: true,
+              access_status: 'accessible'
             }));
 
           setPapers(papers);
@@ -151,7 +160,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         const [gradesRes, subjectsRes, papersRes] = await Promise.all([
           supabase.from('grade_levels').select('*').order('display_order'),
           supabase.from('subjects').select('*').order('name'),
-          supabase.from('exam_papers').select('id, title, subject_id, grade_level_id').order('title'),
+          supabase.from('exam_papers').select('id, title, year, month, subject_id, grade_level_id').order('year', { ascending: false }).order('title'),
         ]);
 
         setGradeLevels(gradesRes.data || []);
