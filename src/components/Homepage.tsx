@@ -488,8 +488,8 @@ function AppScreenshotSlider() {
     },
     {
       title: 'Mobile View',
-      description: 'Study on-the-go with our mobile PWA',
-      image: '/screenshots/mobile-view.png',
+      description: 'Study on-the-go with our mobile web app',
+      image: '/assets/iphone.png',
       isDesktop: false,
     },
   ];
