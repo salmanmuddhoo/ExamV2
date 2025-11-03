@@ -483,7 +483,7 @@ function AppScreenshotSlider() {
     {
       title: 'Desktop View',
       description: 'Full-featured experience on desktop',
-      image: '/screenshots/desktop-view.png',
+      image: '/assets/laptop.png',
       isDesktop: true,
     },
     {
