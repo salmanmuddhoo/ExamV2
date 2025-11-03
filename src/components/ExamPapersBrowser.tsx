@@ -23,13 +23,13 @@ interface GradeLevel {
 
 interface SubjectWithPapers {
   subject: Subject;
-  papers: ExamPaper[];
+  papersByYear: Map<number, ExamPaper[]>;
   paperCount: number;
 }
 
 interface Props {
   onSelectPaper: (paperId: string) => void;
-  selectedGradeFromNavbar?: { id: string; name: string } | null;
+  selectedGradeFromNavbar?: { id: string; name: string} | null;
 }
 
 const MONTHS = [
@@ -45,6 +45,7 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,13 +122,26 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
       subjectMap.get(paper.subject_id)!.push(paper);
     });
 
-    // Create SubjectWithPapers array
+    // Create SubjectWithPapers array with papers grouped by year
     let subjectsWithPapers = subjects
-      .map(subject => ({
-        subject,
-        papers: subjectMap.get(subject.id) || [],
-        paperCount: (subjectMap.get(subject.id) || []).length
-      }))
+      .map(subject => {
+        const subjectPapers = subjectMap.get(subject.id) || [];
+
+        // Group papers by year within this subject
+        const papersByYear = new Map<number, ExamPaper[]>();
+        subjectPapers.forEach(paper => {
+          if (!papersByYear.has(paper.year)) {
+            papersByYear.set(paper.year, []);
+          }
+          papersByYear.get(paper.year)!.push(paper);
+        });
+
+        return {
+          subject,
+          papersByYear,
+          paperCount: subjectPapers.length
+        };
+      })
       .filter(swp => swp.paperCount > 0); // Only show subjects with papers
 
     // Filter by letter
@@ -140,10 +154,17 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      subjectsWithPapers = subjectsWithPapers.filter(swp =>
-        swp.subject.name.toLowerCase().includes(query) ||
-        swp.papers.some(p => p.title.toLowerCase().includes(query))
-      );
+      subjectsWithPapers = subjectsWithPapers.filter(swp => {
+        if (swp.subject.name.toLowerCase().includes(query)) return true;
+
+        // Check if any paper in any year matches
+        for (const papers of swp.papersByYear.values()) {
+          if (papers.some(p => p.title.toLowerCase().includes(query))) {
+            return true;
+          }
+        }
+        return false;
+      });
     }
 
     return subjectsWithPapers;
@@ -157,6 +178,16 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
       newExpanded.add(subjectId);
     }
     setExpandedSubjects(newExpanded);
+  };
+
+  const toggleYear = (yearKey: string) => {
+    const newExpanded = new Set(expandedYears);
+    if (newExpanded.has(yearKey)) {
+      newExpanded.delete(yearKey);
+    } else {
+      newExpanded.add(yearKey);
+    }
+    setExpandedYears(newExpanded);
   };
 
   const getAvailableLetters = (): Set<string> => {
@@ -311,8 +342,9 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
             </div>
 
             <div className="space-y-3">
-              {filteredSubjects.map(({ subject, papers, paperCount }) => {
+              {filteredSubjects.map(({ subject, papersByYear, paperCount }) => {
                 const isExpanded = expandedSubjects.has(subject.id);
+                const years = Array.from(papersByYear.keys()).sort((a, b) => b - a); // Descending order
 
                 return (
                   <div
@@ -331,7 +363,7 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
                         <div className="text-left">
                           <h3 className="font-semibold text-gray-900 text-lg">{subject.name}</h3>
                           <p className="text-sm text-gray-500 mt-0.5">
-                            {paperCount} {paperCount === 1 ? 'paper' : 'papers'} available
+                            {paperCount} {paperCount === 1 ? 'paper' : 'papers'} • {years.length} {years.length === 1 ? 'year' : 'years'}
                           </p>
                         </div>
                       </div>
@@ -344,34 +376,75 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
                       </div>
                     </button>
 
-                    {/* Expanded Papers List */}
+                    {/* Expanded Year Folders */}
                     {isExpanded && (
-                      <div className="border-t border-gray-200 bg-white">
+                      <div className="border-t border-gray-200 bg-gray-50">
                         <div className="divide-y divide-gray-100">
-                          {papers.map((paper, index) => (
-                            <button
-                              key={paper.id}
-                              onClick={() => onSelectPaper(paper.id)}
-                              className="w-full px-5 py-3 hover:bg-gray-50 transition-colors text-left group"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                  <FileText className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors flex-shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="font-medium text-gray-900 text-sm group-hover:text-black truncate">
-                                      {paper.title}
-                                    </h4>
+                          {years.map((year) => {
+                            const yearKey = `${subject.id}-${year}`;
+                            const isYearExpanded = expandedYears.has(yearKey);
+                            const yearPapers = papersByYear.get(year) || [];
+
+                            return (
+                              <div key={yearKey} className="bg-white">
+                                {/* Year Header */}
+                                <button
+                                  onClick={() => toggleYear(yearKey)}
+                                  className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center space-x-2.5">
+                                    <Calendar className="w-4 h-4 text-gray-600" />
+                                    <div className="text-left">
+                                      <h4 className="font-semibold text-gray-900">{year}</h4>
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        {yearPapers.length} {yearPapers.length === 1 ? 'paper' : 'papers'}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="flex items-center space-x-2 text-xs text-gray-600 flex-shrink-0 ml-4">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  <span className="font-medium whitespace-nowrap">
-                                    {paper.month ? `${formatMonth(paper.month)} ` : ''}{paper.year}
-                                  </span>
-                                </div>
+                                  <div className="flex-shrink-0">
+                                    {isYearExpanded ? (
+                                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                                    ) : (
+                                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    )}
+                                  </div>
+                                </button>
+
+                                {/* Expanded Papers for this Year */}
+                                {isYearExpanded && (
+                                  <div className="border-t border-gray-100 bg-white">
+                                    <div className="divide-y divide-gray-50">
+                                      {yearPapers.map((paper) => (
+                                        <button
+                                          key={paper.id}
+                                          onClick={() => onSelectPaper(paper.id)}
+                                          className="w-full px-5 py-3 hover:bg-gray-50 transition-colors text-left group pl-14"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                              <FileText className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors flex-shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <h4 className="font-medium text-gray-900 text-sm group-hover:text-black truncate">
+                                                  {paper.title}
+                                                </h4>
+                                              </div>
+                                            </div>
+                                            {paper.month && (
+                                              <div className="flex items-center space-x-2 text-xs text-gray-600 flex-shrink-0 ml-4">
+                                                <span className="font-medium whitespace-nowrap">
+                                                  {formatMonth(paper.month)}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </button>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
