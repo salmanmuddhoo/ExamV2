@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare } from 'lucide-react';
+import { Menu, X, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -14,12 +14,13 @@ interface Props {
   onNavigateAdmin: () => void;
   onNavigateLogin: () => void;
   onNavigateChatHub?: () => void;
+  onNavigateBlog?: () => void;
   onSelectGrade: (gradeId: string, gradeName: string) => void;
   currentView: string;
   hideSignInButton?: boolean;
 }
 
-export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onSelectGrade, currentView, hideSignInButton = false }: Props) {
+export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateBlog, onSelectGrade, currentView, hideSignInButton = false }: Props) {
   const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
@@ -85,6 +86,19 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
               </button>
             ))}
 
+            {onNavigateBlog && (
+              <button
+                onClick={() => {
+                  onNavigateBlog();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center space-x-1 px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors font-medium"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Blog</span>
+              </button>
+            )}
+
             <div className="w-px h-6 bg-gray-200 mx-2" />
 
             {user ? (
@@ -149,6 +163,21 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
               ))}
 
               {gradeLevels.length > 0 && <div className="border-b border-gray-200 pb-1 mb-1" />}
+
+              {onNavigateBlog && (
+                <button
+                  onClick={() => {
+                    onNavigateBlog();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Blog & Study Tips</span>
+                </button>
+              )}
+
+              {onNavigateBlog && <div className="border-b border-gray-200 pb-1 mb-1" />}
 
               {user ? (
                 <>

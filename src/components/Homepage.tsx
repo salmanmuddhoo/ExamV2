@@ -483,13 +483,13 @@ function AppScreenshotSlider() {
     {
       title: 'Desktop View',
       description: 'Full-featured experience on desktop',
-      image: '/screenshots/desktop-view.png',
+      image: '/assets/laptop.png',
       isDesktop: true,
     },
     {
       title: 'Mobile View',
-      description: 'Study on-the-go with our mobile PWA',
-      image: '/screenshots/mobile-view.png',
+      description: 'Study on-the-go with our mobile web app',
+      image: '/assets/iphone.png',
       isDesktop: false,
     },
   ];

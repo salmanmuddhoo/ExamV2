@@ -12,9 +12,12 @@ import { SubscriptionModal } from './components/SubscriptionModal';
 import { PaymentPage } from './components/PaymentPage';
 import { UnifiedPracticeViewer } from './components/UnifiedPracticeViewer';
 import { ResetPassword } from './components/ResetPassword';
+import { BlogList } from './components/BlogList';
+import { BlogPost } from './components/BlogPost';
 import { supabase } from './lib/supabase';
+import { BlogPost as BlogPostType } from './data/blogPosts';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'blog' | 'blog-post';
 
 function App() {
   const { user, profile, loading } = useAuth();
@@ -36,6 +39,7 @@ function App() {
   });
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [hasHandledOAuthRedirect, setHasHandledOAuthRedirect] = useState(false);
+  const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPostType | null>(null);
 
   // Browser back button handler - Prevent logout on back navigation
   useEffect(() => {
@@ -355,6 +359,22 @@ function App() {
     sessionStorage.removeItem('subscription_current');
   };
 
+  // Blog navigation handlers
+  const handleNavigateToBlog = () => {
+    setView('blog');
+    setSelectedBlogPost(null);
+  };
+
+  const handleSelectBlogPost = (post: BlogPostType) => {
+    setSelectedBlogPost(post);
+    setView('blog-post');
+  };
+
+  const handleBackToBlogList = () => {
+    setSelectedBlogPost(null);
+    setView('blog');
+  };
+
   const handleSubscriptionSuccess = () => {
     setShowSubscriptionModal(false);
     // Clear subscription modal state from sessionStorage
@@ -394,6 +414,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
           hideSignInButton={true}
@@ -411,6 +432,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -471,6 +493,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -513,6 +536,47 @@ function App() {
     );
   }
 
+  // Blog views
+  if (view === 'blog') {
+    return (
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
+        <BlogList
+          onSelectPost={handleSelectBlogPost}
+          onBack={handleBackToHome}
+        />
+      </>
+    );
+  }
+
+  if (view === 'blog-post' && selectedBlogPost) {
+    return (
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
+        <BlogPost
+          post={selectedBlogPost}
+          onBack={handleBackToBlogList}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar
@@ -520,6 +584,7 @@ function App() {
         onNavigateAdmin={handleNavigateToAdmin}
         onNavigateLogin={handleNavigateToLogin}
         onNavigateChatHub={handleNavigateToChatHub}
+        onNavigateBlog={handleNavigateToBlog}
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
