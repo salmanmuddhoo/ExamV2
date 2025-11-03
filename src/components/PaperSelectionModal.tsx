@@ -43,6 +43,11 @@ interface Props {
 type Step = 'grade' | 'subject' | 'mode' | 'year' | 'syllabus' | 'chapter' | 'paper';
 type PracticeMode = 'year' | 'chapter';
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 interface Chapter {
   id: string;
   chapter_number: number;
@@ -278,6 +283,11 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       p.grade_level_id === selectedGrade.id &&
       p.year === year
     );
+  };
+
+  const formatMonth = (month: number | null | undefined): string => {
+    if (!month || month < 1 || month > 12) return '';
+    return MONTHS[month - 1];
   };
 
   const handleGradeClick = async (grade: GradeLevel) => {
@@ -723,12 +733,33 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
               )}
 
               {currentStep === 'paper' && availablePapers.map(paper => (
-                <button key={paper.id} onClick={() => handlePaperClick(paper)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="w-5 h-5 text-gray-600" />
-                    <p className="font-semibold text-gray-900">{paper.title}</p>
+                <button key={paper.id} onClick={() => handlePaperClick(paper)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all group">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <FileText className="w-5 h-5 text-gray-600 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{paper.title}</p>
+                        {paper.month && (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                            <span className="text-sm text-gray-600 font-medium">
+                              {formatMonth(paper.month)} {selectedYear}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
+                      {paper.month && (
+                        <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">
+                          {formatMonth(paper.month)}
+                        </span>
+                      )}
+                      {existingConvs[paper.id] && (
+                        <span className="text-xs text-green-600 font-medium">Continue</span>
+                      )}
+                    </div>
                   </div>
-                  {existingConvs[paper.id] && <span className="text-xs text-green-600 font-medium">Continue conversation</span>}
                 </button>
               ))}
             </>
