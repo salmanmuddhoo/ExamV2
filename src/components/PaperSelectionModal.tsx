@@ -278,11 +278,18 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const getPapersForYear = (year: number) => {
     if (!selectedGrade || !selectedSubject) return [];
 
-    return papers.filter(p =>
+    const filteredPapers = papers.filter(p =>
       p.subject_id === selectedSubject.id &&
       p.grade_level_id === selectedGrade.id &&
       p.year === year
     );
+
+    // Sort by month - June (6) first, then November (11)
+    return filteredPapers.sort((a, b) => {
+      const monthA = a.month || 0;
+      const monthB = b.month || 0;
+      return monthA - monthB;
+    });
   };
 
   const formatMonth = (month: number | null | undefined): string => {
