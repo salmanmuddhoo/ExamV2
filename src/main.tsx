@@ -1,11 +1,14 @@
-import { StrictMode } from 'react';
+import { StrictMode, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { AuthProvider } from './contexts/AuthContext';
+import { UpdateNotification } from './components/UpdateNotification';
 import './index.css';
 
 // PWA update notification
 let updateAvailable = false;
+let newServiceWorker: ServiceWorker | null = null;
+let updateNotificationCallback: ((show: boolean) => void) | null = null;
 
 // Register service worker for PWA with auto-update
 if ('serviceWorker' in navigator) {
@@ -26,18 +29,18 @@ if ('serviceWorker' in navigator) {
 
         // Listen for new service worker waiting to activate
         registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
+          const worker = registration.installing;
 
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New service worker available, prompt user to reload
+          if (worker) {
+            worker.addEventListener('statechange', () => {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New service worker available, show custom notification
                 updateAvailable = true;
+                newServiceWorker = worker;
 
-                // Show update notification
-                if (confirm('A new version of the app is available! Click OK to update now.')) {
-                  newWorker.postMessage({ type: 'SKIP_WAITING' });
-                  window.location.reload();
+                // Trigger custom notification UI
+                if (updateNotificationCallback) {
+                  updateNotificationCallback(true);
                 }
               }
             });
@@ -54,10 +57,44 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Root component with update notification
+function Root() {
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
+
+  useEffect(() => {
+    // Register callback for service worker to trigger notification
+    updateNotificationCallback = setShowUpdateNotification;
+
+    return () => {
+      updateNotificationCallback = null;
+    };
+  }, []);
+
+  const handleUpdate = () => {
+    if (newServiceWorker) {
+      newServiceWorker.postMessage({ type: 'SKIP_WAITING' });
+      window.location.reload();
+    }
+  };
+
+  const handleDismiss = () => {
+    setShowUpdateNotification(false);
+  };
+
+  return (
+    <>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+      {showUpdateNotification && (
+        <UpdateNotification onUpdate={handleUpdate} onDismiss={handleDismiss} />
+      )}
+    </>
+  );
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <Root />
   </StrictMode>
 );
