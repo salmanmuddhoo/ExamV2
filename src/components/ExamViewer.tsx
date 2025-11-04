@@ -1313,7 +1313,7 @@ You can still view and download this exam paper!`
             <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
               {/* Token Display with Upgrade button for free and student tiers */}
               {tokensLimit !== null && (
-                <div className="mb-2 flex items-center justify-between px-1">
+                <div className="mb-2 flex items-center justify-between px-1 relative">
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-600">AI Tokens:</span>
                     <span className="text-xs font-semibold text-gray-900">
@@ -1328,6 +1328,14 @@ You can still view and download this exam paper!`
                       Upgrade
                     </button>
                   )}
+                  <ContextualHint
+                    show={shouldShowHint('tokenCounter') && !sending && messages.length >= 1}
+                    onDismiss={() => markHintAsSeen('tokenCounter')}
+                    title="Track Your Tokens"
+                    message="This shows your remaining AI tokens. Each question you ask uses tokens. Upgrade for more tokens!"
+                    position="top"
+                    delay={2000}
+                  />
                 </div>
               )}
 

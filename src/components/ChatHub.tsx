@@ -393,13 +393,23 @@ export function ChatHub({
                 >
                   <Home className="w-5 h-5 text-gray-700" />
                 </button>
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="My Profile"
-                >
-                  <User className="w-5 h-5 text-gray-700" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="My Profile"
+                  >
+                    <User className="w-5 h-5 text-gray-700" />
+                  </button>
+                  <ContextualHint
+                    show={shouldShowHint('profileSubscription') && !loading}
+                    onDismiss={() => markHintAsSeen('profileSubscription')}
+                    title="Your Profile"
+                    message="Click here to view your subscription details, payment history, and account settings."
+                    position="bottom"
+                    delay={3000}
+                  />
+                </div>
                 <button
                   onClick={handleSignOut}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
