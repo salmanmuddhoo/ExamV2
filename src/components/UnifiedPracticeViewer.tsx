@@ -78,6 +78,7 @@ export function UnifiedPracticeViewer({
   const [selectedPaper, setSelectedPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoadProgress, setPdfLoadProgress] = useState(0);
 
   // Chapter mode state
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -101,7 +102,10 @@ export function UnifiedPracticeViewer({
   const [tokensUsed, setTokensUsed] = useState<number>(0);
 
   // Mobile state
-  const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
+  const [mobileView, setMobileView] = useState<'pdf' | 'chat'>(() => {
+    const saved = sessionStorage.getItem('unifiedViewerMobileView');
+    return (saved as 'pdf' | 'chat') || 'pdf';
+  });
   const [isMobile, setIsMobile] = useState(false);
 
   // Fullscreen state
@@ -136,6 +140,11 @@ export function UnifiedPracticeViewer({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, [mode, gradeId, subjectId, chapterId]);
+
+  // Persist mobile view state
+  useEffect(() => {
+    sessionStorage.setItem('unifiedViewerMobileView', mobileView);
+  }, [mobileView]);
 
   useEffect(() => {
     scrollToBottom();
@@ -398,9 +407,47 @@ export function UnifiedPracticeViewer({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  const downloadWithProgress = async (url: string): Promise<Blob> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Download failed');
+
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+    if (!response.body) throw new Error('No response body');
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      chunks.push(value);
+      loaded += value.length;
+
+      if (total > 0) {
+        const progress = Math.round((loaded / total) * 100);
+        setPdfLoadProgress(progress);
+      }
+    }
+
+    const allChunks = new Uint8Array(loaded);
+    let position = 0;
+    for (const chunk of chunks) {
+      allChunks.set(chunk, position);
+      position += chunk.length;
+    }
+
+    return new Blob([allChunks], { type: 'application/pdf' });
+  };
+
   const handlePaperSelect = async (paper: ExamPaper) => {
     setSelectedPaper(paper);
     setPdfLoading(true);
+    setPdfLoadProgress(0);
 
     try {
       // Get signed URL for PDF
@@ -412,7 +459,9 @@ export function UnifiedPracticeViewer({
         throw new Error('Failed to get signed URL');
       }
 
-      setPdfBlobUrl(signedData.signedUrl);
+      const pdfBlob = await downloadWithProgress(signedData.signedUrl);
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfBlobUrl(url);
     } catch (error) {
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')
@@ -835,9 +884,18 @@ export function UnifiedPracticeViewer({
             <>
               {pdfLoading ? (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
+                  <div className="text-center px-8 max-w-md w-full">
                     <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">Loading PDF...</p>
+                    <p className="text-gray-600 mb-4">Loading PDF...</p>
+
+                    {/* Progress bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${pdfLoadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-gray-500">{pdfLoadProgress}%</p>
                   </div>
                 </div>
               ) : pdfBlobUrl && selectedPaper ? (

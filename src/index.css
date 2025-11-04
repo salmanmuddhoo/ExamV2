@@ -49,16 +49,27 @@
   animation: slideUp 0.4s ease-out;
 }
 
-/* Blink animation for new conversation text */
-@keyframes blink {
+/* Blink and zoom animation for new conversation text */
+@keyframes blinkZoom {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
+  }
+  25% {
+    opacity: 0.5;
+    transform: scale(1.1);
   }
   50% {
     opacity: 0.3;
+    transform: scale(1.15);
+  }
+  75% {
+    opacity: 0.5;
+    transform: scale(1.1);
   }
 }
 
 .animate-blink {
-  animation: blink 1s ease-in-out infinite;
+  animation: blinkZoom 1.2s ease-in-out infinite;
+  display: inline-block;
 }

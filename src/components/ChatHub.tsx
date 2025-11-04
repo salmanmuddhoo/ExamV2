@@ -739,7 +739,7 @@ export function ChatHub({
                   Ready to ace your exams?
                 </h2>
                 <p className="text-gray-600 mb-8">
-                  Choose a conversation to continue, or click <span className={`font-semibold ${showBlinkAnimation ? 'animate-blink' : ''}`}>"New Conversation"</span> to start working on a new exam paper.
+                  Choose a conversation to continue, or click <span className={`font-extrabold text-gray-900 ${showBlinkAnimation ? 'animate-blink' : ''}`}>"New Conversation"</span> to start working on a new exam paper.
                 </p>
 
                 {userTier !== 'pro' ? (

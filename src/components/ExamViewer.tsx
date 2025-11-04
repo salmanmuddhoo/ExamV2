@@ -42,6 +42,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
   const [pdfLoading, setPdfLoading] = useState(true);
+  const [pdfLoadProgress, setPdfLoadProgress] = useState(0);
   const [examPaperImages, setExamPaperImages] = useState<string[]>([]);
   const [markingSchemeImages, setMarkingSchemeImages] = useState<string[]>([]);
   const [processingPdfs, setProcessingPdfs] = useState(false);
@@ -50,7 +51,10 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [streamingMessageIndex, setStreamingMessageIndex] = useState<number | null>(null);
-  const [mobileView, setMobileView] = useState<'pdf' | 'chat'>('pdf');
+  const [mobileView, setMobileView] = useState<'pdf' | 'chat'>(() => {
+    const saved = sessionStorage.getItem('examViewerMobileView');
+    return (saved as 'pdf' | 'chat') || 'pdf';
+  });
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
   const [isMobile, setIsMobile] = useState(false);
   const [pdfLoadError, setPdfLoadError] = useState(false);
@@ -96,6 +100,11 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
       }
     }
   }, [conversationId, user, paperId]);
+
+  // Persist mobile view state
+  useEffect(() => {
+    sessionStorage.setItem('examViewerMobileView', mobileView);
+  }, [mobileView]);
 
   const checkForExistingConversation = async () => {
     if (!user || !paperId) return;
@@ -211,6 +220,43 @@ This helps me give you the most accurate and focused help! 😊`;
     return null;
   };
 
+  const downloadWithProgress = async (url: string): Promise<Blob> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Download failed');
+
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+    if (!response.body) throw new Error('No response body');
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      chunks.push(value);
+      loaded += value.length;
+
+      if (total > 0) {
+        const progress = Math.round((loaded / total) * 100);
+        setPdfLoadProgress(progress);
+      }
+    }
+
+    const allChunks = new Uint8Array(loaded);
+    let position = 0;
+    for (const chunk of chunks) {
+      allChunks.set(chunk, position);
+      position += chunk.length;
+    }
+
+    return new Blob([allChunks], { type: 'application/pdf' });
+  };
+
   const loadPdfBlob = async () => {
     if (!examPaper) return;
 
@@ -218,29 +264,33 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoading(true);
       setProcessingPdfs(true);
       setPdfLoadError(false); // Reset error state
+      setPdfLoadProgress(0);
 
       if (isMobile) {
         // For mobile, use signed URL (works with private buckets)
         const { data: signedData, error: signedUrlError } = await supabase.storage
           .from('exam-papers')
           .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
-        
+
         if (signedUrlError || !signedData?.signedUrl) {
           throw new Error('Failed to get signed URL');
         }
-        
-        // Add a small delay to ensure URL is ready before setting it
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setPdfBlobUrl(signedData.signedUrl);
+
+        // Download with progress tracking
+        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
+        const url = URL.createObjectURL(pdfBlob);
+        setPdfBlobUrl(url);
       } else {
-        // For desktop, download and create blob URL
-        const { data, error } = await supabase.storage
+        // For desktop, download with progress tracking
+        const { data: signedData, error: signedUrlError } = await supabase.storage
           .from('exam-papers')
-          .download(examPaper.pdf_path);
+          .createSignedUrl(examPaper.pdf_path, 3600);
 
-        if (error) throw error;
+        if (signedUrlError || !signedData?.signedUrl) {
+          throw new Error('Failed to get signed URL');
+        }
 
-        const pdfBlob = new Blob([data], { type: 'application/pdf' });
+        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
         const url = URL.createObjectURL(pdfBlob);
         setPdfBlobUrl(url);
       }
@@ -1067,9 +1117,18 @@ You can still view and download this exam paper!`
         <div className={`${mobileView === 'pdf' ? 'flex' : 'hidden md:flex'} flex-1 bg-gray-100 relative`}>
           {pdfLoading ? (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
+              <div className="text-center px-8 max-w-md w-full">
                 <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">{isMobile ? 'Loading exam paper' : 'Loading PDF...'}...</p>
+                <p className="text-gray-600 mb-4">{isMobile ? 'Loading exam paper' : 'Loading PDF...'}...</p>
+
+                {/* Progress bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${pdfLoadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-500">{pdfLoadProgress}%</p>
               </div>
             </div>
          ) : pdfBlobUrl ? (
