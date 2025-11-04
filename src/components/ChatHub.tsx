@@ -50,6 +50,7 @@ interface Props {
   onSelectPaper: (paperId: string) => void;
   onSelectMode?: (mode: 'year' | 'chapter', gradeId: string, subjectId: string) => void;
   onNavigateHome: () => void;
+  onNavigateStudyPlan?: () => void;
   showWelcomeModal?: boolean;
   tokensRemaining?: number;
   papersRemaining?: number;
@@ -62,6 +63,7 @@ export function ChatHub({
   onSelectPaper,
   onSelectMode,
   onNavigateHome,
+  onNavigateStudyPlan,
   showWelcomeModal = false,
   tokensRemaining = 0,
   papersRemaining = 0,
@@ -393,6 +395,15 @@ export function ChatHub({
                 >
                   <Home className="w-5 h-5 text-gray-700" />
                 </button>
+                {onNavigateStudyPlan && (
+                  <button
+                    onClick={onNavigateStudyPlan}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Study Plan"
+                  >
+                    <Calendar className="w-5 h-5 text-purple-600" />
+                  </button>
+                )}
                 <div className="relative">
                   <button
                     onClick={() => setShowProfileModal(true)}
@@ -446,6 +457,19 @@ export function ChatHub({
                   <Home className="w-5 h-5 text-gray-700" />
                   <span>Home</span>
                 </button>
+
+                {onNavigateStudyPlan && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNavigateStudyPlan();
+                    }}
+                    className="w-full flex items-center space-x-2 px-4 py-2 text-purple-700 hover:bg-purple-50"
+                  >
+                    <Calendar className="w-5 h-5 text-purple-600" />
+                    <span>Study Plan</span>
+                  </button>
+                )}
 
                 <div className="relative">
                   <button

@@ -10,6 +10,8 @@ export interface SubscriptionTier {
   can_select_grade: boolean;
   can_select_subjects: boolean;
   max_subjects: number | null;
+  chapter_wise_access: boolean;
+  can_access_study_plan: boolean;
   is_active: boolean;
   coming_soon: boolean;
   display_order: number;

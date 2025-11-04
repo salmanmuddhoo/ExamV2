@@ -15,10 +15,11 @@ import { UnifiedPracticeViewer } from './components/UnifiedPracticeViewer';
 import { ResetPassword } from './components/ResetPassword';
 import { BlogList } from './components/BlogList';
 import { BlogPost } from './components/BlogPost';
+import { StudyPlanCalendar } from './components/StudyPlanCalendar';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'blog' | 'blog-post';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'blog' | 'blog-post' | 'study-plan';
 
 function App() {
   const { user, profile, loading } = useAuth();
@@ -298,7 +299,7 @@ function App() {
 
   useEffect(() => {
     if (initialLoadComplete && !user && !loading && !isPasswordReset) {
-      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer' && view !== 'reset-password' && view !== 'blog' && view !== 'blog-post') {
+      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer' && view !== 'reset-password' && view !== 'blog' && view !== 'blog-post' && view !== 'study-plan') {
         setView('home');
       }
     }
@@ -463,6 +464,11 @@ function App() {
     setView('blog');
   };
 
+  // Study plan navigation handlers
+  const handleNavigateToStudyPlan = () => {
+    setView('study-plan');
+  };
+
   const handleSubscriptionSuccess = () => {
     setShowSubscriptionModal(false);
     // Clear subscription modal state from sessionStorage
@@ -544,6 +550,7 @@ function App() {
           onSelectPaper={handleSelectPaper}
           onSelectMode={handleSelectMode}
           onNavigateHome={handleNavigateToHomepage}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           showWelcomeModal={showWelcomeModal}
           tokensRemaining={tokensRemaining}
           papersRemaining={papersRemaining}
@@ -667,6 +674,24 @@ function App() {
         <BlogPost
           post={selectedBlogPost}
           onBack={handleBackToBlogList}
+        />
+      </>
+    );
+  }
+
+  // Study plan view
+  if (view === 'study-plan' && user) {
+    return (
+      <>
+        <StudyPlanCalendar
+          onBack={handleBackToChatHub}
+          onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+        />
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
         />
       </>
     );

@@ -15,6 +15,7 @@ interface TierConfig {
   can_select_subjects: boolean;
   max_subjects: number | null;
   chapter_wise_access: boolean;
+  can_access_study_plan: boolean;
   is_active: boolean;
   coming_soon: boolean;
   display_order: number;
@@ -314,6 +315,25 @@ export function TierConfigManager() {
                 <p className="text-xs text-gray-500 mt-1">
                   {tier.chapter_wise_access ? 'Users can practice chapter-wise questions' : 'Only yearly exam papers allowed'}
                 </p>
+
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
+                  <label className="text-xs font-medium text-gray-700">Study Plan Access</label>
+                  <button
+                    onClick={() => handleFieldChange(tier.id, 'can_access_study_plan', !tier.can_access_study_plan)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      tier.can_access_study_plan ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        tier.can_access_study_plan ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {tier.can_access_study_plan ? 'Users can create AI-powered study plans' : 'Study plan feature disabled'}
+                </p>
               </div>
 
               {/* Active Status */}
@@ -462,6 +482,18 @@ export function TierConfigManager() {
                 ))}
               </tr>
               <tr>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Study Plan Access</td>
+                {tiers.map(tier => (
+                  <td key={tier.id} className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {tier.can_access_study_plan ? (
+                      <span className="text-purple-600 font-semibold">✓ AI Study Plans</span>
+                    ) : (
+                      <span className="text-red-600 font-semibold">✗</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+              <tr className="bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">Status</td>
                 {tiers.map(tier => (
                   <td key={tier.id} className="px-6 py-4 whitespace-nowrap text-sm text-center">
