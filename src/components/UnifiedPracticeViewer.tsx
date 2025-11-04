@@ -839,7 +839,7 @@ export function UnifiedPracticeViewer({
               onDismiss={() => markHintAsSeen('mobileToggle')}
               title="Switch Views"
               message="Toggle between practice questions and chat assistant. View questions on the left, chat on the right!"
-              position="bottom"
+              position="center"
               delay={1500}
             />
           </div>
@@ -1149,23 +1149,33 @@ export function UnifiedPracticeViewer({
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleSendMessage} className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Ask a question..."
-                      disabled={sending || (mode === 'chapter' && !selectedQuestion)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                  <div className="relative">
+                    <form onSubmit={handleSendMessage} className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Ask a question..."
+                        disabled={sending || (mode === 'chapter' && !selectedQuestion)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                      />
+                      <button
+                        type="submit"
+                        disabled={sending || !input.trim() || (mode === 'chapter' && !selectedQuestion)}
+                        className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </form>
+                    <ContextualHint
+                      show={shouldShowHint('chatInput') && !sending && messages.length === 0 && (mode === 'year' || (mode === 'chapter' && selectedQuestion))}
+                      onDismiss={() => markHintAsSeen('chatInput')}
+                      title="Ask Your Questions Here"
+                      message="Type your question here. For example: 'Explain this question' or 'Help me understand this concept'."
+                      position="top"
+                      delay={2000}
                     />
-                    <button
-                      type="submit"
-                      disabled={sending || !input.trim() || (mode === 'chapter' && !selectedQuestion)}
-                      className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
+                  </div>
                 )}
               </div>
             )}

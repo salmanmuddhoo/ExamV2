@@ -6,7 +6,7 @@ interface ContextualHintProps {
   onDismiss: () => void;
   title: string;
   message: string;
-  position?: 'top' | 'bottom' | 'left' | 'right';
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
   delay?: number;
 }
 
@@ -32,6 +32,42 @@ export function ContextualHint({
   }, [show, delay]);
 
   if (!visible) return null;
+
+  // For center position, use fixed positioning in the middle of the screen
+  if (position === 'center') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 animate-in fade-in duration-300 px-4">
+        <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-lg shadow-2xl w-full sm:w-96 max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <div className="bg-white/20 rounded-full p-1.5">
+                  <Lightbulb className="w-4 h-4" />
+                </div>
+                <h4 className="font-semibold text-sm">{title}</h4>
+              </div>
+              <button
+                onClick={onDismiss}
+                className="text-white/80 hover:text-white transition-colors"
+                aria-label="Dismiss hint"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-white/90 leading-relaxed">{message}</p>
+          </div>
+          <div className="bg-white/10 px-4 py-2 flex justify-end">
+            <button
+              onClick={onDismiss}
+              className="text-xs font-medium text-white hover:text-white/80 transition-colors"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const positionClasses = {
     top: 'bottom-full mb-2 left-1/2 -translate-x-1/2',
