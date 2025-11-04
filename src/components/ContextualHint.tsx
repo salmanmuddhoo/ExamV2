@@ -6,7 +6,8 @@ interface ContextualHintProps {
   onDismiss: () => void;
   title: string;
   message: string;
-  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  position?: 'top' | 'bottom' | 'left' | 'right';
+  arrowAlign?: 'left' | 'center' | 'right';  // For top/bottom positions
   delay?: number;
 }
 
@@ -16,6 +17,7 @@ export function ContextualHint({
   title,
   message,
   position = 'bottom',
+  arrowAlign = 'center',
   delay = 500,
 }: ContextualHintProps) {
   const [visible, setVisible] = useState(false);
@@ -33,62 +35,58 @@ export function ContextualHint({
 
   if (!visible) return null;
 
-  // For center position, use fixed positioning in the middle of the screen
-  if (position === 'center') {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 animate-in fade-in duration-300 px-4">
-        <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-lg shadow-2xl w-full sm:w-96 max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
-          <div className="p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <div className="bg-white/20 rounded-full p-1.5">
-                  <Lightbulb className="w-4 h-4" />
-                </div>
-                <h4 className="font-semibold text-sm">{title}</h4>
-              </div>
-              <button
-                onClick={onDismiss}
-                className="text-white/80 hover:text-white transition-colors"
-                aria-label="Dismiss hint"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-sm text-white/90 leading-relaxed">{message}</p>
-          </div>
-          <div className="bg-white/10 px-4 py-2 flex justify-end">
-            <button
-              onClick={onDismiss}
-              className="text-xs font-medium text-white hover:text-white/80 transition-colors"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Position classes based on arrow alignment
+  const getPositionClass = () => {
+    if (position === 'top' || position === 'bottom') {
+      const verticalOffset = position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2';
 
-  const positionClasses = {
-    top: 'bottom-full mb-2 left-1/2 -translate-x-1/2',
-    bottom: 'top-full mt-2 left-1/2 -translate-x-1/2',
-    left: 'right-full mr-2 top-1/2 -translate-y-1/2',
-    right: 'left-full ml-2 top-1/2 -translate-y-1/2',
+      if (arrowAlign === 'right') {
+        return `${verticalOffset} right-0`;
+      } else if (arrowAlign === 'left') {
+        return `${verticalOffset} left-0`;
+      } else {
+        return `${verticalOffset} left-1/2 -translate-x-1/2`;
+      }
+    } else if (position === 'left') {
+      return 'right-full mr-2 top-1/2 -translate-y-1/2';
+    } else {
+      return 'left-full ml-2 top-1/2 -translate-y-1/2';
+    }
   };
 
-  const arrowClasses = {
-    top: 'top-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-b-transparent border-t-blue-600',
-    bottom: 'bottom-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-t-transparent border-b-blue-600',
-    left: 'left-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-r-transparent border-l-blue-600',
-    right: 'right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-blue-600',
+  // Arrow classes based on position and alignment
+  const getArrowClass = () => {
+    if (position === 'top') {
+      const base = 'top-full border-l-transparent border-r-transparent border-b-transparent border-t-blue-600';
+      if (arrowAlign === 'right') {
+        return `${base} right-4`;
+      } else if (arrowAlign === 'left') {
+        return `${base} left-4`;
+      } else {
+        return `${base} left-1/2 -translate-x-1/2`;
+      }
+    } else if (position === 'bottom') {
+      const base = 'bottom-full border-l-transparent border-r-transparent border-t-transparent border-b-blue-600';
+      if (arrowAlign === 'right') {
+        return `${base} right-4`;
+      } else if (arrowAlign === 'left') {
+        return `${base} left-4`;
+      } else {
+        return `${base} left-1/2 -translate-x-1/2`;
+      }
+    } else if (position === 'left') {
+      return 'left-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-r-transparent border-l-blue-600';
+    } else {
+      return 'right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-blue-600';
+    }
   };
 
   return (
-    <div className={`absolute ${positionClasses[position]} z-50 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+    <div className={`absolute ${getPositionClass()} z-50 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
       <div className="relative">
         {/* Arrow */}
         <div
-          className={`absolute ${arrowClasses[position]} w-0 h-0 border-[8px]`}
+          className={`absolute ${getArrowClass()} w-0 h-0 border-[8px]`}
           style={{ zIndex: 1 }}
         />
 

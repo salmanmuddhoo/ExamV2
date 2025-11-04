@@ -447,16 +447,26 @@ export function ChatHub({
                   <span>Home</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setShowProfileModal(true);
-                  }}
-                  className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
-                >
-                  <User className="w-5 h-5 text-gray-700" />
-                  <span>Profile</span>
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setShowProfileModal(true);
+                    }}
+                    className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    <User className="w-5 h-5 text-gray-700" />
+                    <span>Profile</span>
+                  </button>
+                  <ContextualHint
+                    show={shouldShowHint('profileSubscription') && mobileMenuOpen && !loading}
+                    onDismiss={() => markHintAsSeen('profileSubscription')}
+                    title="Your Profile"
+                    message="Click here to view your subscription details, payment history, and account settings."
+                    position="right"
+                    delay={3000}
+                  />
+                </div>
 
                 <button
                   onClick={() => {
