@@ -34,10 +34,10 @@ export function ContextualHint({
   if (!visible) return null;
 
   const positionClasses = {
-    top: 'bottom-full mb-2',
-    bottom: 'top-full mt-2',
-    left: 'right-full mr-2',
-    right: 'left-full ml-2',
+    top: 'bottom-full mb-2 left-1/2 -translate-x-1/2',
+    bottom: 'top-full mt-2 left-1/2 -translate-x-1/2',
+    left: 'right-full mr-2 top-1/2 -translate-y-1/2',
+    right: 'left-full ml-2 top-1/2 -translate-y-1/2',
   };
 
   const arrowClasses = {
@@ -56,8 +56,8 @@ export function ContextualHint({
           style={{ zIndex: 1 }}
         />
 
-        {/* Hint Card */}
-        <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-lg shadow-2xl max-w-xs w-64 overflow-hidden">
+        {/* Hint Card - Responsive width: smaller on mobile, larger on desktop */}
+        <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-lg shadow-2xl w-[calc(100vw-2rem)] sm:w-64 max-w-xs overflow-hidden">
           <div className="p-4">
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center space-x-2">
