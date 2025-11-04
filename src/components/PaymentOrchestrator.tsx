@@ -3,6 +3,7 @@ import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { StripePayment } from './StripePayment';
 import { PayPalPayment } from './PayPalPayment';
 import { MCBJuicePayment } from './MCBJuicePayment';
+import { PeachPayment } from './PeachPayment';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
 interface PaymentOrchestratorProps {
@@ -12,7 +13,7 @@ interface PaymentOrchestratorProps {
   hideBackButton?: boolean;
 }
 
-type PaymentStep = 'select-method' | 'stripe' | 'paypal' | 'mcb_juice';
+type PaymentStep = 'select-method' | 'stripe' | 'paypal' | 'mcb_juice' | 'peach';
 
 interface CouponData {
   code: string;
@@ -83,6 +84,19 @@ export function PaymentOrchestrator({
   if (step === 'mcb_juice' && selectedPaymentMethod) {
     return (
       <MCBJuicePayment
+        paymentData={paymentData}
+        paymentMethod={selectedPaymentMethod}
+        onBack={handleBackToMethods}
+        onSuccess={onSuccess}
+        hideBackButton={hideBackButton}
+        couponData={couponData}
+      />
+    );
+  }
+
+  if (step === 'peach' && selectedPaymentMethod) {
+    return (
+      <PeachPayment
         paymentData={paymentData}
         paymentMethod={selectedPaymentMethod}
         onBack={handleBackToMethods}
