@@ -15,9 +15,13 @@ import {
   ArrowLeft,
   Sparkles,
   Clock,
-  BookOpen
+  BookOpen,
+  Trash2,
+  Eye
 } from 'lucide-react';
-import { StudyPlanEvent } from '../types/studyPlan';
+import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
+import { StudyPlanWizard } from './StudyPlanWizard';
+import { EventDetailModal } from './EventDetailModal';
 
 interface StudyPlanCalendarProps {
   onBack: () => void;
@@ -34,11 +38,16 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
   const [events, setEvents] = useState<StudyPlanEvent[]>([]);
   const [tierName, setTierName] = useState<string>('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<StudyPlanEvent | null>(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [schedules, setSchedules] = useState<(StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } })[]>([]);
+  const [showSchedules, setShowSchedules] = useState(false);
 
   useEffect(() => {
     checkAccess();
     if (hasAccess && featureEnabled) {
       fetchEvents();
+      fetchSchedules();
     }
   }, [user, currentDate]);
 
@@ -115,6 +124,50 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
       setEvents(data || []);
     } catch (error) {
       console.error('Error fetching events:', error);
+    }
+  };
+
+  const fetchSchedules = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('study_plan_schedules')
+        .select(`
+          *,
+          subjects(name),
+          grade_levels(name)
+        `)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setSchedules(data || []);
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    if (!confirm('Are you sure you want to delete this study plan? All associated events will be deleted.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('study_plan_schedules')
+        .delete()
+        .eq('id', scheduleId);
+
+      if (error) throw error;
+
+      fetchSchedules();
+      fetchEvents();
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      alert('Failed to delete study plan');
     }
   };
 
@@ -308,6 +361,81 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
 
       {/* Calendar Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Active Schedules Section */}
+        {schedules.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowSchedules(!showSchedules)}
+              className="flex items-center space-x-2 text-sm font-semibold text-gray-700 hover:text-gray-900 mb-3"
+            >
+              <Eye className="w-4 h-4" />
+              <span>{showSchedules ? 'Hide' : 'Show'} Active Study Plans ({schedules.length})</span>
+            </button>
+
+            {showSchedules && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {schedules.map(schedule => (
+                  <div
+                    key={schedule.id}
+                    className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <BookOpen className="w-5 h-5 text-purple-600" />
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {schedule.subjects?.name || 'Subject'}
+                          </h3>
+                          <p className="text-xs text-gray-600">
+                            {schedule.grade_levels?.name || 'Grade'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSchedule(schedule.id)}
+                        className="p-1 hover:bg-red-50 rounded transition-colors"
+                        title="Delete study plan"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between text-gray-600">
+                        <span>Duration:</span>
+                        <span className="font-medium text-gray-900">{schedule.study_duration_minutes} min</span>
+                      </div>
+                      <div className="flex items-center justify-between text-gray-600">
+                        <span>Sessions/week:</span>
+                        <span className="font-medium text-gray-900">{schedule.sessions_per_week}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-gray-600">
+                        <span>Period:</span>
+                        <span className="font-medium text-gray-900">
+                          {new Date(schedule.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                        </span>
+                      </div>
+                      {schedule.preferred_times && schedule.preferred_times.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {schedule.preferred_times.map((time, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-xs border border-purple-200"
+                            >
+                              {time}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Calendar Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -371,7 +499,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                           {dayEvents.slice(0, 3).map(event => (
                             <div
                               key={event.id}
-                              className={`text-xs p-1 rounded border ${getStatusColor(event.status)} truncate`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEvent(event);
+                                setShowEventModal(true);
+                              }}
+                              className={`text-xs p-1 rounded border ${getStatusColor(event.status)} truncate cursor-pointer hover:shadow-md transition-shadow`}
                             >
                               <div className="flex items-center space-x-1">
                                 {getStatusIcon(event.status)}
@@ -414,7 +547,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
               events.map(event => (
                 <div
                   key={event.id}
-                  className={`p-4 rounded-lg border ${getStatusColor(event.status)}`}
+                  onClick={() => {
+                    setSelectedEvent(event);
+                    setShowEventModal(true);
+                  }}
+                  className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer hover:shadow-md transition-shadow`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
@@ -426,7 +563,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                     </span>
                   </div>
                   {event.description && (
-                    <p className="text-sm text-gray-700 mb-2">{event.description}</p>
+                    <p className="text-sm text-gray-700 mb-2 line-clamp-2">{event.description}</p>
                   )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -437,14 +574,20 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                       {event.status !== 'completed' && (
                         <>
                           <button
-                            onClick={() => handleUpdateEventStatus(event.id, 'in_progress')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateEventStatus(event.id, 'in_progress');
+                            }}
                             className="p-1 hover:bg-blue-200 rounded transition-colors"
                             title="Mark In Progress"
                           >
                             <PlayCircle className="w-4 h-4 text-blue-600" />
                           </button>
                           <button
-                            onClick={() => handleUpdateEventStatus(event.id, 'completed')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateEventStatus(event.id, 'completed');
+                            }}
                             className="p-1 hover:bg-green-200 rounded transition-colors"
                             title="Mark Completed"
                           >
@@ -481,23 +624,40 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
         )}
       </div>
 
-      {/* Create Modal Placeholder */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Study Plan</h3>
-            <p className="text-gray-600 mb-4">
-              Study plan creation wizard coming soon! This will allow you to select subjects, set study duration, and let AI generate a personalized schedule.
-            </p>
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Study Plan Wizard */}
+      <StudyPlanWizard
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          fetchEvents();
+          setShowCreateModal(false);
+        }}
+      />
+
+      {/* Event Detail Modal */}
+      <EventDetailModal
+        event={selectedEvent}
+        isOpen={showEventModal}
+        onClose={() => {
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+        onUpdate={() => {
+          fetchEvents();
+          // Update selectedEvent with latest data
+          if (selectedEvent) {
+            const updatedEvent = events.find(e => e.id === selectedEvent.id);
+            if (updatedEvent) {
+              setSelectedEvent(updatedEvent);
+            }
+          }
+        }}
+        onDelete={() => {
+          fetchEvents();
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+      />
     </div>
   );
 }
