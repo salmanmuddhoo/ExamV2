@@ -1,14 +1,15 @@
 # Payment Gateway Setup Guide
 
-This guide will help you set up and configure the payment gateways (Stripe, PayPal, MCB Juice) for your exam study assistant platform.
+This guide will help you set up and configure the payment gateways (Stripe, PayPal, MCB Juice, Peach Payments) for your exam study assistant platform.
 
 ## Table of Contents
 1. [Database Migration](#database-migration)
 2. [Stripe Setup](#stripe-setup)
 3. [PayPal Setup](#paypal-setup)
 4. [MCB Juice Setup](#mcb-juice-setup)
-5. [Testing](#testing)
-6. [Production Deployment](#production-deployment)
+5. [Peach Payments Setup](#peach-payments-setup)
+6. [Testing](#testing)
+7. [Production Deployment](#production-deployment)
 
 ---
 
@@ -201,6 +202,253 @@ Update the MCB Juice merchant details in `src/components/MCBJuicePayment.tsx`:
 
 ---
 
+## Peach Payments Setup
+
+### Test Mode (Development)
+
+Peach Payments is currently in test mode with simulated transactions. No real charges will be processed.
+
+#### Step 1: Add Peach Payments to Database
+
+Run this SQL command in your Supabase SQL Editor to add Peach Payments to the payment methods:
+
+```sql
+INSERT INTO payment_methods (name, display_name, is_active, currency, requires_manual_approval)
+VALUES ('peach', 'Peach Payments', false, 'USD', false);
+```
+
+#### Step 2: Enable Peach Payments (Admin)
+
+1. Login as admin
+2. Go to **Admin Dashboard** → **Payment Method Settings**
+3. Find **Peach Payments** in the list
+4. Click **"Activate"** to enable it for users
+
+#### Step 3: Test Card Numbers
+
+Use these test cards in Peach Payments test mode:
+- **Success**: `5123 4567 8901 2346`
+- **Expiry**: Any future date (e.g., 12/34)
+- **CVV**: Any 3 digits (e.g., 123)
+- **Card Holder**: Any name (e.g., JOHN DOE)
+
+### Production Mode
+
+#### Step 1: Sign Up for Peach Payments
+
+1. Go to [Peach Payments](https://www.peachpayments.com/) or contact their sales team
+2. Complete the merchant onboarding process
+3. Provide business verification documents
+4. Set up your bank account for settlements
+
+#### Step 2: Get Production API Credentials
+
+After account approval:
+1. Login to Peach Payments Dashboard
+2. Navigate to **Settings** → **API Keys**
+3. Copy your **Entity ID** (merchant identifier)
+4. Copy your **Authentication Token** or **Access Token**
+5. Note your **Payment Gateway URL** (production endpoint)
+
+**Documentation**: https://developer.peachpayments.com/docs/
+
+#### Step 3: Create Backend API Endpoint
+
+You need to create a secure backend endpoint to process Peach Payments. The frontend cannot directly call Peach Payments API for security reasons.
+
+**Create**: `/api/peach/create-checkout`
+
+Example implementation (Node.js/Express):
+
+```javascript
+const express = require('express');
+const router = express.Router();
+
+// Your Peach Payments credentials (use environment variables!)
+const PEACH_ENTITY_ID = process.env.PEACH_ENTITY_ID;
+const PEACH_ACCESS_TOKEN = process.env.PEACH_ACCESS_TOKEN;
+const PEACH_API_URL = 'https://api.peachpayments.com/v1'; // Production URL
+
+router.post('/create-checkout', async (req, res) => {
+  try {
+    const { amount, currency, card } = req.body;
+
+    // Validate inputs
+    if (!amount || !currency || !card) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Create checkout with Peach Payments API
+    const response = await fetch(`${PEACH_API_URL}/checkouts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${PEACH_ACCESS_TOKEN}`
+      },
+      body: JSON.stringify({
+        entityId: PEACH_ENTITY_ID,
+        amount: amount.toFixed(2),
+        currency: currency,
+        paymentType: 'DB', // Debit (immediate capture)
+        card: {
+          number: card.number,
+          holder: card.holder,
+          expiryMonth: card.expiry_month,
+          expiryYear: card.expiry_year,
+          cvv: card.cvv
+        },
+        merchantTransactionId: req.body.transaction_id // Your internal transaction ID
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.result.code === '000.100.110') {
+      // Success
+      return res.json({
+        success: true,
+        checkout_id: data.id,
+        transaction_id: data.merchantTransactionId
+      });
+    } else {
+      // Failed
+      return res.status(400).json({
+        error: 'Payment failed',
+        code: data.result.code,
+        description: data.result.description
+      });
+    }
+  } catch (error) {
+    console.error('Peach Payments error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+module.exports = router;
+```
+
+#### Step 4: Update Frontend Code
+
+Open `src/components/PeachPayment.tsx` and uncomment/update the API integration section (around line 120):
+
+```typescript
+// Replace the simulated payment with actual API call
+const response = await fetch('/api/peach/create-checkout', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    amount: finalAmount,
+    currency: 'USD',
+    card: {
+      number: cleanCardNumber,
+      holder: cardHolder,
+      expiry_month: expiryDate.split('/')[0],
+      expiry_year: '20' + expiryDate.split('/')[1],
+      cvv: cvv
+    },
+    transaction_id: transaction.id
+  })
+});
+
+const result = await response.json();
+
+if (!result.success) {
+  throw new Error(result.error || 'Payment failed');
+}
+
+// Update transaction with Peach Payments checkout ID
+const { error: updateError } = await supabase
+  .from('payment_transactions')
+  .update({
+    status: 'completed',
+    external_transaction_id: result.checkout_id,
+    metadata: {
+      tier_name: paymentData.tierName,
+      peach_checkout_id: result.checkout_id,
+      // ... rest of metadata
+    }
+  })
+  .eq('id', transaction.id);
+```
+
+#### Step 5: Set Up Webhooks (Recommended)
+
+Configure webhooks to receive real-time payment status updates:
+
+1. Go to Peach Payments Dashboard → **Settings** → **Webhooks**
+2. Add webhook URL: `https://yourdomain.com/api/webhooks/peach`
+3. Select events:
+   - `payment.success`
+   - `payment.failed`
+   - `payment.pending`
+4. Copy the **Webhook Secret** for signature verification
+
+**Create**: `/api/webhooks/peach`
+
+```javascript
+router.post('/webhooks/peach', async (req, res) => {
+  // Verify webhook signature
+  const signature = req.headers['x-peach-signature'];
+  const webhookSecret = process.env.PEACH_WEBHOOK_SECRET;
+
+  // Verify signature (implementation depends on Peach's signature method)
+  // ...
+
+  const event = req.body;
+
+  if (event.type === 'payment.success') {
+    // Update transaction status to completed
+    await supabase
+      .from('payment_transactions')
+      .update({ status: 'completed' })
+      .eq('external_transaction_id', event.checkout_id);
+  } else if (event.type === 'payment.failed') {
+    // Mark as failed
+    await supabase
+      .from('payment_transactions')
+      .update({ status: 'failed' })
+      .eq('external_transaction_id', event.checkout_id);
+  }
+
+  res.json({ received: true });
+});
+```
+
+#### Step 6: Security Considerations
+
+1. **Never expose API credentials** in frontend code
+2. **Always use HTTPS** in production
+3. **Validate webhook signatures** to prevent fraud
+4. **Store sensitive data securely** (use environment variables)
+5. **Implement rate limiting** on payment endpoints
+6. **Log all transactions** for audit trails
+7. **Use PCI-compliant infrastructure** if handling card data directly
+
+#### Step 7: Testing Production
+
+Before going live:
+1. Test with small amounts first
+2. Verify webhooks are being received
+3. Test all payment scenarios (success, failure, pending)
+4. Verify subscription activation works correctly
+5. Check receipt emails are sent
+6. Test refund process if applicable
+
+### Currency Support
+
+- **Default Currency**: USD (United States Dollar)
+- **Multi-Currency**: Check with Peach Payments for supported currencies
+- **Settlement Currency**: Confirm with Peach Payments which currency you'll receive settlements in
+
+### Support Resources
+
+- **Documentation**: https://developer.peachpayments.com/docs/
+- **Sandbox Dashboard**: https://dashboard.sandbox.peachpayments.com/
+- **Production Dashboard**: https://dashboard.peachpayments.com/
+- **Support**: Contact Peach Payments support team
+
+---
+
 ## Testing
 
 ### Test the Full Payment Flow
@@ -227,7 +475,20 @@ Update the MCB Juice merchant details in `src/components/MCBJuicePayment.tsx`:
 6. Complete payment
 7. Verify subscription is activated
 
-#### 4. Test MCB Juice Payment
+#### 4. Test Peach Payments
+1. Select a paid tier
+2. Choose billing cycle
+3. Click payment button
+4. Select **"Peach Payments"**
+5. Enter test card details:
+   - Card Number: `5123 4567 8901 2346`
+   - Card Holder: `JOHN DOE`
+   - Expiry: Any future date (e.g., `12/25`)
+   - CVV: `123`
+6. Complete payment
+7. Verify subscription is activated
+
+#### 5. Test MCB Juice Payment
 1. Select a paid tier
 2. Choose billing cycle
 3. Click payment button
@@ -238,7 +499,7 @@ Update the MCB Juice merchant details in `src/components/MCBJuicePayment.tsx`:
    - Upload a screenshot (any image)
 6. Submit for approval
 
-#### 5. Test Admin Approval (MCB Juice)
+#### 6. Test Admin Approval (MCB Juice)
 1. Login as admin
 2. Go to Admin Dashboard → **Payment Approvals**
 3. Find the pending MCB Juice payment
@@ -256,6 +517,8 @@ Update the MCB Juice merchant details in `src/components/MCBJuicePayment.tsx`:
 - [ ] Enable production mode in Stripe
 - [ ] Use live PayPal app credentials
 - [ ] Verify MCB Juice merchant account is active
+- [ ] Set up Peach Payments backend API endpoint
+- [ ] Test Peach Payments with real transactions (small amounts)
 - [ ] Test all payment flows in production
 - [ ] Set up webhook endpoints (see below)
 - [ ] Enable SSL/HTTPS
@@ -264,6 +527,7 @@ Update the MCB Juice merchant details in `src/components/MCBJuicePayment.tsx`:
   - Payment success
   - Payment failure
   - MCB Juice approval/rejection
+  - Peach Payments status updates
 
 ### Environment Variables (Recommended)
 
@@ -304,6 +568,16 @@ const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
    - `PAYMENT.CAPTURE.COMPLETED`
    - `PAYMENT.CAPTURE.DENIED`
 
+#### Peach Payments Webhooks
+1. Go to Peach Payments Dashboard → **Settings** → **Webhooks**
+2. Click **"Add Webhook"**
+3. URL: `https://yourdomain.com/api/webhooks/peach`
+4. Events to listen:
+   - `payment.success`
+   - `payment.failed`
+   - `payment.pending`
+5. Copy **Webhook Secret** for signature verification
+
 ### Backend API Endpoints Needed
 
 You'll need to create backend endpoints for:
@@ -318,9 +592,15 @@ You'll need to create backend endpoints for:
    - Creates PayPal order
    - Returns order ID
 
-3. **Webhook Handlers**
+3. **Peach Payments Checkout**
+   - `POST /api/peach/create-checkout`
+   - Creates checkout with card details
+   - Returns checkout ID and status
+
+4. **Webhook Handlers**
    - `POST /api/webhooks/stripe`
    - `POST /api/webhooks/paypal`
+   - `POST /api/webhooks/peach`
    - Verify webhook signatures
    - Update database accordingly
 

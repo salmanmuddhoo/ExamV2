@@ -267,7 +267,7 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoadProgress(0);
 
       if (isMobile) {
-        // For mobile, use signed URL (works with private buckets)
+        // For mobile, use signed URL directly (mobile browsers have issues with blob URLs in iframes)
         const { data: signedData, error: signedUrlError } = await supabase.storage
           .from('exam-papers')
           .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
@@ -276,12 +276,16 @@ This helps me give you the most accurate and focused help! 😊`;
           throw new Error('Failed to get signed URL');
         }
 
-        // Download with progress tracking
-        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfBlobUrl(url);
+        // Simulate progress for better UX
+        for (let i = 0; i <= 100; i += 10) {
+          setPdfLoadProgress(i);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        // Use signed URL directly for mobile
+        setPdfBlobUrl(signedData.signedUrl);
       } else {
-        // For desktop, download with progress tracking
+        // For desktop, download with progress tracking and use blob URL
         const { data: signedData, error: signedUrlError } = await supabase.storage
           .from('exam-papers')
           .createSignedUrl(examPaper.pdf_path, 3600);
