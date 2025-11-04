@@ -17,7 +17,9 @@ import {
   Clock,
   BookOpen,
   Trash2,
-  Eye
+  Eye,
+  Grid3x3,
+  List
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
@@ -42,6 +44,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
   const [showEventModal, setShowEventModal] = useState(false);
   const [schedules, setSchedules] = useState<(StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } })[]>([]);
   const [showSchedules, setShowSchedules] = useState(false);
+  const [mobileView, setMobileView] = useState<'calendar' | 'list'>('calendar');
 
   useEffect(() => {
     checkAccess();
@@ -438,28 +441,56 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
 
         {/* Calendar Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </h2>
-            <div className="flex items-center space-x-2">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3 md:mb-0">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date())}
+                  className="px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile View Toggle */}
+            <div className="flex md:hidden items-center justify-center space-x-2 mt-3 bg-gray-100 p-1 rounded-lg">
               <button
-                onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setMobileView('calendar')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all flex-1 justify-center ${
+                  mobileView === 'calendar'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600'
+                }`}
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <Grid3x3 className="w-4 h-4" />
+                <span className="text-sm font-medium">Calendar</span>
               </button>
               <button
-                onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => setMobileView('list')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all flex-1 justify-center ${
+                  mobileView === 'list'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600'
+                }`}
               >
-                Today
-              </button>
-              <button
-                onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
+                <List className="w-4 h-4" />
+                <span className="text-sm font-medium">List</span>
               </button>
             </div>
           </div>
@@ -526,8 +557,117 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
             </div>
           </div>
 
+          {/* Mobile Calendar Grid */}
+          {mobileView === 'calendar' && (
+            <div className="md:hidden p-4">
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                  <div key={idx} className="text-center text-xs font-semibold text-gray-600 py-2">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {days.map((day, index) => {
+                  const dayEvents = getEventsForDate(day);
+                  const isToday = day && day.toDateString() === new Date().toDateString();
+                  const hasEvents = dayEvents.length > 0;
+
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => {
+                        if (day && hasEvents) {
+                          setSelectedDate(day);
+                        }
+                      }}
+                      className={`min-h-[60px] p-1 border rounded transition-all ${
+                        day
+                          ? hasEvents
+                            ? 'bg-white hover:bg-gray-50 cursor-pointer border-gray-200'
+                            : 'bg-white border-gray-100'
+                          : 'bg-gray-50 border-gray-100'
+                      } ${isToday ? 'ring-2 ring-purple-500' : ''}`}
+                    >
+                      {day && (
+                        <>
+                          <div className={`text-xs font-semibold mb-0.5 ${
+                            isToday ? 'text-purple-600' : 'text-gray-900'
+                          }`}>
+                            {day.getDate()}
+                          </div>
+                          {hasEvents && (
+                            <div className="space-y-0.5">
+                              {dayEvents.slice(0, 2).map((event) => (
+                                <div
+                                  key={event.id}
+                                  className={`w-full h-1.5 rounded-full ${
+                                    event.status === 'completed' ? 'bg-green-500' :
+                                    event.status === 'in_progress' ? 'bg-blue-500' :
+                                    event.status === 'skipped' ? 'bg-gray-300' :
+                                    'bg-purple-500'
+                                  }`}
+                                />
+                              ))}
+                              {dayEvents.length > 2 && (
+                                <div className="text-[10px] text-gray-500 text-center font-medium">
+                                  +{dayEvents.length - 2}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Selected Date Events (Mobile) */}
+              {selectedDate && getEventsForDate(selectedDate).length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </h3>
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="text-sm text-purple-600 font-medium"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {getEventsForDate(selectedDate).map(event => (
+                      <div
+                        key={event.id}
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowEventModal(true);
+                        }}
+                        className={`p-3 rounded-lg border ${getStatusColor(event.status)} cursor-pointer hover:shadow-md transition-shadow`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center space-x-2">
+                            {getStatusIcon(event.status)}
+                            <span className="font-semibold text-sm">{event.title}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 text-xs text-gray-600">
+                          <Clock className="w-3 h-3" />
+                          <span>{event.start_time} - {event.end_time}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Mobile Calendar List */}
-          <div className="md:hidden p-4 space-y-3">
+          {mobileView === 'list' && (
+            <div className="md:hidden p-4 space-y-3">
             {events.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -600,7 +740,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                 </div>
               ))
             )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Empty State */}
