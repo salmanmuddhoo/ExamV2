@@ -87,6 +87,16 @@ export function ChatHub({
   });
   const [userTier, setUserTier] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showBlinkAnimation, setShowBlinkAnimation] = useState(true);
+
+  // Disable blink animation after 10 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowBlinkAnimation(false);
+    }, 10000); // 10 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -729,7 +739,7 @@ export function ChatHub({
                   Ready to ace your exams?
                 </h2>
                 <p className="text-gray-600 mb-8">
-                  Choose a conversation to continue, or click "New Conversation" to start working on a new exam paper.
+                  Choose a conversation to continue, or click <span className={`font-semibold ${showBlinkAnimation ? 'animate-blink' : ''}`}>"New Conversation"</span> to start working on a new exam paper.
                 </p>
 
                 {userTier !== 'pro' ? (
