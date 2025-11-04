@@ -839,7 +839,8 @@ export function UnifiedPracticeViewer({
               onDismiss={() => markHintAsSeen('mobileToggle')}
               title="Switch Views"
               message="Toggle between practice questions and chat assistant. View questions on the left, chat on the right!"
-              position="center"
+              position="top"
+              arrowAlign="right"
               delay={1500}
             />
           </div>
