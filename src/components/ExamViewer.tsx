@@ -769,9 +769,9 @@ You can still view and download this exam paper!`
     }
 
     const userMessage = input.trim();
+    setSending(true);
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setSending(true);
     setAiProcessingStatus('Reading your question...');
 
     try {

@@ -511,9 +511,9 @@ export function UnifiedPracticeViewer({
     if (mode === 'chapter' && !selectedQuestion) return;
 
     const userMessage = input.trim();
+    setSending(true);
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setSending(true);
 
     try {
       if (mode === 'year') {
