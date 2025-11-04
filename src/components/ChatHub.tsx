@@ -463,7 +463,7 @@ export function ChatHub({
                     onDismiss={() => markHintAsSeen('profileSubscription')}
                     title="Your Profile"
                     message="Click here to view your subscription details, payment history, and account settings."
-                    position="center"
+                    position="left"
                     delay={1000}
                   />
                 </div>
