@@ -1108,7 +1108,7 @@ You can still view and download this exam paper!`
               onDismiss={() => markHintAsSeen('mobileToggle')}
               title="Switch Views"
               message="Toggle between exam paper and chat assistant. View the paper on the left, chat on the right!"
-              position="top"
+              position="bottom"
               arrowAlign="right"
               delay={1500}
             />
