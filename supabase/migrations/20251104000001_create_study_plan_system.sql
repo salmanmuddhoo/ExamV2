@@ -27,10 +27,7 @@ CREATE TABLE IF NOT EXISTS study_plan_schedules (
   ai_generated BOOLEAN DEFAULT true,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  -- Ensure one active schedule per user/subject/grade combination
-  UNIQUE(user_id, subject_id, grade_id, is_active)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create study_plan_events table (individual calendar events)
@@ -47,7 +44,7 @@ CREATE TABLE IF NOT EXISTS study_plan_events (
   end_time TIME NOT NULL,
 
   -- Topic/chapter association
-  chapter_id UUID REFERENCES chapters(id) ON DELETE SET NULL,
+  chapter_id UUID REFERENCES syllabus_chapters(id) ON DELETE SET NULL,
   topics TEXT[], -- Array of specific topics to cover
 
   -- Progress tracking
@@ -67,6 +64,11 @@ CREATE TABLE IF NOT EXISTS study_plan_events (
 CREATE INDEX IF NOT EXISTS idx_study_plan_schedules_user ON study_plan_schedules(user_id);
 CREATE INDEX IF NOT EXISTS idx_study_plan_schedules_subject ON study_plan_schedules(subject_id);
 CREATE INDEX IF NOT EXISTS idx_study_plan_schedules_active ON study_plan_schedules(user_id, is_active);
+
+-- Partial unique index: Only one active schedule per user/subject/grade combination
+CREATE UNIQUE INDEX IF NOT EXISTS idx_study_plan_schedules_unique_active
+  ON study_plan_schedules(user_id, subject_id, grade_id)
+  WHERE is_active = true;
 
 CREATE INDEX IF NOT EXISTS idx_study_plan_events_schedule ON study_plan_events(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_study_plan_events_user ON study_plan_events(user_id);
@@ -104,6 +106,36 @@ CREATE POLICY "Admins can view all study plan schedules"
     )
   );
 
+CREATE POLICY "Admins can insert study plan schedules"
+  ON study_plan_schedules FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can update all study plan schedules"
+  ON study_plan_schedules FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can delete all study plan schedules"
+  ON study_plan_schedules FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
 -- RLS Policies for study_plan_events
 ALTER TABLE study_plan_events ENABLE ROW LEVEL SECURITY;
 
@@ -126,6 +158,36 @@ CREATE POLICY "Users can delete their own study plan events"
 
 CREATE POLICY "Admins can view all study plan events"
   ON study_plan_events FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can insert study plan events"
+  ON study_plan_events FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can update all study plan events"
+  ON study_plan_events FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'admin'
+    )
+  );
+
+CREATE POLICY "Admins can delete all study plan events"
+  ON study_plan_events FOR DELETE
   USING (
     EXISTS (
       SELECT 1 FROM profiles

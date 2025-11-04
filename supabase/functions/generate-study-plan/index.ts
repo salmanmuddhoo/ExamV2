@@ -73,12 +73,23 @@ Deno.serve(async (req) => {
     const gradeName = grade?.name || 'Grade';
 
     // Fetch syllabus chapters for the subject
-    const { data: chapters } = await supabaseClient
-      .from('chapters')
-      .select('id, chapter_number, chapter_title')
+    const { data: syllabusData } = await supabaseClient
+      .from('syllabus')
+      .select('id')
       .eq('subject_id', subject_id)
       .eq('grade_id', grade_id)
-      .order('chapter_number');
+      .single();
+
+    let chapters: any[] = [];
+    if (syllabusData) {
+      const { data: chaptersData } = await supabaseClient
+        .from('syllabus_chapters')
+        .select('id, chapter_number, chapter_title')
+        .eq('syllabus_id', syllabusData.id)
+        .order('chapter_number');
+
+      chapters = chaptersData || [];
+    }
 
     // Get Gemini API key
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
