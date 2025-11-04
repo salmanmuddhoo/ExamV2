@@ -1108,7 +1108,7 @@ You can still view and download this exam paper!`
               onDismiss={() => markHintAsSeen('mobileToggle')}
               title="Switch Views"
               message="Toggle between exam paper and chat assistant. View the paper on the left, chat on the right!"
-              position="bottom"
+              position="center"
               delay={1500}
             />
           </div>
@@ -1360,23 +1360,33 @@ You can still view and download this exam paper!`
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSendMessage} className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask a question..."
-                    disabled={sending}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                <div className="relative">
+                  <form onSubmit={handleSendMessage} className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Ask a question..."
+                      disabled={sending}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-black transition-colors disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sending || !input.trim()}
+                      className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                  <ContextualHint
+                    show={shouldShowHint('chatInput') && !sending && messages.length === 0}
+                    onDismiss={() => markHintAsSeen('chatInput')}
+                    title="Ask Your Questions Here"
+                    message="Type your question about the exam paper here. For example: 'Explain question 2' or 'Help me with Q3b'."
+                    position="top"
+                    delay={2000}
                   />
-                  <button
-                    type="submit"
-                    disabled={sending || !input.trim()}
-                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </form>
+                </div>
               )}
             </div>
           )}

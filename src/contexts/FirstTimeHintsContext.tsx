@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 interface HintStatus {
   chatHubNewConversation: boolean;
   mobileToggle: boolean;
+  chatInput: boolean;
   tokenCounter: boolean;
   profileSubscription: boolean;
 }
@@ -21,6 +22,7 @@ const STORAGE_KEY = 'firstTimeHints';
 const defaultHintStatus: HintStatus = {
   chatHubNewConversation: false,
   mobileToggle: false,
+  chatInput: false,
   tokenCounter: false,
   profileSubscription: false,
 };
@@ -29,8 +31,9 @@ const defaultHintStatus: HintStatus = {
 const HINT_ORDER: (keyof HintStatus)[] = [
   'chatHubNewConversation',  // 1st: When user arrives at chat hub
   'mobileToggle',            // 2nd: When user is on mobile viewing exam/practice
-  'tokenCounter',            // 3rd: After user sends their first message
-  'profileSubscription',     // 4th: After token counter is seen
+  'chatInput',               // 3rd: Show where to type questions
+  'tokenCounter',            // 4th: After user sends their first message
+  'profileSubscription',     // 5th: After token counter is seen
 ];
 
 export function FirstTimeHintsProvider({ children }: { children: ReactNode }) {
