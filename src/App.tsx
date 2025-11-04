@@ -21,13 +21,30 @@ type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-br
 
 function App() {
   const { user, profile, loading } = useAuth();
-  const [view, setView] = useState<View>('home');
-  const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [selectedMode, setSelectedMode] = useState<'year' | 'chapter' | null>(null);
-  const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [view, setView] = useState<View>(() => {
+    // Restore view from sessionStorage on initial load
+    const savedView = sessionStorage.getItem('currentView');
+    return (savedView as View) || 'home';
+  });
+  const [selectedPaperId, setSelectedPaperId] = useState<string | null>(() => {
+    return sessionStorage.getItem('selectedPaperId') || null;
+  });
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(() => {
+    return sessionStorage.getItem('selectedConversationId') || null;
+  });
+  const [selectedMode, setSelectedMode] = useState<'year' | 'chapter' | null>(() => {
+    const savedMode = sessionStorage.getItem('selectedMode');
+    return (savedMode as 'year' | 'chapter') || null;
+  });
+  const [selectedGradeId, setSelectedGradeId] = useState<string | null>(() => {
+    return sessionStorage.getItem('selectedGradeId') || null;
+  });
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(() => {
+    return sessionStorage.getItem('selectedSubjectId') || null;
+  });
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(() => {
+    return sessionStorage.getItem('selectedChapterId') || null;
+  });
   const [selectedGradeFromNavbar, setSelectedGradeFromNavbar] = useState<{ id: string; name: string } | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -105,7 +122,11 @@ function App() {
     // Handle initial load or OAuth redirect
     if (!initialLoadComplete && !isPasswordReset) {
       if (user && profile?.role !== 'admin') {
-        setView('chat-hub');
+        // Only set view to chat-hub if there's no saved view or if it's OAuth callback
+        const savedView = sessionStorage.getItem('currentView');
+        if (!savedView || savedView === 'home' || savedView === 'login' || isOAuthCallback) {
+          setView('chat-hub');
+        }
         checkFirstTimeUser();
 
         // Clean up OAuth params from URL after successful login
@@ -119,7 +140,11 @@ function App() {
     // Handle late OAuth redirects (when user/profile become available after initial load)
     else if (!hasHandledOAuthRedirect && isOAuthCallback && user && profile) {
       if (profile.role !== 'admin') {
-        setView('chat-hub');
+        // Only set view to chat-hub if there's no saved view or if it's OAuth callback
+        const savedView = sessionStorage.getItem('currentView');
+        if (!savedView || savedView === 'home' || savedView === 'login' || isOAuthCallback) {
+          setView('chat-hub');
+        }
         checkFirstTimeUser();
       } else {
         setView('admin');
@@ -148,6 +173,61 @@ function App() {
   useEffect(() => {
     sessionStorage.setItem('showSubscriptionModal', showSubscriptionModal.toString());
   }, [showSubscriptionModal]);
+
+  // Persist view state to sessionStorage for browser refresh
+  useEffect(() => {
+    if (view) {
+      sessionStorage.setItem('currentView', view);
+    }
+  }, [view]);
+
+  useEffect(() => {
+    if (selectedPaperId) {
+      sessionStorage.setItem('selectedPaperId', selectedPaperId);
+    } else {
+      sessionStorage.removeItem('selectedPaperId');
+    }
+  }, [selectedPaperId]);
+
+  useEffect(() => {
+    if (selectedConversationId) {
+      sessionStorage.setItem('selectedConversationId', selectedConversationId);
+    } else {
+      sessionStorage.removeItem('selectedConversationId');
+    }
+  }, [selectedConversationId]);
+
+  useEffect(() => {
+    if (selectedMode) {
+      sessionStorage.setItem('selectedMode', selectedMode);
+    } else {
+      sessionStorage.removeItem('selectedMode');
+    }
+  }, [selectedMode]);
+
+  useEffect(() => {
+    if (selectedGradeId) {
+      sessionStorage.setItem('selectedGradeId', selectedGradeId);
+    } else {
+      sessionStorage.removeItem('selectedGradeId');
+    }
+  }, [selectedGradeId]);
+
+  useEffect(() => {
+    if (selectedSubjectId) {
+      sessionStorage.setItem('selectedSubjectId', selectedSubjectId);
+    } else {
+      sessionStorage.removeItem('selectedSubjectId');
+    }
+  }, [selectedSubjectId]);
+
+  useEffect(() => {
+    if (selectedChapterId) {
+      sessionStorage.setItem('selectedChapterId', selectedChapterId);
+    } else {
+      sessionStorage.removeItem('selectedChapterId');
+    }
+  }, [selectedChapterId]);
 
   const checkFirstTimeUser = async () => {
     if (!user) {

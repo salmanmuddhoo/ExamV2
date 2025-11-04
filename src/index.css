@@ -48,3 +48,17 @@
 .animate-slide-up {
   animation: slideUp 0.4s ease-out;
 }
+
+/* Blink animation for new conversation text */
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s ease-in-out infinite;
+}
