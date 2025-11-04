@@ -459,9 +459,20 @@ export function UnifiedPracticeViewer({
         throw new Error('Failed to get signed URL');
       }
 
-      const pdfBlob = await downloadWithProgress(signedData.signedUrl);
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
+      if (isMobile) {
+        // For mobile, use signed URL directly (mobile browsers have issues with blob URLs in iframes)
+        // Simulate progress for better UX
+        for (let i = 0; i <= 100; i += 10) {
+          setPdfLoadProgress(i);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        setPdfBlobUrl(signedData.signedUrl);
+      } else {
+        // For desktop, download with progress tracking and use blob URL
+        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
+        const url = URL.createObjectURL(pdfBlob);
+        setPdfBlobUrl(url);
+      }
     } catch (error) {
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')

@@ -87,6 +87,14 @@ export function PaymentMethodManager() {
             <span className="text-sm font-bold text-red-600">MCB</span>
           </div>
         );
+      case 'peach':
+        return (
+          <svg className="w-12 h-8" viewBox="0 0 120 40" fill="none">
+            <circle cx="20" cy="20" r="16" fill="#FF6B35"/>
+            <circle cx="20" cy="20" r="12" fill="#FFE5D9" opacity="0.5"/>
+            <text x="45" y="26" fill="#FF6B35" fontSize="20" fontWeight="bold" fontFamily="Arial">Peach</text>
+          </svg>
+        );
       default:
         return <CreditCard className="w-6 h-6 text-gray-400" />;
     }
