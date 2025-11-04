@@ -757,11 +757,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                       </div>
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0 ml-3">
-                      {paper.month && (
-                        <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">
-                          {formatMonth(paper.month)}
-                        </span>
-                      )}
                       {existingConvs[paper.id] && (
                         <span className="text-xs text-green-600 font-medium">Continue</span>
                       )}
