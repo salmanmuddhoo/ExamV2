@@ -9,6 +9,7 @@ import { Navbar } from './components/Navbar';
 import { ExamPapersBrowser } from './components/ExamPapersBrowser';
 import { WelcomeModal } from './components/WelcomeModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
+import { Modal } from './components/Modal';
 import { PaymentPage } from './components/PaymentPage';
 import { UnifiedPracticeViewer } from './components/UnifiedPracticeViewer';
 import { ResetPassword } from './components/ResetPassword';
@@ -57,6 +58,7 @@ function App() {
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [hasHandledOAuthRedirect, setHasHandledOAuthRedirect] = useState(false);
   const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPostType | null>(null);
+  const [showEmailVerifiedModal, setShowEmailVerifiedModal] = useState(false);
 
   // Browser back button handler - Prevent logout on back navigation
   useEffect(() => {
@@ -80,7 +82,7 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user, profile, view]);
 
-  // Check for password reset token in URL (must run first)
+  // Check for password reset token or email verification in URL (must run first)
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get('access_token');
@@ -90,6 +92,12 @@ function App() {
       // User clicked password reset link from email
       setIsPasswordReset(true);
       setView('reset-password');
+    } else if (accessToken && (type === 'signup' || type === 'email_change')) {
+      // User clicked email verification link
+      setShowEmailVerifiedModal(true);
+      setView('login');
+      // Clean up URL hash
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -290,7 +298,7 @@ function App() {
 
   useEffect(() => {
     if (initialLoadComplete && !user && !loading && !isPasswordReset) {
-      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer' && view !== 'reset-password') {
+      if (view !== 'home' && view !== 'login' && view !== 'papers-browser' && view !== 'exam-viewer' && view !== 'unified-viewer' && view !== 'reset-password' && view !== 'blog' && view !== 'blog-post') {
         setView('home');
       }
     }
@@ -500,6 +508,13 @@ function App() {
           hideSignInButton={true}
         />
         <LoginForm onLoginSuccess={() => {}} />
+        <Modal
+          isOpen={showEmailVerifiedModal}
+          onClose={() => setShowEmailVerifiedModal(false)}
+          title="Email Verified!"
+          message="Your email has been successfully verified. You can now sign in to your account."
+          type="success"
+        />
       </>
     );
   }

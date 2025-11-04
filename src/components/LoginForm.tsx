@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth, OAuthProvider } from '../contexts/AuthContext';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { Modal } from './Modal';
+import { isValidEmail, getDisposableEmailError } from '../utils/emailValidation';
 
 interface LoginFormProps {
   onLoginSuccess?: () => void;
@@ -84,6 +85,13 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
 
     try {
       if (isSignUp) {
+        // Validate email is not a disposable domain
+        if (!isValidEmail(email)) {
+          setError(getDisposableEmailError());
+          setLoading(false);
+          return;
+        }
+
         // Validate password strength
         const passwordError = validatePassword(password);
         if (passwordError) {
@@ -405,6 +413,25 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
             </button>
           </form>
 
+          {/* Sign Up / Sign In Toggle - Moved directly below sign in button */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+                setFirstName('');
+                setLastName('');
+                setPassword('');
+                setConfirmPassword('');
+              }}
+              className="text-black hover:text-gray-800 text-sm transition-colors"
+            >
+              {isSignUp
+                ? 'Already have an account? Sign in'
+                : "Don't have an account? Sign up"}
+            </button>
+          </div>
+
           {/* Divider */}
           <div className="mt-6 mb-6 flex items-center">
             <div className="flex-1 border-t border-gray-300"></div>
@@ -453,24 +480,6 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
               </button>
             </div>
           )}
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError('');
-                setFirstName('');
-                setLastName('');
-                setPassword('');
-                setConfirmPassword('');
-              }}
-              className="text-black hover:text-gray-800 text-sm transition-colors"
-            >
-              {isSignUp
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
-            </button>
-          </div>
             </>
           )}
         </div>
