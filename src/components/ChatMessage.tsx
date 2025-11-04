@@ -63,13 +63,14 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
   return (
     <div className={`flex ${isUserMessage ? 'justify-end' : 'justify-start'} w-full mb-2 min-w-0`}>
       <div
-        className={`px-4 py-2.5 rounded-lg break-words overflow-hidden ${
+        className={`px-4 py-2.5 rounded-lg break-words ${
           isUserMessage ? 'bg-black text-white whitespace-pre-wrap' : 'bg-gray-100 text-gray-900'
         }`}
         style={{
           width: isUserMessage ? 'fit-content' : '100%',
           minWidth: 'fit-content',
           maxWidth: '100%',
+          overflowX: 'hidden',
         }}
       >
         {isUserMessage ? (
@@ -116,7 +117,14 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
                   <em className="italic text-gray-800">{children}</em>
                 ),
                 pre: ({ children }) => (
-                  <pre className="bg-gray-50 text-gray-900 border border-gray-300 p-3 rounded overflow-x-auto my-2 block" style={{ maxWidth: '100%' }}>{children}</pre>
+                  <pre className="bg-gray-50 text-gray-900 border border-gray-300 p-3 rounded my-2 block" style={{
+                    maxWidth: '100%',
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#9CA3AF #F3F4F6',
+                  }}>{children}</pre>
                 ),
                 code: ({ className, children }) => {
                   const isInline = !className;

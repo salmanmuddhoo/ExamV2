@@ -911,6 +911,7 @@ export function UnifiedPracticeViewer({
                 </div>
               ) : pdfBlobUrl && selectedPaper ? (
                 <iframe
+                  key={`${pdfBlobUrl}-${mobileView}`}
                   src={pdfBlobUrl}
                   className="w-full h-full border-0"
                   title={selectedPaper.title}

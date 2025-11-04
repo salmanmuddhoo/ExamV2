@@ -1140,7 +1140,7 @@ You can still view and download this exam paper!`
               {isMobile ? (
                 <>
                   <iframe
-                    key={pdfBlobUrl}
+                    key={`${pdfBlobUrl}-${mobileView}`}
                     src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
                     className="w-full h-full border-0"
                     title="Exam Paper"
