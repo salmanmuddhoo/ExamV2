@@ -1039,7 +1039,7 @@ export function UnifiedPracticeViewer({
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollBehavior: 'smooth' }}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4" style={{ scrollBehavior: 'smooth' }}>
               {!user ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center max-w-sm">
