@@ -1,4 +1,4 @@
-import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight, Smartphone, Calendar, TrendingUp, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatTokenCount } from '../lib/formatUtils';
@@ -90,7 +90,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </h1>
               
               <p className="text-lg sm:text-xl text-gray-600 mb-6 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                Access past exam papers with an intelligent AI tutor that guides you through every question, providing detailed explanations and personalized learning support.
+                Practice exam papers anywhere, anytime with an intelligent AI tutor. Create your own study plan, track your progress, and get detailed explanations for every question on any device.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -178,6 +178,62 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               title="Ask the AI Tutor"
               description="Get help on any question. Our AI provides detailed explanations, examples, and tips to help you understand every concept."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Study On The Go Section */}
+      <section className="border-b border-gray-200 bg-white">
+        <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Study Anywhere, Anytime
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Take control of your exam preparation with flexible tools designed for students on the go
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-xl mb-4">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Practice On The Go</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Access exam papers and AI assistance from any device. Study during commutes, breaks, or whenever inspiration strikes.
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-600 text-white rounded-xl mb-4">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Create Study Plans</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Organize your revision by selecting specific subjects and chapters. Build a personalized study schedule that works for you.
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-green-600 text-white rounded-xl mb-4">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Track Your Progress</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Monitor your conversations and questions across different topics. See how much you've covered and what's left to master.
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-white p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-600 text-white rounded-xl mb-4">
+                <Clock className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Learn At Your Pace</h3>
+              <p className="text-gray-600 leading-relaxed">
+                No pressure, no deadlines. Study when you're ready, take breaks when you need, and resume exactly where you left off.
+              </p>
+            </div>
           </div>
         </div>
       </section>
