@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Minimize, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
 import { formatTokenCount } from '../lib/formatUtils';
+import { ContextualHint } from './ContextualHint';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -39,6 +41,7 @@ interface Props {
 
 export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, onOpenSubscriptions }: Props) {
   const { user } = useAuth();
+  const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
   const [pdfLoading, setPdfLoading] = useState(true);
@@ -1076,7 +1079,7 @@ You can still view and download this exam paper!`
         {/* Right side controls */}
         <div className="flex items-center">
           {/* Mobile View Toggle */}
-          <div className="flex md:hidden">
+          <div className="flex md:hidden relative">
             <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
@@ -1100,6 +1103,14 @@ You can still view and download this exam paper!`
                 <MessageSquare className="w-4 h-4" />
               </button>
             </div>
+            <ContextualHint
+              show={shouldShowHint('mobileToggle') && isMobile && !pdfLoading}
+              onDismiss={() => markHintAsSeen('mobileToggle')}
+              title="Switch Views"
+              message="Toggle between exam paper and chat assistant. View the paper on the left, chat on the right!"
+              position="bottom"
+              delay={1500}
+            />
           </div>
 
           {/* Fullscreen Toggle - Desktop Only */}
@@ -1302,7 +1313,7 @@ You can still view and download this exam paper!`
             <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
               {/* Token Display with Upgrade button for free and student tiers */}
               {tokensLimit !== null && (
-                <div className="mb-2 flex items-center justify-between px-1">
+                <div className="mb-2 flex items-center justify-between px-1 relative">
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-600">AI Tokens:</span>
                     <span className="text-xs font-semibold text-gray-900">
@@ -1317,6 +1328,14 @@ You can still view and download this exam paper!`
                       Upgrade
                     </button>
                   )}
+                  <ContextualHint
+                    show={shouldShowHint('tokenCounter') && !sending && messages.length >= 1}
+                    onDismiss={() => markHintAsSeen('tokenCounter')}
+                    title="Track Your Tokens"
+                    message="This shows your remaining AI tokens. Each question you ask uses tokens. Upgrade for more tokens!"
+                    position="top"
+                    delay={2000}
+                  />
                 </div>
               )}
 

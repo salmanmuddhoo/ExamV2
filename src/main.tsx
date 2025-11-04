@@ -2,6 +2,7 @@ import { StrictMode, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { AuthProvider } from './contexts/AuthContext';
+import { FirstTimeHintsProvider } from './contexts/FirstTimeHintsContext';
 import { UpdateNotification } from './components/UpdateNotification';
 import './index.css';
 
@@ -84,7 +85,9 @@ function Root() {
   return (
     <>
       <AuthProvider>
-        <App />
+        <FirstTimeHintsProvider>
+          <App />
+        </FirstTimeHintsProvider>
       </AuthProvider>
       {showUpdateNotification && (
         <UpdateNotification onUpdate={handleUpdate} onDismiss={handleDismiss} />

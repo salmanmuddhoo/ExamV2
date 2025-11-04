@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { MessageSquare, Trash2, Plus, BookOpen, FileText, Home, LogOut, Crown, User, Calendar, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
 import { Modal } from './Modal';
 import { UserProfileModal } from './UserProfileModal';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeModal } from './WelcomeModal';
+import { ContextualHint } from './ContextualHint';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -67,6 +69,7 @@ export function ChatHub({
   onOpenSubscriptions
 }: Props) {
   const { user, signOut } = useAuth();
+  const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [conversations, setConversations] = useState<ConversationWithPaper[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -390,13 +393,23 @@ export function ChatHub({
                 >
                   <Home className="w-5 h-5 text-gray-700" />
                 </button>
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="My Profile"
-                >
-                  <User className="w-5 h-5 text-gray-700" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="My Profile"
+                  >
+                    <User className="w-5 h-5 text-gray-700" />
+                  </button>
+                  <ContextualHint
+                    show={shouldShowHint('profileSubscription') && !loading}
+                    onDismiss={() => markHintAsSeen('profileSubscription')}
+                    title="Your Profile"
+                    message="Click here to view your subscription details, payment history, and account settings."
+                    position="bottom"
+                    delay={3000}
+                  />
+                </div>
                 <button
                   onClick={handleSignOut}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -457,13 +470,23 @@ export function ChatHub({
                 </button>
               </div>
             )}
-            <button
-              onClick={handleNewConversation}
-              className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Conversation</span>
-            </button>
+            <div className="relative">
+              <button
+                onClick={handleNewConversation}
+                className="w-full px-4 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Conversation</span>
+              </button>
+              <ContextualHint
+                show={shouldShowHint('chatHubNewConversation') && !loading}
+                onDismiss={() => markHintAsSeen('chatHubNewConversation')}
+                title="Start Here!"
+                message="Click 'New Conversation' to select an exam paper and start practicing with AI assistance."
+                position="bottom"
+                delay={1000}
+              />
+            </div>
           </div>
 
           {/* Conversations List */}
