@@ -267,6 +267,19 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
     return filteredEvents;
   };
 
+  const formatTime = (timeStr: string) => {
+    // Remove seconds if present (HH:MM:SS -> HH:MM)
+    const timeParts = timeStr.split(':');
+    if (timeParts.length >= 2) {
+      const hours = parseInt(timeParts[0]);
+      const minutes = timeParts[1];
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes} ${period}`;
+    }
+    return timeStr;
+  };
+
   // Get unique subjects from events
   const getUniqueSubjects = () => {
     const subjectsMap = new Map();
@@ -797,7 +810,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                             <div className="flex items-center space-x-4 text-xs text-gray-600">
                               <div className="flex items-center space-x-1">
                                 <Clock className="w-3 h-3" />
-                                <span>{event.start_time} - {event.end_time}</span>
+                                <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                               </div>
                             </div>
 
@@ -941,7 +954,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Clock className="w-4 h-4" />
-                      <span>{event.start_time} - {event.end_time}</span>
+                      <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       {event.status !== 'completed' && (
@@ -1113,7 +1126,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                         <div className="flex items-center space-x-4 text-xs text-gray-600">
                           <div className="flex items-center space-x-1">
                             <Clock className="w-3 h-3" />
-                            <span>{event.start_time} - {event.end_time}</span>
+                            <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                           </div>
                         </div>
 

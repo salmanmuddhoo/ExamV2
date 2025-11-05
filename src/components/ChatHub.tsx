@@ -195,6 +195,18 @@ export function ChatHub({
     }
   };
 
+  const formatTime = (timeStr: string) => {
+    // Remove seconds if present (HH:MM:SS -> HH:MM)
+    const timeParts = timeStr.split(':');
+    if (timeParts.length >= 2) {
+      const hours = parseInt(timeParts[0]);
+      const minutes = timeParts[1];
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes} ${period}`;
+    }
+    return timeStr;
+  };
 
   const fetchConversations = async () => {
     if (!user) return;
@@ -606,7 +618,7 @@ export function ChatHub({
                           {event.title}
                         </p>
                         <p className="text-xs text-gray-600 mt-0.5">
-                          {event.start_time} - {event.end_time}
+                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
                           {subjectName && ` • ${subjectName}`}
                         </p>
                       </div>
@@ -944,7 +956,7 @@ export function ChatHub({
                                 {event.title}
                               </p>
                               <p className="text-xs text-gray-600 mt-0.5">
-                                {event.start_time} - {event.end_time}
+                                {formatTime(event.start_time)} - {formatTime(event.end_time)}
                                 {subjectName && ` • ${subjectName}`}
                               </p>
                             </div>
