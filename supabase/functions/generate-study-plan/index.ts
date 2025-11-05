@@ -245,7 +245,7 @@ ${chaptersInfo}
 Please generate a JSON array of study events with the following structure:
 [
   {
-    "title": "Study Session Title",
+    "title": "${subjectName} - Session Title",
     "description": "Brief description of what to study",
     "date": "YYYY-MM-DD",
     "start_time": "HH:MM",
@@ -256,17 +256,18 @@ Please generate a JSON array of study events with the following structure:
 ]
 
 Requirements:
-1. Distribute ${sessions_per_week} sessions per week
-2. Each session should be ${study_duration_minutes} minutes long
-3. Schedule sessions during ${preferred_times.join(' or ')} time slots
-4. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
-5. Include review sessions every few weeks
-6. Start with easier topics and progress to harder ones
-7. Add milestone checkpoints for assessments
-8. Make sure dates are between ${start_date} and ${end_date}
-9. Space out sessions appropriately (don't schedule consecutive days unless necessary)
-10. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-${isChapterSpecific ? '11. Do NOT include any chapters that are not in the list above' : ''}
+1. ALL titles MUST start with "${subjectName} - " followed by a descriptive session title (e.g., "${subjectName} - Chapter 1: Introduction", "${subjectName} - Review Session", "${subjectName} - Practice Problems")
+2. Distribute ${sessions_per_week} sessions per week
+3. Each session should be ${study_duration_minutes} minutes long
+4. Schedule sessions during ${preferred_times.join(' or ')} time slots
+5. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
+6. Include review sessions every few weeks
+7. Start with easier topics and progress to harder ones
+8. Add milestone checkpoints for assessments
+9. Make sure dates are between ${start_date} and ${end_date}
+10. Space out sessions appropriately (don't schedule consecutive days unless necessary)
+11. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
+${isChapterSpecific ? '12. Do NOT include any chapters that are not in the list above' : ''}
 
 Return ONLY the JSON array, no additional text.`;
 
@@ -337,6 +338,17 @@ Return ONLY the JSON array, no additional text.`;
         console.log("✅ JSON pattern found");
         studyEvents = JSON.parse(jsonMatch[0]);
         console.log(`✅ Parsed ${studyEvents.length} study events`);
+
+        // Validate event count
+        if (studyEvents.length === 0) {
+          throw new Error('AI generated 0 events. Please try again with different parameters.');
+        }
+
+        if (studyEvents.length > 500) {
+          console.warn(`⚠️ AI generated ${studyEvents.length} events, limiting to 500`);
+          studyEvents = studyEvents.slice(0, 500);
+        }
+
         console.log("📋 First event:", JSON.stringify(studyEvents[0], null, 2));
       } else {
         console.error("❌ No valid JSON array found in response");
@@ -373,16 +385,46 @@ Return ONLY the JSON array, no additional text.`;
     console.log(`📝 Prepared ${eventsToInsert.length} events for insertion`);
     console.log("📋 First event to insert:", JSON.stringify(eventsToInsert[0], null, 2));
 
-    console.log("💾 Inserting events into database...");
-    const { data: insertedEvents, error: insertError } = await supabaseClient
-      .from('study_plan_events')
-      .insert(eventsToInsert)
-      .select();
+    // Insert events in batches to avoid connection timeouts
+    console.log("💾 Inserting events into database in batches...");
+    const BATCH_SIZE = 50;
+    const batches = [];
 
-    if (insertError) {
-      console.error('❌ Error inserting events:', insertError);
-      console.error('Error details:', JSON.stringify(insertError, null, 2));
-      throw insertError;
+    for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
+      batches.push(eventsToInsert.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`📦 Split into ${batches.length} batches of max ${BATCH_SIZE} events each`);
+
+    let insertedEvents: any[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`💾 Inserting batch ${i + 1}/${batches.length} (${batch.length} events)...`);
+
+      try {
+        const { data: batchData, error: batchError } = await supabaseClient
+          .from('study_plan_events')
+          .insert(batch)
+          .select();
+
+        if (batchError) {
+          console.error(`❌ Error inserting batch ${i + 1}:`, batchError);
+          console.error('Error details:', JSON.stringify(batchError, null, 2));
+          throw batchError;
+        }
+
+        insertedEvents = insertedEvents.concat(batchData || []);
+        console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
+
+        // Small delay between batches to avoid overwhelming the connection
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`❌ Failed to insert batch ${i + 1}:`, error);
+        throw error;
+      }
     }
 
     console.log(`✅ Successfully inserted ${insertedEvents.length} events`);

@@ -683,6 +683,15 @@ function App() {
   if (view === 'study-plan' && user) {
     return (
       <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateBlog={handleNavigateToBlog}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
         <StudyPlanCalendar
           onBack={handleBackToChatHub}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
