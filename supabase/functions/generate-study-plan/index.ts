@@ -12,6 +12,7 @@ interface StudyPlanRequest {
   user_id: string;
   subject_id: string;
   grade_id: string;
+  chapter_ids?: string[]; // Optional: specific chapters to include
   study_duration_minutes: number;
   sessions_per_week: number;
   preferred_times: string[];
@@ -60,6 +61,7 @@ Deno.serve(async (req) => {
       user_id,
       subject_id,
       grade_id,
+      chapter_ids,
       study_duration_minutes,
       sessions_per_week,
       preferred_times,
@@ -72,6 +74,7 @@ Deno.serve(async (req) => {
     console.log("  - User ID:", user_id);
     console.log("  - Subject ID:", subject_id);
     console.log("  - Grade ID:", grade_id);
+    console.log("  - Chapter IDs:", chapter_ids || "All chapters");
     console.log("  - Duration:", study_duration_minutes, "minutes");
     console.log("  - Sessions/week:", sessions_per_week);
     console.log("  - Preferred times:", preferred_times);
@@ -124,17 +127,29 @@ Deno.serve(async (req) => {
 
     let chapters: any[] = [];
     if (syllabusData) {
-      const { data: chaptersData, error: chaptersError } = await supabaseClient
+      let chaptersQuery = supabaseClient
         .from('syllabus_chapters')
         .select('id, chapter_number, chapter_title')
-        .eq('syllabus_id', syllabusData.id)
-        .order('chapter_number');
+        .eq('syllabus_id', syllabusData.id);
+
+      // Filter by specific chapter IDs if provided
+      if (chapter_ids && chapter_ids.length > 0) {
+        console.log(`🔍 Filtering for ${chapter_ids.length} specific chapters`);
+        chaptersQuery = chaptersQuery.in('id', chapter_ids);
+      }
+
+      const { data: chaptersData, error: chaptersError } = await chaptersQuery.order('chapter_number');
 
       if (chaptersError) {
         console.error("❌ Error fetching chapters:", chaptersError);
       } else {
         chapters = chaptersData || [];
-        console.log(`✅ Found ${chapters.length} chapters`);
+        console.log(`✅ Found ${chapters.length} chapter(s)`);
+        if (chapter_ids && chapter_ids.length > 0) {
+          console.log("📚 Creating study plan for selected chapters:");
+        } else {
+          console.log("📚 Creating study plan for all chapters:");
+        }
         chapters.forEach(ch => {
           console.log(`   - Chapter ${ch.chapter_number}: ${ch.chapter_title}`);
         });
@@ -155,8 +170,14 @@ Deno.serve(async (req) => {
       ? chapters.map(ch => `Chapter ${ch.chapter_number}: ${ch.chapter_title}`).join('\n')
       : 'No specific chapters available';
 
+    const isChapterSpecific = chapter_ids && chapter_ids.length > 0;
+    const chapterScope = isChapterSpecific
+      ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s))`
+      : 'Cover all available chapters';
+
     console.log("📝 Preparing AI prompt...");
     console.log("📚 Chapters info:", chaptersInfo);
+    console.log("🎯 Chapter scope:", chapterScope);
 
     const prompt = `You are an expert education planner. Generate a detailed study plan for a student with the following requirements:
 
@@ -168,7 +189,7 @@ Preferred Study Times: ${preferred_times.join(', ')}
 Start Date: ${start_date}
 End Date: ${end_date}
 
-Available Chapters:
+${chapterScope}:
 ${chaptersInfo}
 
 Please generate a JSON array of study events with the following structure:
@@ -188,13 +209,14 @@ Requirements:
 1. Distribute ${sessions_per_week} sessions per week
 2. Each session should be ${study_duration_minutes} minutes long
 3. Schedule sessions during ${preferred_times.join(' or ')} time slots
-4. Cover all chapters systematically from start to finish
+4. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
 5. Include review sessions every few weeks
 6. Start with easier topics and progress to harder ones
 7. Add milestone checkpoints for assessments
 8. Make sure dates are between ${start_date} and ${end_date}
 9. Space out sessions appropriately (don't schedule consecutive days unless necessary)
 10. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
+${isChapterSpecific ? '11. Do NOT include any chapters that are not in the list above' : ''}
 
 Return ONLY the JSON array, no additional text.`;
 
