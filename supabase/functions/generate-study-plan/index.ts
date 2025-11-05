@@ -296,7 +296,7 @@ Requirements:
 7. Include review sessions every few weeks
 8. Start with easier topics and progress to harder ones
 9. Add milestone checkpoints for assessments
-10. Make sure dates are between ${start_date} and ${end_date}
+10. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
 11. Space out sessions appropriately (don't schedule consecutive days unless necessary)
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
 13. If a time slot is taken on a specific date, choose a different time or different date
@@ -356,6 +356,29 @@ Return ONLY the JSON array, no additional text.`;
     console.log("✅ Gemini API response received");
     const geminiData = await geminiResponse.json();
     console.log("📦 Gemini response structure:", JSON.stringify(geminiData, null, 2));
+
+    // Extract token usage from Gemini response
+    const usageMetadata = geminiData?.usageMetadata || {};
+    const promptTokenCount = usageMetadata.promptTokenCount || 0;
+    const candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
+    const totalTokenCount = usageMetadata.totalTokenCount || (promptTokenCount + candidatesTokenCount);
+
+    // Log token usage for monitoring
+    console.log('=== Token Usage ===');
+    console.log(`Model used: gemini-2.0-flash-exp`);
+    console.log(`Input tokens: ${promptTokenCount}`);
+    console.log(`Output tokens: ${candidatesTokenCount}`);
+    console.log(`Total tokens: ${totalTokenCount}`);
+    console.log(`PDF included: ${syllabusPdfBase64 ? 'Yes' : 'No'}`);
+    console.log(`Chapters included: ${chapters.length}`);
+
+    // Calculate estimated cost (Gemini 2.0 Flash pricing)
+    // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
+    const inputCost = (promptTokenCount / 1000000) * 0.075;
+    const outputCost = (candidatesTokenCount / 1000000) * 0.30;
+    const totalCost = inputCost + outputCost;
+
+    console.log(`Estimated cost: $${totalCost.toFixed(6)} (Input: $${inputCost.toFixed(6)}, Output: $${outputCost.toFixed(6)})`);
 
     const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log("📄 Generated text length:", generatedText.length);
@@ -466,6 +489,63 @@ Return ONLY the JSON array, no additional text.`;
       console.log(`   ${idx + 1}. ${event.title} - ${event.event_date}`);
     });
 
+    // Save token usage to database for cost tracking and analytics
+    console.log("💾 Logging token usage to database...");
+    try {
+      await supabaseClient.from('token_usage_logs').insert({
+        user_id: user_id,
+        model: 'gemini-2.0-flash-exp',
+        provider: 'gemini',
+        prompt_tokens: promptTokenCount,
+        completion_tokens: candidatesTokenCount,
+        total_tokens: totalTokenCount,
+        estimated_cost: totalCost,
+        purpose: 'study_plan_generation',
+        metadata: {
+          schedule_id: schedule_id,
+          subject_id: subject_id,
+          grade_id: grade_id,
+          events_generated: insertedEvents.length,
+          chapters_included: chapters.length,
+          had_pdf: !!syllabusPdfBase64,
+          date_range: `${start_date} to ${end_date}`
+        }
+      });
+      console.log('✅ Token usage logged to database');
+
+      // Update user subscription token usage
+      console.log("📊 Updating user subscription token usage...");
+      const { data: currentSub, error: fetchError } = await supabaseClient
+        .from('user_subscriptions')
+        .select('tokens_used_current_period')
+        .eq('user_id', user_id)
+        .eq('status', 'active')
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Failed to fetch current subscription:', fetchError);
+      } else if (currentSub) {
+        const newTokenCount = currentSub.tokens_used_current_period + totalTokenCount;
+
+        const { error: updateError } = await supabaseClient
+          .from('user_subscriptions')
+          .update({
+            tokens_used_current_period: newTokenCount
+          })
+          .eq('user_id', user_id)
+          .eq('status', 'active');
+
+        if (updateError) {
+          console.error('❌ Failed to update subscription token usage:', updateError);
+        } else {
+          console.log(`✅ Updated subscription token usage: ${currentSub.tokens_used_current_period} -> ${newTokenCount} (+${totalTokenCount} tokens)`);
+        }
+      }
+    } catch (logError) {
+      console.error('❌ Failed to log token usage:', logError);
+      // Don't fail the request if logging fails
+    }
+
     console.log("🎉 Study plan generation completed successfully!");
     console.log("⏰ Completion time:", new Date().toISOString());
 
@@ -473,7 +553,13 @@ Return ONLY the JSON array, no additional text.`;
       JSON.stringify({
         success: true,
         events_created: insertedEvents.length,
-        message: `Successfully generated ${insertedEvents.length} study sessions`
+        message: `Successfully generated ${insertedEvents.length} study sessions`,
+        tokenUsage: {
+          promptTokens: promptTokenCount,
+          completionTokens: candidatesTokenCount,
+          totalTokens: totalTokenCount,
+          estimatedCost: totalCost
+        }
       }),
       {
         headers: {
