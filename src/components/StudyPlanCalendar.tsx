@@ -149,14 +149,18 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
       if (subError) throw subError;
 
-      const canAccess = subscription?.subscription_tiers?.can_access_study_plan || false;
-      const tier = subscription?.subscription_tiers?.name || 'free';
+      const tierName = subscription?.subscription_tiers?.name || 'free';
+      const canAccessFromDb = subscription?.subscription_tiers?.can_access_study_plan || false;
+
+      // Explicitly block free tier users, even if database has incorrect value
+      const canAccess = tierName === 'free' ? false : canAccessFromDb;
 
       setHasAccess(canAccess);
-      setTierName(tier);
+      setTierName(tierName);
     } catch (error) {
       console.error('Error checking access:', error);
       setHasAccess(false);
+      setTierName('free');
     } finally {
       setLoading(false);
     }
