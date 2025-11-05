@@ -89,8 +89,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
   };
 
   const fetchChapters = async (subjectId: string, gradeId: string) => {
+    setLoading(true);
     try {
-      setLoading(true);
       // First get the syllabus for this subject and grade
       const { data: syllabus, error: syllabusError } = await supabase
         .from('syllabus')
@@ -100,7 +100,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
         .single();
 
       if (syllabusError || !syllabus) {
+        console.log('No syllabus found for this subject/grade combination');
         setChapters([]);
+        setLoading(false);
         return;
       }
 
@@ -111,8 +113,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
         .eq('syllabus_id', syllabus.id)
         .order('display_order');
 
-      if (error) throw error;
-      setChapters(data || []);
+      if (error) {
+        console.error('Error fetching chapters:', error);
+        setChapters([]);
+      } else {
+        console.log('Fetched chapters:', data);
+        setChapters(data || []);
+      }
     } catch (error) {
       console.error('Error fetching chapters:', error);
       setChapters([]);
@@ -360,7 +367,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
                 </div>
               </div>
 
-              {chapters.length > 0 && (
+              {selectedSubject && selectedGrade && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Select Chapters (Optional)
@@ -368,13 +375,16 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
                   <p className="text-xs text-gray-600 mb-3">
                     Leave unselected to create a study plan for all chapters
                   </p>
-                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
-                    {loading ? (
+                  {loading ? (
+                    <div className="border border-gray-200 rounded-lg p-6">
                       <div className="flex items-center justify-center py-8">
                         <Loader className="w-6 h-6 animate-spin text-gray-400" />
+                        <span className="ml-3 text-gray-600">Loading chapters...</span>
                       </div>
-                    ) : (
-                      chapters.map(chapter => (
+                    </div>
+                  ) : chapters.length > 0 ? (
+                    <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-2">
+                      {chapters.map(chapter => (
                         <button
                           key={chapter.id}
                           onClick={() => toggleChapter(chapter.id)}
@@ -408,9 +418,16 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
                             </div>
                           </div>
                         </button>
-                      ))
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg p-6 text-center">
+                      <div className="text-gray-500 text-sm">
+                        <p className="mb-2">No syllabus chapters available for this combination.</p>
+                        <p className="text-xs">The AI will generate a study plan based on the subject curriculum.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
