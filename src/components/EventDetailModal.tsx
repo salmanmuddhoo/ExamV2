@@ -215,32 +215,32 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-xl font-bold text-gray-900">Study Session Details</h2>
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+          <h2 className="text-lg font-bold text-gray-900">Study Session Details</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-4 h-4 text-gray-600" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
           {/* Title */}
           <div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">{event.title}</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{event.title}</h3>
             {event.description && (
-              <p className="text-gray-600">{event.description}</p>
+              <p className="text-sm text-gray-600">{event.description}</p>
             )}
           </div>
 
           {/* Status */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-3">
+            <label className="block text-xs font-semibold text-gray-900 mb-2">
               Status
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               {[
                 { status: 'pending', icon: Circle, label: 'Pending', color: 'gray' },
                 { status: 'in_progress', icon: PlayCircle, label: 'In Progress', color: 'blue' },
@@ -251,16 +251,16 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
                   key={status}
                   onClick={() => handleUpdateStatus(status as StudyPlanEvent['status'])}
                   disabled={saving}
-                  className={`p-3 border-2 rounded-lg transition-all ${
+                  className={`p-2 border-2 rounded-lg transition-all ${
                     event.status === status
                       ? `border-${color}-600 bg-${color}-50`
                       : 'border-gray-200 hover:border-gray-300'
                   } disabled:opacity-50`}
                 >
-                  <Icon className={`w-5 h-5 mx-auto mb-1 ${
+                  <Icon className={`w-4 h-4 mx-auto mb-0.5 ${
                     event.status === status ? `text-${color}-600` : 'text-gray-400'
                   }`} />
-                  <span className={`text-xs font-medium ${
+                  <span className={`text-[10px] font-medium ${
                     event.status === status ? `text-${color}-900` : 'text-gray-700'
                   }`}>
                     {label}
@@ -272,20 +272,20 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
 
           {/* Date & Time */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold text-gray-900">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-900">
                 Date & Time
               </label>
               {!isEditingDateTime ? (
                 <button
                   onClick={() => setIsEditingDateTime(true)}
-                  className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 rounded transition-colors"
                 >
                   <Edit2 className="w-3 h-3" />
                   <span>Edit</span>
                 </button>
               ) : (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5">
                   <button
                     onClick={() => {
                       setEditDate(event.event_date);
@@ -293,14 +293,14 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
                       setEditEndTime(event.end_time);
                       setIsEditingDateTime(false);
                     }}
-                    className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveDateTime}
                     disabled={saving}
-                    className="flex items-center space-x-1 px-3 py-1 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-1 px-2 py-1 text-xs bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
                   >
                     <Save className="w-3 h-3" />
                     <span>{saving ? 'Saving...' : 'Save'}</span>
@@ -310,52 +310,52 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
             </div>
 
             {isEditingDateTime ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
                   <input
                     type="date"
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-black focus:border-transparent"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
                     <input
                       type="time"
                       value={editStartTime}
                       onChange={(e) => setEditStartTime(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-black focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
                     <input
                       type="time"
                       value={editEndTime}
                       onChange={(e) => setEditEndTime(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-black focus:border-transparent"
                     />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className={`p-4 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <Calendar className={`w-4 h-4 ${statusConfig.color}`} />
-                    <span className="text-sm font-semibold text-gray-900">Date</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className={`p-2.5 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
+                  <div className="flex items-center space-x-1.5 mb-0.5">
+                    <Calendar className={`w-3.5 h-3.5 ${statusConfig.color}`} />
+                    <span className="text-xs font-semibold text-gray-900">Date</span>
                   </div>
-                  <p className="text-gray-900 font-medium">{formatDate(event.event_date)}</p>
+                  <p className="text-sm text-gray-900 font-medium">{formatDate(event.event_date)}</p>
                 </div>
-                <div className={`p-4 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <Clock className={`w-4 h-4 ${statusConfig.color}`} />
-                    <span className="text-sm font-semibold text-gray-900">Time</span>
+                <div className={`p-2.5 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
+                  <div className="flex items-center space-x-1.5 mb-0.5">
+                    <Clock className={`w-3.5 h-3.5 ${statusConfig.color}`} />
+                    <span className="text-xs font-semibold text-gray-900">Time</span>
                   </div>
-                  <p className="text-gray-900 font-medium">
+                  <p className="text-sm text-gray-900 font-medium">
                     {formatTime(event.start_time)} - {formatTime(event.end_time)}
                   </p>
                 </div>
@@ -366,17 +366,17 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
           {/* Topics */}
           {event.topics && event.topics.length > 0 && (
             <div>
-              <div className="flex items-center space-x-2 mb-3">
-                <BookOpen className="w-4 h-4 text-gray-700" />
-                <label className="text-sm font-semibold text-gray-900">
+              <div className="flex items-center space-x-1.5 mb-2">
+                <BookOpen className="w-3.5 h-3.5 text-gray-700" />
+                <label className="text-xs font-semibold text-gray-900">
                   Topics to Cover
                 </label>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {event.topics.map((topic, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm font-medium border border-purple-200"
+                    className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium border border-gray-200"
                   >
                     {topic}
                   </span>
@@ -387,34 +387,34 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className="block text-xs font-semibold text-gray-900 mb-1.5">
               Notes & Progress
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add notes about your study session, what you learned, or any challenges..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              rows={4}
+              placeholder="Add notes about your study session..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+              rows={3}
             />
             <button
               onClick={handleSaveNotes}
               disabled={saving || notes === (event.completion_notes || '')}
-              className="mt-2 flex items-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-1.5 flex items-center space-x-1.5 px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-3.5 h-3.5" />
               <span>{saving ? 'Saving...' : 'Save Notes'}</span>
             </button>
           </div>
 
           {/* Completion Info */}
           {event.completed_at && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-1">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <span className="font-semibold text-green-900">Completed</span>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-2.5">
+              <div className="flex items-center space-x-1.5 mb-0.5">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-semibold text-green-900">Completed</span>
               </div>
-              <p className="text-sm text-green-800">
+              <p className="text-xs text-green-800">
                 {new Date(event.completed_at).toLocaleString('en-US', {
                   dateStyle: 'medium',
                   timeStyle: 'short'
@@ -425,18 +425,18 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-4 py-3 flex items-center justify-between">
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="flex items-center space-x-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
             <span>{deleting ? 'Deleting...' : 'Delete Session'}</span>
           </button>
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            className="px-4 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800 transition-colors"
           >
             Close
           </button>
