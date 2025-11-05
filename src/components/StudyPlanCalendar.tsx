@@ -142,7 +142,6 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
         .select(`
           *,
           study_plan_schedules!inner(
-            subject_id,
             subjects(name, id)
           )
         `)
@@ -151,8 +150,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
         .lte('event_date', endOfMonth.toISOString().split('T')[0])
         .order('event_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching events:', error);
+        throw error;
+      }
 
+      console.log('Fetched events:', data);
       setEvents(data || []);
     } catch (error) {
       console.error('Error fetching events:', error);
