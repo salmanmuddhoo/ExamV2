@@ -32,9 +32,10 @@ interface StudyPlanCalendarProps {
   onBack: () => void;
   onOpenSubscriptions: () => void;
   tokensRemaining?: number;
+  tokensLimit?: number | null;
 }
 
-export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0 }: StudyPlanCalendarProps) {
+export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null }: StudyPlanCalendarProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -283,6 +284,18 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     return timeStr;
   };
 
+  // Format event title to show subject first
+  const formatEventTitle = (event: StudyPlanEvent) => {
+    const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+    if (!subjectName) return event.title;
+
+    // If title already starts with subject, return as is
+    if (event.title.startsWith(subjectName)) return event.title;
+
+    // Otherwise, prepend subject to title
+    return `${subjectName}: ${event.title}`;
+  };
+
   // Get unique subjects from events
   const getUniqueSubjects = () => {
     const subjectsMap = new Map();
@@ -293,6 +306,22 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       }
     });
     return Array.from(subjectsMap.entries()).map(([id, name]) => ({ id, name }));
+  };
+
+  // Group schedules by subject
+  const getSchedulesBySubject = () => {
+    const grouped = new Map<string, typeof schedules>();
+    schedules.forEach(schedule => {
+      const subjectName = schedule.subjects?.name || 'Unknown Subject';
+      if (!grouped.has(subjectName)) {
+        grouped.set(subjectName, []);
+      }
+      grouped.get(subjectName)!.push(schedule);
+    });
+    return Array.from(grouped.entries()).map(([subject, schedules]) => ({
+      subject,
+      schedules
+    }));
   };
 
   // Filter events by subject and schedule
@@ -448,8 +477,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
               <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
                 <Zap className="w-4 h-4 text-purple-600" />
                 <div className="text-xs">
-                  <span className="font-semibold text-gray-900">{formatTokenCount(tokensRemaining)}</span>
-                  <span className="text-gray-600 ml-1">AI Tokens</span>
+                  <span className="text-gray-600">AI Tokens: </span>
+                  <span className="font-semibold text-gray-900">
+                    {tokensLimit === null
+                      ? `${formatTokenCount(tokensRemaining)} remaining`
+                      : `${formatTokenCount(tokensRemaining)} / ${formatTokenCount(tokensLimit)}`
+                    }
+                  </span>
                 </div>
               </div>
             </div>
@@ -478,61 +512,72 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
             </button>
 
             {showSchedules && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {schedules.map(schedule => (
-                  <div
-                    key={schedule.id}
-                    className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <BookOpen className="w-5 h-5 text-black" />
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {schedule.subjects?.name || 'Subject'}
-                          </h3>
-                          <p className="text-xs text-gray-600">
-                            {schedule.grade_levels?.name || 'Grade'}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteSchedule(schedule.id)}
-                        className="p-1 hover:bg-red-50 rounded transition-colors"
-                        title="Delete study plan"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
+              <div className="space-y-6 mb-6">
+                {getSchedulesBySubject().map(({ subject, schedules: subjectSchedules }) => (
+                  <div key={subject}>
+                    {/* Subject Header */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <BookOpen className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-bold text-gray-900">{subject}</h3>
+                      <span className="text-sm text-gray-500">({subjectSchedules.length} plan{subjectSchedules.length > 1 ? 's' : ''})</span>
                     </div>
 
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between text-gray-600">
-                        <span>Duration:</span>
-                        <span className="font-medium text-gray-900">{schedule.study_duration_minutes} min</span>
-                      </div>
-                      <div className="flex items-center justify-between text-gray-600">
-                        <span>Sessions/week:</span>
-                        <span className="font-medium text-gray-900">{schedule.sessions_per_week}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-gray-600">
-                        <span>Period:</span>
-                        <span className="font-medium text-gray-900">
-                          {new Date(schedule.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                        </span>
-                      </div>
-                      {schedule.preferred_times && schedule.preferred_times.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {schedule.preferred_times.map((time, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-0.5 bg-gray-50 text-gray-700 rounded-full text-xs border border-gray-200"
+                    {/* Study Plans Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {subjectSchedules.map(schedule => (
+                        <div
+                          key={schedule.id}
+                          className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="text-xs text-gray-600 font-medium">
+                                {schedule.grade_levels?.name || 'Grade'}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Plan #{subjectSchedules.indexOf(schedule) + 1}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteSchedule(schedule.id)}
+                              className="p-1 hover:bg-red-50 rounded transition-colors"
+                              title="Delete study plan"
                             >
-                              {time}
-                            </span>
-                          ))}
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between text-gray-600">
+                              <span>Duration:</span>
+                              <span className="font-medium text-gray-900">{schedule.study_duration_minutes} min</span>
+                            </div>
+                            <div className="flex items-center justify-between text-gray-600">
+                              <span>Sessions/week:</span>
+                              <span className="font-medium text-gray-900">{schedule.sessions_per_week}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-gray-600">
+                              <span>Period:</span>
+                              <span className="font-medium text-gray-900">
+                                {new Date(schedule.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                              </span>
+                            </div>
+                            {schedule.preferred_times && schedule.preferred_times.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {schedule.preferred_times.map((time, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-0.5 bg-gray-50 text-gray-700 rounded-full text-xs border border-gray-200"
+                                  >
+                                    {time}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -713,7 +758,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                               >
                                 <div className="flex items-center space-x-1">
                                   {getStatusIcon(event.status)}
-                                  <span className="truncate">{event.title}</span>
+                                  <span className="truncate">{formatEventTitle(event)}</span>
                                 </div>
                               </div>
                             ))}
@@ -800,7 +845,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center space-x-2 flex-1">
                                 {getStatusIcon(event.status)}
-                                <span className="font-semibold text-sm">{event.title}</span>
+                                <span className="font-semibold text-sm">{formatEventTitle(event)}</span>
                               </div>
                             </div>
 
@@ -943,7 +988,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(event.status)}
-                      <span className="font-semibold">{event.title}</span>
+                      <span className="font-semibold">{formatEventTitle(event)}</span>
                     </div>
                     <span className="text-xs text-gray-600">
                       {new Date(event.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -1021,6 +1066,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           setShowCreateModal(false);
         }}
         tokensRemaining={tokensRemaining}
+        tokensLimit={tokensLimit}
       />
 
       {/* Event Detail Modal */}
@@ -1138,7 +1184,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
                           {/* Task Info */}
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm text-gray-900 truncate">{event.title}</p>
+                            <p className="font-semibold text-sm text-gray-900 truncate">{formatEventTitle(event)}</p>
                             <div className="flex items-center space-x-1 text-xs text-gray-600 mt-0.5">
                               <Clock className="w-3 h-3" />
                               <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>

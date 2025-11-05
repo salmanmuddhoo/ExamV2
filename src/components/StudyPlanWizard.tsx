@@ -34,9 +34,10 @@ interface StudyPlanWizardProps {
   onClose: () => void;
   onSuccess: () => void;
   tokensRemaining?: number;
+  tokensLimit?: number | null;
 }
 
-export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0 }: StudyPlanWizardProps) {
+export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0, tokensLimit = null }: StudyPlanWizardProps) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -321,11 +322,16 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
             <Zap className="w-4 h-4 text-purple-600" />
             <div className="text-xs flex-1">
-              <span className="font-semibold text-gray-900">{formatTokenCount(tokensRemaining)}</span>
-              <span className="text-gray-600 ml-1">AI Tokens Available</span>
+              <span className="text-gray-600">AI Tokens: </span>
+              <span className="font-semibold text-gray-900">
+                {tokensLimit === null
+                  ? `${formatTokenCount(tokensRemaining)} remaining`
+                  : `${formatTokenCount(tokensRemaining)} / ${formatTokenCount(tokensLimit)}`
+                }
+              </span>
             </div>
             <div className="text-xs text-gray-600">
-              • Tokens will be used to generate your personalized study plan
+              • Tokens will be used to generate your study plan
             </div>
           </div>
         </div>
