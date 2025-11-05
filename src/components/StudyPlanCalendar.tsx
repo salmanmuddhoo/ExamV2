@@ -274,14 +274,22 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   };
 
   const formatTime = (timeStr: string) => {
-    // Remove seconds if present (HH:MM:SS -> HH:MM)
+    // Parse HH:MM or HH:MM:SS format and format according to user's locale
     const timeParts = timeStr.split(':');
     if (timeParts.length >= 2) {
       const hours = parseInt(timeParts[0]);
-      const minutes = timeParts[1];
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 || 12;
-      return `${displayHours}:${minutes} ${period}`;
+      const minutes = parseInt(timeParts[1]);
+
+      // Create a date object with the time (date doesn't matter for formatting)
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+
+      // Format using user's locale (automatically uses 12/24 hour based on locale)
+      return date.toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: undefined // Let the locale decide
+      });
     }
     return timeStr;
   };
@@ -579,8 +587,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <span className="text-sm text-gray-700">
-                                  {new Date(schedule.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
-                                  {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}`}
+                                  {new Date(schedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                                  {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}`}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
@@ -831,10 +839,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                          {selectedDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
                         </h3>
                         <p className="text-sm text-gray-600">
-                          {selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}
+                          {selectedDate.toLocaleDateString(undefined, { weekday: 'long' })}
                         </p>
                       </div>
                     </div>
@@ -1032,7 +1040,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                       <span className="font-semibold">{formatEventTitle(event)}</span>
                     </div>
                     <span className="text-xs text-gray-600">
-                      {new Date(event.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {new Date(event.event_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
                   {event.description && (
@@ -1170,10 +1178,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  {mobileDateModalDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                  {mobileDateModalDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {mobileDateModalDate.toLocaleDateString('en-US', { weekday: 'long' })}
+                  {mobileDateModalDate.toLocaleDateString(undefined, { weekday: 'long' })}
                 </p>
               </div>
               <button

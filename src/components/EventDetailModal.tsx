@@ -151,14 +151,22 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
   };
 
   const formatTime = (timeStr: string) => {
-    // Remove seconds if present (HH:MM:SS -> HH:MM)
+    // Parse HH:MM or HH:MM:SS format and format according to user's locale
     const timeParts = timeStr.split(':');
     if (timeParts.length >= 2) {
       const hours = parseInt(timeParts[0]);
-      const minutes = timeParts[1];
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 || 12;
-      return `${displayHours}:${minutes} ${period}`;
+      const minutes = parseInt(timeParts[1]);
+
+      // Create a date object with the time (date doesn't matter for formatting)
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+
+      // Format using user's locale (automatically uses 12/24 hour based on locale)
+      return date.toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: undefined // Let the locale decide
+      });
     }
     return timeStr;
   };
@@ -204,7 +212,7 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
   const StatusIcon = statusConfig.icon;
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString(undefined, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -414,7 +422,7 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
                 <span className="text-sm font-semibold text-green-900">Completed</span>
               </div>
               <p className="text-xs text-green-800">
-                {new Date(event.completed_at).toLocaleString('en-US', {
+                {new Date(event.completed_at).toLocaleString(undefined, {
                   dateStyle: 'medium',
                   timeStyle: 'short'
                 })}
