@@ -54,6 +54,28 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
     }
   }, [user, currentDate]);
 
+  // Auto-select today's date if it has events
+  useEffect(() => {
+    if (events.length > 0) {
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      const todayEvents = events.filter(event => event.event_date === todayStr);
+
+      // Only auto-select today if:
+      // 1. Today has events
+      // 2. No date is currently selected OR the current month is being viewed
+      if (todayEvents.length > 0 && !selectedDate) {
+        const isCurrentMonth =
+          currentDate.getMonth() === today.getMonth() &&
+          currentDate.getFullYear() === today.getFullYear();
+
+        if (isCurrentMonth) {
+          setSelectedDate(today);
+        }
+      }
+    }
+  }, [events, currentDate]);
+
   const checkAccess = async () => {
     if (!user) {
       setLoading(false);
