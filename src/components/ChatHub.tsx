@@ -105,6 +105,7 @@ export function ChatHub({
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [todayPlanCollapsed, setTodayPlanCollapsed] = useState(true); // Closed by default
+  const [accessibleSubjectIds, setAccessibleSubjectIds] = useState<string[]>([]);
 
   // Disable blink animation after 10 seconds
   useEffect(() => {
@@ -119,6 +120,7 @@ export function ChatHub({
     if (user) {
       fetchConversations();
       fetchUserTier();
+      fetchAccessibleSubjects();
       fetchTodayEvents();
     }
   }, [user]);
@@ -171,6 +173,31 @@ export function ChatHub({
     }
   };
 
+  const fetchAccessibleSubjects = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_accessible_subjects_for_user', {
+          p_user_id: user.id,
+          p_grade_id: null
+        });
+
+      if (error) {
+        console.error('Error fetching accessible subjects:', error);
+        setAccessibleSubjectIds([]);
+        return;
+      }
+
+      // Extract subject IDs from the returned data
+      const subjectIds = (data || []).map((item: any) => item.subject_id);
+      setAccessibleSubjectIds(subjectIds);
+    } catch (error) {
+      console.error('Error fetching accessible subjects:', error);
+      setAccessibleSubjectIds([]);
+    }
+  };
+
   const fetchTodayEvents = async () => {
     if (!user) return;
 
@@ -204,6 +231,22 @@ export function ChatHub({
       setLoadingTodayEvents(false);
     }
   };
+
+  // Filter today's events based on subscription tier and accessible subjects
+  const getFilteredTodayEvents = () => {
+    // Free tier users should not see study plans
+    if (userTier === 'free') {
+      return [];
+    }
+
+    // Filter events to only include those for accessible subjects
+    return todayEvents.filter(event => {
+      const subjectId = (event as any).study_plan_schedules?.subjects?.id;
+      return subjectId && accessibleSubjectIds.includes(subjectId);
+    });
+  };
+
+  const filteredTodayEvents = getFilteredTodayEvents();
 
   const formatTime = (timeStr: string) => {
     // Remove seconds if present (HH:MM:SS -> HH:MM)
@@ -477,7 +520,7 @@ export function ChatHub({
           </div>
 
           {/* Today's Study Plan Summary - Mobile */}
-          {!loadingTodayEvents && todayEvents.length > 0 && (
+          {!loadingTodayEvents && filteredTodayEvents.length > 0 && (
             <div className="md:hidden border-b border-gray-200 bg-gray-50">
               <button
                 onClick={() => setTodayPlanCollapsed(!todayPlanCollapsed)}
@@ -486,7 +529,7 @@ export function ChatHub({
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-gray-700" />
                   <h3 className="text-sm font-bold text-gray-900">Today's Study Plan</h3>
-                  <span className="text-xs text-gray-500">({todayEvents.length})</span>
+                  <span className="text-xs text-gray-500">({filteredTodayEvents.length})</span>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-gray-600 transition-transform ${
@@ -497,7 +540,7 @@ export function ChatHub({
 
               {!todayPlanCollapsed && (
                 <div className="px-4 pb-4 space-y-2">
-                  {todayEvents.map((event) => {
+                  {filteredTodayEvents.map((event) => {
                     const subjectName = (event as any).study_plan_schedules?.subjects?.name;
                     const isCompleted = event.status === 'completed';
                     return (
@@ -818,7 +861,7 @@ export function ChatHub({
           ) : (
             <div className="h-full p-6">
               {/* Today's Study Plan Summary - Desktop */}
-              {!loadingTodayEvents && todayEvents.length > 0 && (
+              {!loadingTodayEvents && filteredTodayEvents.length > 0 && (
                 <div className="hidden md:block mb-6 bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
@@ -835,7 +878,7 @@ export function ChatHub({
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    {todayEvents.slice(0, 4).map((event) => {
+                    {filteredTodayEvents.slice(0, 4).map((event) => {
                       const subjectName = (event as any).study_plan_schedules?.subjects?.name;
                       const isCompleted = event.status === 'completed';
                       const isInProgress = event.status === 'in_progress';
@@ -887,9 +930,9 @@ export function ChatHub({
                         </div>
                       );
                     })}
-                    {todayEvents.length > 4 && (
+                    {filteredTodayEvents.length > 4 && (
                       <p className="text-xs text-gray-500 text-center pt-1">
-                        +{todayEvents.length - 4} more task{todayEvents.length - 4 !== 1 ? 's' : ''} today
+                        +{filteredTodayEvents.length - 4} more task{filteredTodayEvents.length - 4 !== 1 ? 's' : ''} today
                       </p>
                     )}
                   </div>

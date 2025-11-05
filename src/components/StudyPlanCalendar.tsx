@@ -61,6 +61,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const [showMobileDateModal, setShowMobileDateModal] = useState(false);
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
+  const [accessibleSubjectIds, setAccessibleSubjectIds] = useState<string[]>([]);
 
   // Progress tracking state
   const [scheduleProgress, setScheduleProgress] = useState<Record<string, { total: number; completed: number; percentage: number }>>({});
@@ -88,14 +89,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
   useEffect(() => {
     checkAccess();
+    if (user) {
+      fetchAccessibleSubjects();
+    }
   }, [user]);
 
   useEffect(() => {
-    if (hasAccess && featureEnabled) {
+    if (hasAccess && featureEnabled && accessibleSubjectIds.length >= 0) {
       fetchEvents();
       fetchSchedules();
     }
-  }, [user, currentDate, hasAccess, featureEnabled]);
+  }, [user, currentDate, hasAccess, featureEnabled, accessibleSubjectIds]);
 
   // Ensure selectedDate is always set to today if it becomes null
   useEffect(() => {
@@ -158,6 +162,31 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
   };
 
+  const fetchAccessibleSubjects = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_accessible_subjects_for_user', {
+          p_user_id: user.id,
+          p_grade_id: null
+        });
+
+      if (error) {
+        console.error('Error fetching accessible subjects:', error);
+        setAccessibleSubjectIds([]);
+        return;
+      }
+
+      // Extract subject IDs from the returned data
+      const subjectIds = (data || []).map((item: any) => item.subject_id);
+      setAccessibleSubjectIds(subjectIds);
+    } catch (error) {
+      console.error('Error fetching accessible subjects:', error);
+      setAccessibleSubjectIds([]);
+    }
+  };
+
   const fetchEvents = async () => {
     if (!user) return;
 
@@ -186,7 +215,14 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       }
 
       console.log('Fetched events:', data);
-      setEvents(data || []);
+
+      // Filter events based on accessible subjects
+      const filteredData = (data || []).filter((event: any) => {
+        const subjectId = event.study_plan_schedules?.subjects?.id;
+        return subjectId && accessibleSubjectIds.includes(subjectId);
+      });
+
+      setEvents(filteredData);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
@@ -200,7 +236,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         .from('study_plan_schedules')
         .select(`
           *,
-          subjects(name),
+          subjects(name, id),
           grade_levels(name)
         `)
         .eq('user_id', user.id)
@@ -209,11 +245,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
       if (error) throw error;
 
-      setSchedules(data || []);
+      // Filter schedules based on accessible subjects
+      const filteredData = (data || []).filter((schedule: any) => {
+        const subjectId = schedule.subjects?.id;
+        return subjectId && accessibleSubjectIds.includes(subjectId);
+      });
+
+      setSchedules(filteredData);
 
       // Fetch progress for all schedules
-      if (data && data.length > 0) {
-        fetchScheduleProgress(data.map(s => s.id));
+      if (filteredData && filteredData.length > 0) {
+        fetchScheduleProgress(filteredData.map(s => s.id));
       }
     } catch (error) {
       console.error('Error fetching schedules:', error);
