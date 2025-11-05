@@ -43,7 +43,10 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
     };
 
     if (desktopMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      // Use setTimeout to avoid immediate closure when opening
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
     }
 
     return () => {
@@ -60,7 +63,10 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
     };
 
     if (mobileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      // Use setTimeout to avoid immediate closure when opening
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
     }
 
     return () => {
