@@ -9,6 +9,7 @@ import { UserProfileModal } from './UserProfileModal';
 import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeModal } from './WelcomeModal';
 import { ContextualHint } from './ContextualHint';
+import { EventDetailModal } from './EventDetailModal';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -95,6 +96,8 @@ export function ChatHub({
   const [showBlinkAnimation, setShowBlinkAnimation] = useState(true);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [loadingTodayEvents, setLoadingTodayEvents] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [showEventModal, setShowEventModal] = useState(false);
 
   // Disable blink animation after 10 seconds
   useEffect(() => {
@@ -901,76 +904,93 @@ export function ChatHub({
               <SubscriptionManager />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full p-6">
-              <div className="text-center max-w-md w-full">
+            <div className="h-full p-6">
+              {/* Today's Study Plan Summary - Desktop */}
+              {!loadingTodayEvents && todayEvents.length > 0 && (
+                <div className="hidden md:block mb-6 bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-black" />
+                      <h3 className="text-sm font-bold text-gray-900">Today's Study Plan</h3>
+                    </div>
+                    {onNavigateStudyPlan && (
+                      <button
+                        onClick={onNavigateStudyPlan}
+                        className="text-xs text-gray-600 hover:text-gray-900 hover:underline"
+                      >
+                        View All →
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {todayEvents.slice(0, 4).map((event) => {
+                      const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+                      const isCompleted = event.status === 'completed';
+                      const isInProgress = event.status === 'in_progress';
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={() => {
+                            setSelectedEvent(event);
+                            setShowEventModal(true);
+                          }}
+                          className={`flex items-center space-x-2.5 p-2.5 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${
+                            isCompleted
+                              ? 'bg-green-50 border-green-200 hover:bg-green-100'
+                              : isInProgress
+                              ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="flex-shrink-0">
+                            {isCompleted ? (
+                              <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            ) : isInProgress ? (
+                              <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z"/>
+                                </svg>
+                              </div>
+                            ) : (
+                              <div className="w-4 h-4 border-2 border-gray-400 rounded-full" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold truncate ${isCompleted ? 'text-green-900 line-through' : isInProgress ? 'text-blue-900' : 'text-gray-900'}`}>
+                              {event.title}
+                            </p>
+                            <p className="text-[11px] text-gray-600">
+                              {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                            </p>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {todayEvents.length > 4 && (
+                      <p className="text-xs text-gray-500 text-center pt-1">
+                        +{todayEvents.length - 4} more task{todayEvents.length - 4 !== 1 ? 's' : ''} today
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-center max-w-md mx-auto">
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   Ready to ace your exams?
                 </h2>
                 <p className="text-gray-600 mb-6">
                   Choose a conversation to continue, or click <span className={`font-extrabold text-gray-900 ${showBlinkAnimation ? 'animate-blink' : ''}`}>"New Conversation"</span> to start working on a new exam paper.
                 </p>
-
-                {/* Today's Study Plan Summary - Desktop */}
-                {!loadingTodayEvents && todayEvents.length > 0 && (
-                  <div className="hidden md:block mb-8 bg-white border-2 border-gray-200 rounded-lg p-5 text-left">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-5 h-5 text-black" />
-                        <h3 className="text-lg font-bold text-gray-900">Today's Study Plan</h3>
-                      </div>
-                      {onNavigateStudyPlan && (
-                        <button
-                          onClick={onNavigateStudyPlan}
-                          className="text-xs text-gray-600 hover:text-gray-900 underline"
-                        >
-                          View All
-                        </button>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {todayEvents.slice(0, 3).map((event) => {
-                        const subjectName = (event as any).study_plan_schedules?.subjects?.name;
-                        const isCompleted = event.status === 'completed';
-                        return (
-                          <div
-                            key={event.id}
-                            className={`flex items-start space-x-3 p-3 rounded-lg border ${
-                              isCompleted
-                                ? 'bg-green-50 border-green-200'
-                                : 'bg-gray-50 border-gray-200'
-                            }`}
-                          >
-                            <div className="flex-shrink-0 mt-0.5">
-                              {isCompleted ? (
-                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 border-2 border-gray-400 rounded-full" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold ${isCompleted ? 'text-green-900 line-through' : 'text-gray-900'}`}>
-                                {event.title}
-                              </p>
-                              <p className="text-xs text-gray-600 mt-0.5">
-                                {formatTime(event.start_time)} - {formatTime(event.end_time)}
-                                {subjectName && ` • ${subjectName}`}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {todayEvents.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center pt-2">
-                          +{todayEvents.length - 3} more task{todayEvents.length - 3 !== 1 ? 's' : ''} today
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {userTier !== 'pro' ? (
                   <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-lg p-6">
@@ -1016,6 +1036,24 @@ export function ChatHub({
         tokensRemaining={tokensRemaining}
         papersRemaining={papersRemaining}
         onUpgrade={handleOpenSubscriptions}
+      />
+
+      {/* Event Detail Modal */}
+      <EventDetailModal
+        event={selectedEvent}
+        isOpen={showEventModal}
+        onClose={() => {
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+        onUpdate={() => {
+          fetchTodayEvents();
+        }}
+        onDelete={() => {
+          fetchTodayEvents();
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
       />
     </>
   );
