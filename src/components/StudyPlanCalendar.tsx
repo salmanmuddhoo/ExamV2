@@ -34,9 +34,10 @@ interface StudyPlanCalendarProps {
   tokensRemaining?: number;
   tokensLimit?: number | null;
   tokensUsed?: number;
+  onRefreshTokens?: () => void;
 }
 
-export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0 }: StudyPlanCalendarProps) {
+export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0, onRefreshTokens }: StudyPlanCalendarProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -513,73 +514,112 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
             </button>
 
             {showSchedules && (
-              <div className="space-y-6 mb-6">
+              <div className="space-y-4 mb-6">
                 {getSchedulesBySubject().map(({ subject, schedules: subjectSchedules }) => (
-                  <div key={subject}>
+                  <div key={subject} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     {/* Subject Header */}
-                    <div className="flex items-center space-x-2 mb-3">
-                      <BookOpen className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-bold text-gray-900">{subject}</h3>
-                      <span className="text-sm text-gray-500">({subjectSchedules.length} plan{subjectSchedules.length > 1 ? 's' : ''})</span>
+                    <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
+                      <div className="flex items-center space-x-2">
+                        <BookOpen className="w-5 h-5 text-blue-700" />
+                        <h3 className="text-base font-bold text-gray-900">{subject}</h3>
+                        <span className="text-sm text-gray-600">({subjectSchedules.length} plan{subjectSchedules.length > 1 ? 's' : ''})</span>
+                      </div>
                     </div>
 
-                    {/* Study Plans Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {subjectSchedules.map(schedule => (
-                        <div
-                          key={schedule.id}
-                          className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <p className="text-xs text-gray-600 font-medium">
-                                {schedule.grade_levels?.name || 'Grade'}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Plan #{subjectSchedules.indexOf(schedule) + 1}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteSchedule(schedule.id)}
-                              className="p-1 hover:bg-red-50 rounded transition-colors"
-                              title="Delete study plan"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          </div>
-
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-center justify-between text-gray-600">
-                              <span>Duration:</span>
-                              <span className="font-medium text-gray-900">{schedule.study_duration_minutes} min</span>
-                            </div>
-                            <div className="flex items-center justify-between text-gray-600">
-                              <span>Sessions/week:</span>
-                              <span className="font-medium text-gray-900">{schedule.sessions_per_week}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-gray-600">
-                              <span>Period:</span>
-                              <span className="font-medium text-gray-900">
-                                {new Date(schedule.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                              </span>
-                            </div>
-                            {schedule.preferred_times && schedule.preferred_times.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {schedule.preferred_times.map((time, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="px-2 py-0.5 bg-gray-50 text-gray-700 rounded-full text-xs border border-gray-200"
-                                  >
-                                    {time}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    {/* Study Plans Table - Scrollable with max height */}
+                    <div className="max-h-96 overflow-y-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Plan
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Grade
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Duration
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Sessions/Week
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Period
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Times
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {subjectSchedules.map((schedule, idx) => (
+                            <tr key={schedule.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className="text-sm font-medium text-gray-900">
+                                  Plan #{idx + 1}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className="text-sm text-gray-700">
+                                  {schedule.grade_levels?.name || 'N/A'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className="text-sm text-gray-700">
+                                  {schedule.study_duration_minutes} min
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className="text-sm text-gray-700">
+                                  {schedule.sessions_per_week}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className="text-sm text-gray-700">
+                                  {new Date(schedule.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                                  {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}`}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {schedule.preferred_times && schedule.preferred_times.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {schedule.preferred_times.map((time, tidx) => (
+                                      <span
+                                        key={tidx}
+                                        className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                                      >
+                                        {time}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                <button
+                                  onClick={() => handleDeleteSchedule(schedule.id)}
+                                  className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                                  title="Delete study plan"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
+
+                    {/* Footer with count */}
+                    {subjectSchedules.length > 5 && (
+                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 text-center">
+                        Showing {subjectSchedules.length} plan{subjectSchedules.length > 1 ? 's' : ''} • Scroll to view all
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1065,6 +1105,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         onSuccess={() => {
           fetchEvents();
           setShowCreateModal(false);
+          // Refresh token balance after plan generation
+          if (onRefreshTokens) {
+            onRefreshTokens();
+          }
         }}
         tokensRemaining={tokensRemaining}
         tokensLimit={tokensLimit}

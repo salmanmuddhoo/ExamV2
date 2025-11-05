@@ -792,6 +792,7 @@ function App() {
           tokensRemaining={tokensRemaining}
           tokensLimit={tokensLimit}
           tokensUsed={tokensUsed}
+          onRefreshTokens={fetchTokenBalance}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
