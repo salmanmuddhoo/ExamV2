@@ -33,9 +33,10 @@ interface StudyPlanCalendarProps {
   onOpenSubscriptions: () => void;
   tokensRemaining?: number;
   tokensLimit?: number | null;
+  tokensUsed?: number;
 }
 
-export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null }: StudyPlanCalendarProps) {
+export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0 }: StudyPlanCalendarProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -480,8 +481,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   <span className="text-gray-600">AI Tokens: </span>
                   <span className="font-semibold text-gray-900">
                     {tokensLimit === null
-                      ? `${formatTokenCount(tokensRemaining)} remaining`
-                      : `${formatTokenCount(tokensRemaining)} / ${formatTokenCount(tokensLimit)}`
+                      ? `Unlimited`
+                      : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`
                     }
                   </span>
                 </div>
@@ -1067,6 +1068,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         }}
         tokensRemaining={tokensRemaining}
         tokensLimit={tokensLimit}
+        tokensUsed={tokensUsed}
       />
 
       {/* Event Detail Modal */}

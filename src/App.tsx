@@ -52,6 +52,7 @@ function App() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
   const [tokensLimit, setTokensLimit] = useState<number | null>(null);
+  const [tokensUsed, setTokensUsed] = useState(0);
   const [papersRemaining, setPapersRemaining] = useState(0);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(() => {
     // Persist subscription modal state across page navigation
@@ -240,6 +241,58 @@ function App() {
     }
   }, [selectedChapterId]);
 
+  // Fetch token balance for current user (used in Study Plan page)
+  const fetchTokenBalance = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          subscription_tiers(name, display_name, token_limit, papers_limit),
+          tokens_used_current_period,
+          token_limit_override,
+          papers_accessed_current_period
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !data) {
+        // Set default values if no subscription found
+        setTokensRemaining(0);
+        setTokensLimit(null);
+        setTokensUsed(0);
+        return;
+      }
+
+      const tierData = data.subscription_tiers as any;
+      const tierLimit = tierData?.token_limit;
+      const overrideLimit = data.token_limit_override;
+      const tokensUsedValue = data.tokens_used_current_period ?? 0;
+      const isAdmin = profile?.role === 'admin';
+
+      // Calculate final limit (override takes precedence)
+      const finalLimit = overrideLimit ?? tierLimit;
+      const tokensRemainingValue = finalLimit === null ? null : finalLimit - tokensUsedValue;
+
+      // For non-admin users, cap displayed usage at the limit
+      const displayedTokensUsed = isAdmin ? tokensUsedValue : (finalLimit !== null ? Math.min(tokensUsedValue, finalLimit) : tokensUsedValue);
+
+      setTokensLimit(finalLimit);
+      setTokensUsed(displayedTokensUsed);
+      setTokensRemaining(isAdmin ? (tokensRemainingValue || 0) : Math.max(0, tokensRemainingValue || 0));
+
+      // Set papers information
+      const paperLimit = tierData?.papers_limit;
+      const papersUsed = data.papers_accessed_current_period || 0;
+      const papersRemainingValue = paperLimit === null ? null : Math.max(0, paperLimit - papersUsed);
+      setPapersRemaining(papersRemainingValue || 0);
+    } catch (error) {
+      console.error('Error fetching token balance:', error);
+    }
+  };
+
   const checkFirstTimeUser = async () => {
     if (!user) {
       return;
@@ -276,6 +329,7 @@ function App() {
 
         setTokensRemaining(tokensLeft);
         setTokensLimit(tokenLimit);
+        setTokensUsed(subscription.tokens_used_current_period);
         setPapersRemaining(papersLeft);
         setShowWelcomeModal(true);
 
@@ -288,6 +342,9 @@ function App() {
 
   useEffect(() => {
     if (initialLoadComplete && user && profile && !isPasswordReset) {
+      // Fetch token balance for all users
+      fetchTokenBalance();
+
       if (view === 'login') {
         if (profile.role === 'admin') {
           setView('admin');
@@ -734,6 +791,7 @@ function App() {
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
           tokensRemaining={tokensRemaining}
           tokensLimit={tokensLimit}
+          tokensUsed={tokensUsed}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
