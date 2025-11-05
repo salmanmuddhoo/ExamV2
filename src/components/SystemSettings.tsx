@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Server, Database, Zap, Save, RefreshCw, Key, Eye, EyeOff } from 'lucide-react';
+import { Server, Database, Zap, Save, RefreshCw, Key, Eye, EyeOff, Calendar } from 'lucide-react';
 
 interface CacheSetting {
   useGeminiCache: boolean;
@@ -10,12 +10,17 @@ interface GeminiCacheApiKeySetting {
   apiKey: string;
 }
 
+interface StudyPlanFeatureSetting {
+  enabled: boolean;
+}
+
 export function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [useGeminiCache, setUseGeminiCache] = useState(false);
   const [geminiCacheApiKey, setGeminiCacheApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [studyPlanEnabled, setStudyPlanEnabled] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -55,6 +60,22 @@ export function SystemSettings() {
         const apiKeySetting = apiKeyData.setting_value as GeminiCacheApiKeySetting;
         setGeminiCacheApiKey(apiKeySetting.apiKey || '');
       }
+
+      // Fetch study plan feature flag
+      const { data: studyPlanData, error: studyPlanError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'study_plan_enabled')
+        .single();
+
+      if (studyPlanError && studyPlanError.code !== 'PGRST116') {
+        throw studyPlanError;
+      }
+
+      if (studyPlanData) {
+        const studyPlanSetting = studyPlanData.setting_value as StudyPlanFeatureSetting;
+        setStudyPlanEnabled(studyPlanSetting.enabled || false);
+      }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load settings' });
     } finally {
@@ -91,6 +112,20 @@ export function SystemSettings() {
         });
 
       if (apiKeyError) throw apiKeyError;
+
+      // Update study plan feature flag
+      const { error: studyPlanError } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'study_plan_enabled',
+          setting_value: { enabled: studyPlanEnabled },
+          description: 'Enable or disable the study plan feature globally. When disabled, the study plan will be completely hidden from all users including paid tiers.',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (studyPlanError) throw studyPlanError;
 
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
 
@@ -253,6 +288,70 @@ export function SystemSettings() {
             <Zap className="w-4 h-4 text-yellow-700 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-yellow-800">
               <strong>Recommended:</strong> Use a separate Google Cloud project for cache mode to isolate costs and track savings separately.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Study Plan Feature Flag Section */}
+      <div className="border border-gray-200 rounded-lg p-6 bg-white">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Calendar className="w-5 h-5 text-purple-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Study Plan Feature</h3>
+            <p className="text-sm text-gray-600">Enable or disable the AI-powered study plan feature globally</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 border-2 rounded-lg" style={{ borderColor: studyPlanEnabled ? '#9333EA' : '#E5E7EB' }}>
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-1">
+                <span className="font-semibold text-gray-900">Study Plan Feature Status</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  studyPlanEnabled
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {studyPlanEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {studyPlanEnabled
+                  ? 'Study plan is visible to users with paid tiers that have study plan access enabled.'
+                  : 'Study plan is completely hidden from all users, including paid tiers.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setStudyPlanEnabled(!studyPlanEnabled)}
+              className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors ml-4 ${
+                studyPlanEnabled ? 'bg-purple-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  studyPlanEnabled ? 'translate-x-9' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <h4 className="text-sm font-semibold text-amber-900 mb-2">Development Phase Notice</h4>
+            <p className="text-xs text-amber-800 leading-relaxed">
+              <strong>Purpose:</strong> This feature flag is designed for the development phase. Keep it disabled in production
+              until the study plan feature is fully tested and ready for release.<br /><br />
+              <strong>When Disabled:</strong> The study plan page, navigation links, and all related UI will be completely hidden from the application.<br />
+              <strong>When Enabled:</strong> Only users with paid tier subscriptions (Student or Pro) that have "Study Plan Access" enabled in Tier Config will see the feature.
+            </p>
+          </div>
+
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Access Control:</strong> Even when enabled globally, users must have a paid subscription tier with
+              "Study Plan Access" enabled (configured in Tier Config). Free tier users will see a message prompting them to upgrade.
             </p>
           </div>
         </div>
