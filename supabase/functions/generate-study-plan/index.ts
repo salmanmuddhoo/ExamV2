@@ -183,6 +183,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch existing events to avoid scheduling conflicts
+    console.log("🔍 Fetching existing events to check for conflicts...");
+    const { data: existingEvents, error: eventsError } = await supabaseClient
+      .from('study_plan_events')
+      .select('event_date, start_time, end_time, title')
+      .eq('user_id', user_id)
+      .gte('event_date', start_date)
+      .lte('event_date', end_date);
+
+    if (eventsError) {
+      console.error("❌ Error fetching existing events:", eventsError);
+    } else {
+      console.log(`✅ Found ${existingEvents?.length || 0} existing events in date range`);
+    }
+
+    // Format busy time slots for AI
+    let busyTimeSlots = '';
+    if (existingEvents && existingEvents.length > 0) {
+      busyTimeSlots = existingEvents.map(event =>
+        `${event.event_date} from ${event.start_time} to ${event.end_time} (${event.title})`
+      ).join('\n');
+      console.log("📅 Busy time slots:\n", busyTimeSlots);
+    } else {
+      busyTimeSlots = 'No existing events - calendar is clear';
+      console.log("📅 No existing events found - calendar is clear");
+    }
+
     // Get Gemini API key
     console.log("🔑 Checking for Gemini API key...");
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
@@ -236,6 +263,10 @@ Preferred Study Times: ${preferred_times.join(', ')}
 Start Date: ${start_date}
 End Date: ${end_date}
 
+CRITICAL - AVOID SCHEDULING CONFLICTS:
+The student already has the following events scheduled. YOU MUST NOT schedule any sessions that overlap with these existing events:
+${busyTimeSlots}
+
 IMPORTANT - Chapter Selection:
 ${chapterScope}
 
@@ -256,18 +287,20 @@ Please generate a JSON array of study events with the following structure:
 ]
 
 Requirements:
-1. ALL titles MUST start with "${subjectName} - " followed by a descriptive session title (e.g., "${subjectName} - Chapter 1: Introduction", "${subjectName} - Review Session", "${subjectName} - Practice Problems")
-2. Distribute ${sessions_per_week} sessions per week
-3. Each session should be ${study_duration_minutes} minutes long
-4. Schedule sessions during ${preferred_times.join(' or ')} time slots
-5. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
-6. Include review sessions every few weeks
-7. Start with easier topics and progress to harder ones
-8. Add milestone checkpoints for assessments
-9. Make sure dates are between ${start_date} and ${end_date}
-10. Space out sessions appropriately (don't schedule consecutive days unless necessary)
-11. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-${isChapterSpecific ? '12. Do NOT include any chapters that are not in the list above' : ''}
+1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
+2. ALL titles MUST start with "${subjectName} - " followed by a descriptive session title (e.g., "${subjectName} - Chapter 1: Introduction", "${subjectName} - Review Session", "${subjectName} - Practice Problems")
+3. Distribute ${sessions_per_week} sessions per week
+4. Each session should be ${study_duration_minutes} minutes long
+5. Schedule sessions during ${preferred_times.join(' or ')} time slots
+6. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
+7. Include review sessions every few weeks
+8. Start with easier topics and progress to harder ones
+9. Add milestone checkpoints for assessments
+10. Make sure dates are between ${start_date} and ${end_date}
+11. Space out sessions appropriately (don't schedule consecutive days unless necessary)
+12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
+13. If a time slot is taken on a specific date, choose a different time or different date
+${isChapterSpecific ? '14. Do NOT include any chapters that are not in the list above' : ''}
 
 Return ONLY the JSON array, no additional text.`;
 

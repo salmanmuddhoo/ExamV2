@@ -10,7 +10,8 @@ import {
   SkipForward,
   Save,
   Trash2,
-  BookOpen
+  BookOpen,
+  Edit2
 } from 'lucide-react';
 import { StudyPlanEvent } from '../types/studyPlan';
 
@@ -26,10 +27,18 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isEditingDateTime, setIsEditingDateTime] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
 
   useEffect(() => {
     if (event) {
       setNotes(event.completion_notes || '');
+      setEditDate(event.event_date);
+      setEditStartTime(event.start_time);
+      setEditEndTime(event.end_time);
+      setIsEditingDateTime(false);
     }
   }, [event]);
 
@@ -113,6 +122,44 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleSaveDateTime = async () => {
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('study_plan_events')
+        .update({
+          event_date: editDate,
+          start_time: editStartTime,
+          end_time: editEndTime,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', event.id);
+
+      if (error) throw error;
+
+      setIsEditingDateTime(false);
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating date/time:', error);
+      alert('Failed to update date/time');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatTime = (timeStr: string) => {
+    // Remove seconds if present (HH:MM:SS -> HH:MM)
+    const timeParts = timeStr.split(':');
+    if (timeParts.length >= 2) {
+      const hours = parseInt(timeParts[0]);
+      const minutes = timeParts[1];
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes} ${period}`;
+    }
+    return timeStr;
   };
 
   const getStatusConfig = (status: StudyPlanEvent['status']) => {
@@ -224,23 +271,96 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
           </div>
 
           {/* Date & Time */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className={`p-4 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
-              <div className="flex items-center space-x-2 mb-1">
-                <Calendar className={`w-4 h-4 ${statusConfig.color}`} />
-                <span className="text-sm font-semibold text-gray-900">Date</span>
-              </div>
-              <p className="text-gray-900 font-medium">{formatDate(event.event_date)}</p>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-semibold text-gray-900">
+                Date & Time
+              </label>
+              {!isEditingDateTime ? (
+                <button
+                  onClick={() => setIsEditingDateTime(true)}
+                  className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setEditDate(event.event_date);
+                      setEditStartTime(event.start_time);
+                      setEditEndTime(event.end_time);
+                      setIsEditingDateTime(false);
+                    }}
+                    className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveDateTime}
+                    disabled={saving}
+                    className="flex items-center space-x-1 px-3 py-1 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    <Save className="w-3 h-3" />
+                    <span>{saving ? 'Saving...' : 'Save'}</span>
+                  </button>
+                </div>
+              )}
             </div>
-            <div className={`p-4 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
-              <div className="flex items-center space-x-2 mb-1">
-                <Clock className={`w-4 h-4 ${statusConfig.color}`} />
-                <span className="text-sm font-semibold text-gray-900">Time</span>
+
+            {isEditingDateTime ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <input
+                      type="time"
+                      value={editStartTime}
+                      onChange={(e) => setEditStartTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                    <input
+                      type="time"
+                      value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    />
+                  </div>
+                </div>
               </div>
-              <p className="text-gray-900 font-medium">
-                {event.start_time} - {event.end_time}
-              </p>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`p-4 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <Calendar className={`w-4 h-4 ${statusConfig.color}`} />
+                    <span className="text-sm font-semibold text-gray-900">Date</span>
+                  </div>
+                  <p className="text-gray-900 font-medium">{formatDate(event.event_date)}</p>
+                </div>
+                <div className={`p-4 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor}`}>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <Clock className={`w-4 h-4 ${statusConfig.color}`} />
+                    <span className="text-sm font-semibold text-gray-900">Time</span>
+                  </div>
+                  <p className="text-gray-900 font-medium">
+                    {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Topics */}

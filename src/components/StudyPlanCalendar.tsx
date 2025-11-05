@@ -50,6 +50,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
   const [showMobileDateModal, setShowMobileDateModal] = useState(false);
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
+  const [showQuickSummary, setShowQuickSummary] = useState(false);
+  const [quickSummaryEvent, setQuickSummaryEvent] = useState<StudyPlanEvent | null>(null);
+  const [quickSummaryPosition, setQuickSummaryPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     checkAccess();
@@ -265,6 +268,19 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
     }
 
     return filteredEvents;
+  };
+
+  const formatTime = (timeStr: string) => {
+    // Remove seconds if present (HH:MM:SS -> HH:MM)
+    const timeParts = timeStr.split(':');
+    if (timeParts.length >= 2) {
+      const hours = parseInt(timeParts[0]);
+      const minutes = timeParts[1];
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes} ${period}`;
+    }
+    return timeStr;
   };
 
   // Get unique subjects from events
@@ -693,8 +709,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                                 key={event.id}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedEvent(event);
-                                  setShowEventModal(true);
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setQuickSummaryPosition({ x: rect.left, y: rect.bottom + 5 });
+                                  setQuickSummaryEvent(event);
+                                  setShowQuickSummary(true);
                                 }}
                                 className={`text-xs p-1 rounded border ${getStatusColor(event.status)} truncate cursor-pointer hover:shadow-md transition-shadow`}
                               >
@@ -797,7 +815,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                             <div className="flex items-center space-x-4 text-xs text-gray-600">
                               <div className="flex items-center space-x-1">
                                 <Clock className="w-3 h-3" />
-                                <span>{event.start_time} - {event.end_time}</span>
+                                <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                               </div>
                             </div>
 
@@ -941,7 +959,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Clock className="w-4 h-4" />
-                      <span>{event.start_time} - {event.end_time}</span>
+                      <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       {event.status !== 'completed' && (
@@ -998,6 +1016,103 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
         )}
       </div>
 
+      {/* Quick Summary Popup */}
+      {showQuickSummary && quickSummaryEvent && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50"
+            onClick={() => setShowQuickSummary(false)}
+          />
+
+          {/* Popup - Desktop: positioned near click, Mobile: bottom sheet */}
+          <div
+            className="fixed z-50 bg-white shadow-2xl border-2 border-gray-200 p-5 w-full md:w-80 md:rounded-lg rounded-t-3xl left-0 right-0 md:left-auto md:right-auto bottom-0 md:bottom-auto"
+            style={{
+              left: window.innerWidth >= 768 ? `${quickSummaryPosition.x}px` : undefined,
+              top: window.innerWidth >= 768 ? `${quickSummaryPosition.y}px` : undefined,
+              maxWidth: window.innerWidth >= 768 ? 'calc(100vw - 2rem)' : undefined,
+            }}
+          >
+            {/* Status Badge */}
+            <div className="flex items-center justify-between mb-3">
+              <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${
+                quickSummaryEvent.status === 'completed' ? 'bg-green-100' :
+                quickSummaryEvent.status === 'in_progress' ? 'bg-blue-100' :
+                quickSummaryEvent.status === 'skipped' ? 'bg-gray-100' :
+                'bg-white border border-gray-300'
+              }`}>
+                {getStatusIcon(quickSummaryEvent.status)}
+                <span className={`text-sm font-semibold ${
+                  quickSummaryEvent.status === 'completed' ? 'text-green-800' :
+                  quickSummaryEvent.status === 'in_progress' ? 'text-blue-800' :
+                  quickSummaryEvent.status === 'skipped' ? 'text-gray-600' :
+                  'text-gray-700'
+                }`}>
+                  {quickSummaryEvent.status === 'completed' ? 'Completed' :
+                   quickSummaryEvent.status === 'in_progress' ? 'In Progress' :
+                   quickSummaryEvent.status === 'skipped' ? 'Skipped' :
+                   'Pending'}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowQuickSummary(false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Title */}
+            <h3 className="font-bold text-gray-900 mb-2 text-sm leading-tight">
+              {quickSummaryEvent.title}
+            </h3>
+
+            {/* Time */}
+            <div className="flex items-center space-x-2 text-sm text-gray-600 mb-3">
+              <Clock className="w-4 h-4" />
+              <span>{formatTime(quickSummaryEvent.start_time)} - {formatTime(quickSummaryEvent.end_time)}</span>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center space-x-2 mb-3">
+              <button
+                onClick={async () => {
+                  await handleUpdateEventStatus(quickSummaryEvent.id, 'in_progress');
+                  setShowQuickSummary(false);
+                }}
+                disabled={quickSummaryEvent.status === 'in_progress'}
+                className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Start
+              </button>
+              <button
+                onClick={async () => {
+                  await handleUpdateEventStatus(quickSummaryEvent.id, 'completed');
+                  setShowQuickSummary(false);
+                }}
+                disabled={quickSummaryEvent.status === 'completed'}
+                className="flex-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Complete
+              </button>
+            </div>
+
+            {/* View Details Button */}
+            <button
+              onClick={() => {
+                setSelectedEvent(quickSummaryEvent);
+                setShowEventModal(true);
+                setShowQuickSummary(false);
+              }}
+              className="w-full px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+            >
+              View Full Details
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Study Plan Wizard */}
       <StudyPlanWizard
         isOpen={showCreateModal}
@@ -1016,13 +1131,28 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
           setShowEventModal(false);
           setSelectedEvent(null);
         }}
-        onUpdate={() => {
-          fetchEvents();
-          // Update selectedEvent with latest data
+        onUpdate={async () => {
+          await fetchEvents();
+          // After fetching, update selectedEvent with latest data
           if (selectedEvent) {
-            const updatedEvent = events.find(e => e.id === selectedEvent.id);
-            if (updatedEvent) {
-              setSelectedEvent(updatedEvent);
+            // Re-fetch the specific event to get the latest data
+            const { data: updatedEventData, error } = await supabase
+              .from('study_plan_events')
+              .select(`
+                *,
+                study_plan_schedules!inner(
+                  subjects(name, id)
+                )
+              `)
+              .eq('id', selectedEvent.id)
+              .single();
+
+            if (!error && updatedEventData) {
+              setSelectedEvent(updatedEventData);
+            } else {
+              // Event might have been deleted or moved out of view
+              setShowEventModal(false);
+              setSelectedEvent(null);
             }
           }
         }}
@@ -1077,9 +1207,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {getEventsForDate(mobileDateModalDate).map(event => {
-                    const subjectName = (event as any).study_plan_schedules?.subjects?.name;
                     return (
                       <div
                         key={event.id}
@@ -1088,52 +1217,28 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                           setShowEventModal(true);
                           setShowMobileDateModal(false);
                         }}
-                        className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all`}
+                        className={`p-3 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all flex items-center space-x-3`}
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center space-x-2 flex-1">
-                            {getStatusIcon(event.status)}
-                            <span className="font-semibold text-sm">{event.title}</span>
-                          </div>
+                        {/* Status Icon */}
+                        <div className="flex-shrink-0">
+                          {getStatusIcon(event.status)}
                         </div>
 
-                        {subjectName && (
-                          <div className="mb-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                              <BookOpen className="w-3 h-3 mr-1" />
-                              {subjectName}
-                            </span>
-                          </div>
-                        )}
-
-                        {event.description && (
-                          <p className="text-sm text-gray-700 mb-2 line-clamp-2">{event.description}</p>
-                        )}
-
-                        <div className="flex items-center space-x-4 text-xs text-gray-600">
-                          <div className="flex items-center space-x-1">
+                        {/* Task Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 truncate">{event.title}</p>
+                          <div className="flex items-center space-x-1 text-xs text-gray-600 mt-0.5">
                             <Clock className="w-3 h-3" />
-                            <span>{event.start_time} - {event.end_time}</span>
+                            <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                           </div>
                         </div>
 
-                        {event.topics && event.topics.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {event.topics.slice(0, 2).map((topic, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
-                              >
-                                {topic}
-                              </span>
-                            ))}
-                            {event.topics.length > 2 && (
-                              <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
-                                +{event.topics.length - 2} more
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        {/* Arrow Icon */}
+                        <div className="flex-shrink-0">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
                       </div>
                     );
                   })}
