@@ -50,6 +50,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
   const [showMobileDateModal, setShowMobileDateModal] = useState(false);
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
+  const [showQuickSummary, setShowQuickSummary] = useState(false);
+  const [quickSummaryEvent, setQuickSummaryEvent] = useState<StudyPlanEvent | null>(null);
+  const [quickSummaryPosition, setQuickSummaryPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     checkAccess();
@@ -706,8 +709,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                                 key={event.id}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedEvent(event);
-                                  setShowEventModal(true);
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setQuickSummaryPosition({ x: rect.left, y: rect.bottom + 5 });
+                                  setQuickSummaryEvent(event);
+                                  setShowQuickSummary(true);
                                 }}
                                 className={`text-xs p-1 rounded border ${getStatusColor(event.status)} truncate cursor-pointer hover:shadow-md transition-shadow`}
                               >
@@ -1010,6 +1015,103 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
           </div>
         )}
       </div>
+
+      {/* Quick Summary Popup */}
+      {showQuickSummary && quickSummaryEvent && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowQuickSummary(false)}
+          />
+
+          {/* Popup */}
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-2xl border-2 border-gray-200 p-4 w-80"
+            style={{
+              left: `${quickSummaryPosition.x}px`,
+              top: `${quickSummaryPosition.y}px`,
+              maxWidth: 'calc(100vw - 2rem)',
+            }}
+          >
+            {/* Status Badge */}
+            <div className="flex items-center justify-between mb-3">
+              <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg ${
+                quickSummaryEvent.status === 'completed' ? 'bg-green-100' :
+                quickSummaryEvent.status === 'in_progress' ? 'bg-blue-100' :
+                quickSummaryEvent.status === 'skipped' ? 'bg-gray-100' :
+                'bg-white border border-gray-300'
+              }`}>
+                {getStatusIcon(quickSummaryEvent.status)}
+                <span className={`text-sm font-semibold ${
+                  quickSummaryEvent.status === 'completed' ? 'text-green-800' :
+                  quickSummaryEvent.status === 'in_progress' ? 'text-blue-800' :
+                  quickSummaryEvent.status === 'skipped' ? 'text-gray-600' :
+                  'text-gray-700'
+                }`}>
+                  {quickSummaryEvent.status === 'completed' ? 'Completed' :
+                   quickSummaryEvent.status === 'in_progress' ? 'In Progress' :
+                   quickSummaryEvent.status === 'skipped' ? 'Skipped' :
+                   'Pending'}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowQuickSummary(false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Title */}
+            <h3 className="font-bold text-gray-900 mb-2 text-sm leading-tight">
+              {quickSummaryEvent.title}
+            </h3>
+
+            {/* Time */}
+            <div className="flex items-center space-x-2 text-sm text-gray-600 mb-3">
+              <Clock className="w-4 h-4" />
+              <span>{formatTime(quickSummaryEvent.start_time)} - {formatTime(quickSummaryEvent.end_time)}</span>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center space-x-2 mb-3">
+              <button
+                onClick={async () => {
+                  await handleUpdateEventStatus(quickSummaryEvent.id, 'in_progress');
+                  setShowQuickSummary(false);
+                }}
+                disabled={quickSummaryEvent.status === 'in_progress'}
+                className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Start
+              </button>
+              <button
+                onClick={async () => {
+                  await handleUpdateEventStatus(quickSummaryEvent.id, 'completed');
+                  setShowQuickSummary(false);
+                }}
+                disabled={quickSummaryEvent.status === 'completed'}
+                className="flex-1 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Complete
+              </button>
+            </div>
+
+            {/* View Details Button */}
+            <button
+              onClick={() => {
+                setSelectedEvent(quickSummaryEvent);
+                setShowEventModal(true);
+                setShowQuickSummary(false);
+              }}
+              className="w-full px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+            >
+              View Full Details
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Study Plan Wizard */}
       <StudyPlanWizard
