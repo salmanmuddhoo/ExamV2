@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Menu, X, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Menu, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -27,10 +27,46 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
+  const desktopMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchGradeLevels();
   }, []);
+
+  // Click outside handler for desktop menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (desktopMenuRef.current && !desktopMenuRef.current.contains(event.target as Node)) {
+        setDesktopMenuOpen(false);
+      }
+    };
+
+    if (desktopMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [desktopMenuOpen]);
+
+  // Click outside handler for mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   const fetchGradeLevels = async () => {
     try {
@@ -105,17 +141,13 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
             <div className="w-px h-6 bg-gray-200 mx-2" />
 
             {user ? (
-              <div className="relative">
+              <div className="relative" ref={desktopMenuRef}>
                 <button
                   onClick={() => setDesktopMenuOpen(!desktopMenuOpen)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Menu"
                 >
-                  {desktopMenuOpen ? (
-                    <X className="w-5 h-5 text-gray-700" />
-                  ) : (
-                    <Menu className="w-5 h-5 text-gray-700" />
-                  )}
+                  <Menu className="w-5 h-5 text-gray-700" />
                 </button>
 
                 {/* Desktop User Menu Dropdown */}
@@ -197,12 +229,14 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
             ) : null}
           </div>
 
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-gray-700 hover:text-black"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="md:hidden" ref={mobileMenuRef}>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-gray-700 hover:text-black"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageSquare, Trash2, Plus, BookOpen, FileText, Crown, Calendar } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, BookOpen, FileText, Crown, Calendar, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
 import { PaperSelectionModal } from './PaperSelectionModal';
@@ -104,6 +104,7 @@ export function ChatHub({
   const [loadingTodayEvents, setLoadingTodayEvents] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [todayPlanCollapsed, setTodayPlanCollapsed] = useState(true); // Closed by default
 
   // Disable blink animation after 10 seconds
   useEffect(() => {
@@ -446,14 +447,23 @@ export function ChatHub({
         <div className="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
-            <h1 className="text-xl font-bold text-gray-900 mb-4">My Conversations</h1>
-            <div className="relative">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
+              <button
+                onClick={handleNewConversation}
+                className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors md:hidden"
+                title="New Conversation"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="relative hidden md:block">
               <button
                 onClick={handleNewConversation}
                 className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
               >
                 <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New Conversation</span>
+                <span>New Conversation</span>
               </button>
               <ContextualHint
                 show={shouldShowHint('chatHubNewConversation') && !loading}
@@ -468,63 +478,74 @@ export function ChatHub({
 
           {/* Today's Study Plan Summary - Mobile */}
           {!loadingTodayEvents && todayEvents.length > 0 && (
-            <div className="md:hidden border-b border-gray-200 p-4 bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
+            <div className="md:hidden border-b border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setTodayPlanCollapsed(!todayPlanCollapsed)}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-100 transition-colors"
+              >
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-gray-700" />
                   <h3 className="text-sm font-bold text-gray-900">Today's Study Plan</h3>
+                  <span className="text-xs text-gray-500">({todayEvents.length})</span>
                 </div>
-                {onNavigateStudyPlan && (
-                  <button
-                    onClick={onNavigateStudyPlan}
-                    className="text-xs text-gray-600 hover:text-gray-900 underline"
-                  >
-                    View All
-                  </button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {todayEvents.slice(0, 3).map((event) => {
-                  const subjectName = (event as any).study_plan_schedules?.subjects?.name;
-                  const isCompleted = event.status === 'completed';
-                  return (
-                    <div
-                      key={event.id}
-                      className={`flex items-start space-x-2 p-2.5 rounded-lg border ${
-                        isCompleted
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-white border-gray-200'
-                      }`}
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-600 transition-transform ${
+                    todayPlanCollapsed ? '' : 'rotate-180'
+                  }`}
+                />
+              </button>
+
+              {!todayPlanCollapsed && (
+                <div className="px-4 pb-4 space-y-2">
+                  {todayEvents.map((event) => {
+                    const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+                    const isCompleted = event.status === 'completed';
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowEventModal(true);
+                        }}
+                        className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                          isCompleted
+                            ? 'bg-green-50 border-green-200 hover:bg-green-100'
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {isCompleted ? (
+                            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="w-4 h-4 border-2 border-gray-400 rounded-full" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-semibold ${isCompleted ? 'text-green-900 line-through' : 'text-gray-900'}`}>
+                            {event.title}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                            {subjectName && ` • ${subjectName}`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {onNavigateStudyPlan && (
+                    <button
+                      onClick={onNavigateStudyPlan}
+                      className="w-full text-xs text-gray-600 hover:text-gray-900 py-2 text-center"
                     >
-                      <div className="flex-shrink-0 mt-0.5">
-                        {isCompleted ? (
-                          <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        ) : (
-                          <div className="w-4 h-4 border-2 border-gray-400 rounded-full" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-semibold ${isCompleted ? 'text-green-900 line-through' : 'text-gray-900'}`}>
-                          {event.title}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
-                          {subjectName && ` • ${subjectName}`}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {todayEvents.length > 3 && (
-                  <p className="text-xs text-gray-500 text-center pt-1">
-                    +{todayEvents.length - 3} more task{todayEvents.length - 3 !== 1 ? 's' : ''} today
-                  </p>
-                )}
-              </div>
+                      View All →
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
