@@ -439,18 +439,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
             <div className="flex items-center space-x-4">
               <button
                 onClick={onBack}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="hidden md:block p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <Calendar className="w-6 h-6 text-black" />
-                </div>
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Study Plan</h1>
-                  <p className="text-sm text-gray-600">AI-powered personalized schedule</p>
-                </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Study Plan</h1>
+                <p className="hidden md:block text-sm text-gray-600">AI-powered personalized schedule</p>
               </div>
             </div>
             <button

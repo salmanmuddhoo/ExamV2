@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Menu, X, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Menu, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -16,19 +16,57 @@ interface Props {
   onNavigateChatHub?: () => void;
   onNavigateStudyPlan?: () => void;
   onNavigateBlog?: () => void;
+  onNavigateProfile?: () => void;
   onSelectGrade: (gradeId: string, gradeName: string) => void;
   currentView: string;
   hideSignInButton?: boolean;
 }
 
-export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateStudyPlan, onNavigateBlog, onSelectGrade, currentView, hideSignInButton = false }: Props) {
+export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateStudyPlan, onNavigateBlog, onNavigateProfile, onSelectGrade, currentView, hideSignInButton = false }: Props) {
   const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
+  const desktopMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchGradeLevels();
   }, []);
+
+  // Click outside handler for desktop menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (desktopMenuRef.current && !desktopMenuRef.current.contains(event.target as Node)) {
+        setDesktopMenuOpen(false);
+      }
+    };
+
+    if (desktopMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [desktopMenuOpen]);
+
+  // Click outside handler for mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   const fetchGradeLevels = async () => {
     try {
@@ -103,42 +141,83 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
             <div className="w-px h-6 bg-gray-200 mx-2" />
 
             {user ? (
-              <>
-                {onNavigateChatHub && (
-                  <button
-                    onClick={onNavigateChatHub}
-                    className="flex items-center space-x-1 px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>My Conversations</span>
-                  </button>
-                )}
-                {onNavigateStudyPlan && (
-                  <button
-                    onClick={onNavigateStudyPlan}
-                    className="flex items-center space-x-1 px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Study Plan</span>
-                  </button>
-                )}
-                {profile?.role === 'admin' && (
-                  <button
-                    onClick={onNavigateAdmin}
-                    className="flex items-center space-x-1 px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span>Admin</span>
-                  </button>
-                )}
+              <div className="relative" ref={desktopMenuRef}>
                 <button
-                  onClick={handleSignOut}
-                  className="flex items-center space-x-1 px-4 py-2 text-gray-700 hover:text-black hover:bg-gray-50 rounded-lg transition-colors"
+                  onClick={() => setDesktopMenuOpen(!desktopMenuOpen)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Menu"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>Sign Out</span>
+                  <Menu className="w-5 h-5 text-gray-700" />
                 </button>
-              </>
+
+                {/* Desktop User Menu Dropdown */}
+                {desktopMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+                    {onNavigateProfile && (
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          onNavigateProfile();
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <User className="w-4 h-4" />
+                        <span>My Profile</span>
+                      </button>
+                    )}
+                    {onNavigateChatHub && (
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          onNavigateChatHub();
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>My Conversations</span>
+                      </button>
+                    )}
+                    {onNavigateStudyPlan && (
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          onNavigateStudyPlan();
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span>My Study Plan</span>
+                      </button>
+                    )}
+                    {profile?.role === 'admin' && (
+                      <>
+                        <div className="border-t border-gray-200 my-1" />
+                        <button
+                          onClick={() => {
+                            setDesktopMenuOpen(false);
+                            onNavigateAdmin();
+                          }}
+                          className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                        >
+                          <LayoutDashboard className="w-4 h-4" />
+                          <span>Admin Dashboard</span>
+                        </button>
+                      </>
+                    )}
+                    <div className="border-t border-gray-200 my-1" />
+                    <button
+                      onClick={() => {
+                        setDesktopMenuOpen(false);
+                        handleSignOut();
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : !hideSignInButton ? (
               <button
                 onClick={onNavigateLogin}
@@ -150,12 +229,14 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
             ) : null}
           </div>
 
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-gray-700 hover:text-black"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="md:hidden" ref={mobileMenuRef}>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-gray-700 hover:text-black"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (
@@ -191,6 +272,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
 
               {user ? (
                 <>
+                  {onNavigateProfile && (
+                    <button
+                      onClick={() => {
+                        onNavigateProfile();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>My Profile</span>
+                    </button>
+                  )}
                   {onNavigateChatHub && (
                     <button
                       onClick={() => {
@@ -212,7 +305,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                       className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
                     >
                       <Calendar className="w-4 h-4" />
-                      <span>Study Plan</span>
+                      <span>My Study Plan</span>
                     </button>
                   )}
                   {profile?.role === 'admin' && (

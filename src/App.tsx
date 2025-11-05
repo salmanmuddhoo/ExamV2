@@ -60,6 +60,7 @@ function App() {
   const [hasHandledOAuthRedirect, setHasHandledOAuthRedirect] = useState(false);
   const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPostType | null>(null);
   const [showEmailVerifiedModal, setShowEmailVerifiedModal] = useState(false);
+  const [showChatHubProfile, setShowChatHubProfile] = useState(false);
 
   // Browser back button handler - Prevent logout on back navigation
   useEffect(() => {
@@ -391,6 +392,17 @@ function App() {
     setView('chat-hub');
   };
 
+  const handleNavigateToProfile = () => {
+    // If we're already in chat-hub, just open the profile modal
+    if (view === 'chat-hub') {
+      setShowChatHubProfile(true);
+    } else {
+      // Otherwise navigate to chat-hub and open profile
+      setView('chat-hub');
+      setShowChatHubProfile(true);
+    }
+  };
+
   const handleSelectMode = (mode: 'year' | 'chapter', gradeId: string, subjectId: string, chapterId?: string) => {
     setSelectedMode(mode);
     setSelectedGradeId(gradeId);
@@ -547,6 +559,17 @@ function App() {
   if (view === 'chat-hub' && user) {
     return (
       <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
+          onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
         <ChatHub
           onSelectConversation={handleSelectConversation}
           onSelectPaper={handleSelectPaper}
@@ -558,6 +581,8 @@ function App() {
           papersRemaining={papersRemaining}
           onCloseWelcomeModal={() => setShowWelcomeModal(false)}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+          showProfileModal={showChatHubProfile}
+          onCloseProfileModal={() => setShowChatHubProfile(false)}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
