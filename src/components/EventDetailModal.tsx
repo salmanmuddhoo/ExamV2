@@ -242,32 +242,89 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
               Status
             </label>
             <div className="grid grid-cols-4 gap-1.5">
-              {[
-                { status: 'pending', icon: Circle, label: 'Pending', color: 'gray' },
-                { status: 'in_progress', icon: PlayCircle, label: 'In Progress', color: 'blue' },
-                { status: 'completed', icon: CheckCircle2, label: 'Completed', color: 'green' },
-                { status: 'skipped', icon: SkipForward, label: 'Skipped', color: 'gray' }
-              ].map(({ status, icon: Icon, label, color }) => (
-                <button
-                  key={status}
-                  onClick={() => handleUpdateStatus(status as StudyPlanEvent['status'])}
-                  disabled={saving}
-                  className={`p-1.5 border-2 rounded-lg transition-all ${
-                    event.status === status
-                      ? `border-${color}-600 bg-${color}-50`
-                      : 'border-gray-200 hover:border-gray-300'
-                  } disabled:opacity-50`}
-                >
-                  <Icon className={`w-3.5 h-3.5 mx-auto mb-0.5 ${
-                    event.status === status ? `text-${color}-600` : 'text-gray-400'
-                  }`} />
-                  <span className={`text-[10px] font-medium block ${
-                    event.status === status ? `text-${color}-900` : 'text-gray-700'
-                  }`}>
-                    {label}
-                  </span>
-                </button>
-              ))}
+              {/* Pending */}
+              <button
+                onClick={() => handleUpdateStatus('pending')}
+                disabled={saving}
+                title="Pending"
+                className={`p-2 md:p-1.5 border-2 rounded-lg transition-all disabled:opacity-50 ${
+                  event.status === 'pending'
+                    ? 'border-gray-400 bg-gray-100'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Circle className={`w-4 h-4 md:w-3.5 md:h-3.5 mx-auto md:mb-0.5 ${
+                  event.status === 'pending' ? 'text-gray-600' : 'text-gray-400'
+                }`} />
+                <span className={`hidden md:block text-[10px] font-medium ${
+                  event.status === 'pending' ? 'text-gray-900' : 'text-gray-700'
+                }`}>
+                  Pending
+                </span>
+              </button>
+
+              {/* In Progress */}
+              <button
+                onClick={() => handleUpdateStatus('in_progress')}
+                disabled={saving}
+                title="In Progress"
+                className={`p-2 md:p-1.5 border-2 rounded-lg transition-all disabled:opacity-50 ${
+                  event.status === 'in_progress'
+                    ? 'border-blue-500 bg-blue-100'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <PlayCircle className={`w-4 h-4 md:w-3.5 md:h-3.5 mx-auto md:mb-0.5 ${
+                  event.status === 'in_progress' ? 'text-blue-600' : 'text-gray-400'
+                }`} />
+                <span className={`hidden md:block text-[10px] font-medium ${
+                  event.status === 'in_progress' ? 'text-blue-900' : 'text-gray-700'
+                }`}>
+                  In Progress
+                </span>
+              </button>
+
+              {/* Completed */}
+              <button
+                onClick={() => handleUpdateStatus('completed')}
+                disabled={saving}
+                title="Completed"
+                className={`p-2 md:p-1.5 border-2 rounded-lg transition-all disabled:opacity-50 ${
+                  event.status === 'completed'
+                    ? 'border-green-500 bg-green-100'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <CheckCircle2 className={`w-4 h-4 md:w-3.5 md:h-3.5 mx-auto md:mb-0.5 ${
+                  event.status === 'completed' ? 'text-green-600' : 'text-gray-400'
+                }`} />
+                <span className={`hidden md:block text-[10px] font-medium ${
+                  event.status === 'completed' ? 'text-green-900' : 'text-gray-700'
+                }`}>
+                  Completed
+                </span>
+              </button>
+
+              {/* Skipped */}
+              <button
+                onClick={() => handleUpdateStatus('skipped')}
+                disabled={saving}
+                title="Skipped"
+                className={`p-2 md:p-1.5 border-2 rounded-lg transition-all disabled:opacity-50 ${
+                  event.status === 'skipped'
+                    ? 'border-orange-400 bg-orange-100'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <SkipForward className={`w-4 h-4 md:w-3.5 md:h-3.5 mx-auto md:mb-0.5 ${
+                  event.status === 'skipped' ? 'text-orange-600' : 'text-gray-400'
+                }`} />
+                <span className={`hidden md:block text-[10px] font-medium ${
+                  event.status === 'skipped' ? 'text-orange-900' : 'text-gray-700'
+                }`}>
+                  Skipped
+                </span>
+              </button>
             </div>
           </div>
 

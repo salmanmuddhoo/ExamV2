@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Calendar, Clock, BookOpen, Sparkles, ChevronRight, ChevronLeft, Loader } from 'lucide-react';
+import { X, Calendar, Clock, BookOpen, Sparkles, ChevronRight, ChevronLeft, Loader, Zap } from 'lucide-react';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface Subject {
   id: string;
@@ -11,6 +12,14 @@ interface Subject {
 interface GradeLevel {
   id: string;
   name: string;
+}
+
+interface Syllabus {
+  id: string;
+  title: string | null;
+  description: string | null;
+  academic_year: string | null;
+  region: string | null;
 }
 
 interface Chapter {
@@ -24,20 +33,24 @@ interface StudyPlanWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  tokensRemaining?: number;
+  tokensLimit?: number | null;
 }
 
-export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardProps) {
+export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0, tokensLimit = null }: StudyPlanWizardProps) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [grades, setGrades] = useState<GradeLevel[]>([]);
+  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [generating, setGenerating] = useState(false);
 
   // Form state
   const [selectedGrade, setSelectedGrade] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedSyllabus, setSelectedSyllabus] = useState('');
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [studyDuration, setStudyDuration] = useState(60);
   const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
@@ -88,29 +101,44 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
     }
   };
 
-  const fetchChapters = async (subjectId: string, gradeId: string) => {
+  const fetchSyllabi = async (subjectId: string, gradeId: string) => {
     setLoading(true);
     try {
-      // First get the syllabus for this subject and grade
-      const { data: syllabus, error: syllabusError } = await supabase
+      const { data, error } = await supabase
         .from('syllabus')
-        .select('id')
+        .select('id, title, description, academic_year, region')
         .eq('subject_id', subjectId)
         .eq('grade_id', gradeId)
-        .single();
+        .eq('processing_status', 'completed')
+        .order('region', { ascending: true });
 
-      if (syllabusError || !syllabus) {
-        console.log('No syllabus found for this subject/grade combination');
-        setChapters([]);
-        setLoading(false);
-        return;
+      if (error) {
+        console.error('Error fetching syllabi:', error);
+        setSyllabi([]);
+      } else {
+        setSyllabi(data || []);
+        // Auto-select if only one syllabus
+        if (data && data.length === 1) {
+          setSelectedSyllabus(data[0].id);
+        } else {
+          setSelectedSyllabus('');
+        }
       }
+    } catch (error) {
+      console.error('Error fetching syllabi:', error);
+      setSyllabi([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Then get chapters for this syllabus
+  const fetchChapters = async (syllabusId: string) => {
+    setLoading(true);
+    try {
       const { data, error } = await supabase
         .from('syllabus_chapters')
         .select('id, chapter_number, chapter_title, chapter_description')
-        .eq('syllabus_id', syllabus.id)
+        .eq('syllabus_id', syllabusId)
         .order('display_order');
 
       if (error) {
@@ -144,18 +172,30 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
     }
   };
 
-  // Fetch chapters when both subject and grade are selected
+  // Fetch syllabi when both subject and grade are selected
   useEffect(() => {
     if (selectedSubject && selectedGrade) {
-      fetchChapters(selectedSubject, selectedGrade);
+      fetchSyllabi(selectedSubject, selectedGrade);
     } else {
+      setSyllabi([]);
+      setSelectedSyllabus('');
       setChapters([]);
       setSelectedChapters([]);
     }
   }, [selectedSubject, selectedGrade]);
 
+  // Fetch chapters when a syllabus is selected
+  useEffect(() => {
+    if (selectedSyllabus) {
+      fetchChapters(selectedSyllabus);
+    } else {
+      setChapters([]);
+      setSelectedChapters([]);
+    }
+  }, [selectedSyllabus]);
+
   const handleGenerateStudyPlan = async () => {
-    if (!user || !selectedSubject || !selectedGrade) return;
+    if (!user || !selectedSubject || !selectedGrade || !selectedSyllabus) return;
 
     try {
       setGenerating(true);
@@ -195,6 +235,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
           user_id: user.id,
           subject_id: selectedSubject,
           grade_id: selectedGrade,
+          syllabus_id: selectedSyllabus,
           chapter_ids: selectedChapters.length > 0 ? selectedChapters : undefined,
           study_duration_minutes: studyDuration,
           sessions_per_week: sessionsPerWeek,
@@ -225,6 +266,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
     setStep(1);
     setSelectedGrade('');
     setSelectedSubject('');
+    setSelectedSyllabus('');
+    setSyllabi([]);
     setSelectedChapters([]);
     setChapters([]);
     setStudyDuration(60);
@@ -241,7 +284,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
   const canProceed = () => {
     switch (step) {
       case 1:
-        return selectedSubject && selectedGrade;
+        return selectedSubject && selectedGrade && selectedSyllabus;
       case 2:
         return studyDuration > 0 && sessionsPerWeek > 0;
       case 3:
@@ -257,22 +300,40 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <Sparkles className="w-5 h-5 text-black" />
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Sparkles className="w-5 h-5 text-black" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Create Study Plan</h2>
+                <p className="text-sm text-gray-600">AI-powered personalized schedule</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Create Study Plan</h2>
-              <p className="text-sm text-gray-600">AI-powered personalized schedule</p>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+          {/* AI Tokens Display */}
+          <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+            <Zap className="w-4 h-4 text-purple-600" />
+            <div className="text-xs flex-1">
+              <span className="text-gray-600">AI Tokens: </span>
+              <span className="font-semibold text-gray-900">
+                {tokensLimit === null
+                  ? `${formatTokenCount(tokensRemaining)} remaining`
+                  : `${formatTokenCount(tokensRemaining)} / ${formatTokenCount(tokensLimit)}`
+                }
+              </span>
+            </div>
+            <div className="text-xs text-gray-600">
+              • Tokens will be used to generate your study plan
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-600" />
-          </button>
         </div>
 
         {/* Progress Steps */}
@@ -309,65 +370,97 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
 
         {/* Content */}
         <div className="p-6">
-          {/* Step 1: Grade, Subject & Chapters */}
+          {/* Step 1: Grade, Subject, Syllabus & Chapters */}
           {step === 1 && (
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Select Grade Level
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <select
+                  value={selectedGrade}
+                  onChange={(e) => setSelectedGrade(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
+                >
+                  <option value="">Choose a grade level...</option>
                   {grades.map(grade => (
-                    <button
-                      key={grade.id}
-                      onClick={() => setSelectedGrade(grade.id)}
-                      className={`p-4 border-2 rounded-lg transition-all ${
-                        selectedGrade === grade.id
-                          ? 'border-black bg-gray-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className={`font-medium ${
-                        selectedGrade === grade.id ? 'text-black' : 'text-gray-900'
-                      }`}>
-                        {grade.name}
-                      </span>
-                    </button>
+                    <option key={grade.id} value={grade.id}>
+                      {grade.name}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Select Subject
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
+                  disabled={!selectedGrade}
+                >
+                  <option value="">Choose a subject...</option>
                   {subjects.map(subject => (
-                    <button
-                      key={subject.id}
-                      onClick={() => setSelectedSubject(subject.id)}
-                      className={`p-4 border-2 rounded-lg transition-all text-left ${
-                        selectedSubject === subject.id
-                          ? 'border-black bg-gray-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <BookOpen className={`w-5 h-5 ${
-                          selectedSubject === subject.id ? 'text-black' : 'text-gray-400'
-                        }`} />
-                        <span className={`font-medium ${
-                          selectedSubject === subject.id ? 'text-black' : 'text-gray-900'
-                        }`}>
-                          {subject.name}
-                        </span>
-                      </div>
-                    </button>
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
                   ))}
-                </div>
+                </select>
+                {!selectedGrade && (
+                  <p className="text-xs text-gray-500 mt-2">Please select a grade level first</p>
+                )}
               </div>
 
-              {selectedSubject && selectedGrade && (
+              {selectedSubject && selectedGrade && syllabi.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Select Syllabus
+                  </label>
+                  <select
+                    value={selectedSyllabus}
+                    onChange={(e) => setSelectedSyllabus(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
+                  >
+                    <option value="">Choose a syllabus...</option>
+                    {syllabi.map(syllabus => {
+                      // Display only the title if available, otherwise show descriptive text
+                      const displayName = syllabus.title ||
+                        [syllabus.region, syllabus.academic_year].filter(Boolean).join(' - ') ||
+                        'Syllabus';
+
+                      return (
+                        <option key={syllabus.id} value={syllabus.id}>
+                          {displayName}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-xs text-gray-600 mt-2">
+                    Different syllabi may be available for different regions or exam boards
+                  </p>
+                </div>
+              )}
+
+              {selectedSubject && selectedGrade && loading && !syllabi.length && (
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-center">
+                    <Loader className="w-5 h-5 animate-spin text-gray-400 mr-2" />
+                    <span className="text-gray-600 text-sm">Loading syllabi...</span>
+                  </div>
+                </div>
+              )}
+
+              {selectedSubject && selectedGrade && !loading && syllabi.length === 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm text-amber-900">
+                    No syllabus found for this subject and grade combination. Please contact support to add a syllabus, or select a different combination.
+                  </p>
+                </div>
+              )}
+
+              {selectedSyllabus && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Select Chapters (Optional)

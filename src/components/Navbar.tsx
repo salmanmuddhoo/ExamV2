@@ -43,7 +43,10 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
     };
 
     if (desktopMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      // Use setTimeout to avoid immediate closure when opening
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
     }
 
     return () => {
@@ -60,7 +63,10 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
     };
 
     if (mobileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      // Use setTimeout to avoid immediate closure when opening
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
     }
 
     return () => {
@@ -229,18 +235,16 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
             ) : null}
           </div>
 
-          <div className="md:hidden" ref={mobileMenuRef}>
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-700 hover:text-black"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 text-gray-700 hover:text-black"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-4">
+          <div className="md:hidden border-t border-gray-200 py-4" ref={mobileMenuRef}>
             <div className="space-y-2">
               {/* Show grades directly without nesting */}
               {gradeLevels.map((grade) => (

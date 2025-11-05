@@ -51,6 +51,7 @@ function App() {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [tokensRemaining, setTokensRemaining] = useState(0);
+  const [tokensLimit, setTokensLimit] = useState<number | null>(null);
   const [papersRemaining, setPapersRemaining] = useState(0);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(() => {
     // Persist subscription modal state across page navigation
@@ -274,6 +275,7 @@ function App() {
         const papersLeft = Math.max(0, papersLimit - subscription.papers_accessed_current_period);
 
         setTokensRemaining(tokensLeft);
+        setTokensLimit(tokenLimit);
         setPapersRemaining(papersLeft);
         setShowWelcomeModal(true);
 
@@ -624,6 +626,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -677,6 +680,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -698,6 +702,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -720,12 +725,15 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
         <StudyPlanCalendar
           onBack={handleBackToChatHub}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+          tokensRemaining={tokensRemaining}
+          tokensLimit={tokensLimit}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
@@ -746,6 +754,7 @@ function App() {
         onNavigateChatHub={handleNavigateToChatHub}
         onNavigateStudyPlan={handleNavigateToStudyPlan}
         onNavigateBlog={handleNavigateToBlog}
+        onNavigateProfile={handleNavigateToProfile}
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
