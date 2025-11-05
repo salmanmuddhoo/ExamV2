@@ -159,7 +159,9 @@ function App() {
         }
         checkFirstTimeUser();
       } else {
-        setView('admin');
+        // Admin users also land on chat-hub (homepage) instead of admin dashboard
+        setView('chat-hub');
+        checkFirstTimeUser();
       }
 
       // Clean up OAuth params from URL
@@ -346,13 +348,10 @@ function App() {
       fetchTokenBalance();
 
       if (view === 'login') {
-        if (profile.role === 'admin') {
-          setView('admin');
-        } else {
-          setView('chat-hub');
-          // Check if user is free tier and show welcome modal
-          checkFirstTimeUser();
-        }
+        // All users (including admins) land on chat-hub (homepage)
+        setView('chat-hub');
+        // Check if user is free tier and show welcome modal
+        checkFirstTimeUser();
       }
     }
   }, [user, profile, initialLoadComplete, view, isPasswordReset]);

@@ -270,6 +270,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       });
     }
 
+    // Apply schedule filter if selected
+    if (selectedScheduleFilter) {
+      filteredEvents = filteredEvents.filter(event => {
+        return event.schedule_id === selectedScheduleFilter;
+      });
+    }
+
     return filteredEvents;
   };
 

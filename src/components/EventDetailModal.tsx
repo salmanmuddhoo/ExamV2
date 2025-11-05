@@ -236,6 +236,22 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
 
         {/* Content */}
         <div className="p-4 space-y-4">
+          {/* Subject Badge */}
+          {(() => {
+            const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+            if (subjectName) {
+              return (
+                <div className="mb-3">
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                    <BookOpen className="w-4 h-4 mr-1.5" />
+                    {subjectName}
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Title */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">{event.title}</h3>

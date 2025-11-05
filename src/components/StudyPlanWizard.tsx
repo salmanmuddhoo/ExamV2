@@ -201,6 +201,47 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
+      // Check for existing active study plan for this user/subject/grade combination
+      const { data: existingPlan, error: checkError } = await supabase
+        .from('study_plan_schedules')
+        .select('id, subjects(name), grade_levels(name)')
+        .eq('user_id', user.id)
+        .eq('subject_id', selectedSubject)
+        .eq('grade_id', selectedGrade)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking for existing plan:', checkError);
+        throw checkError;
+      }
+
+      // If an active plan exists, ask user if they want to replace it
+      if (existingPlan) {
+        const subjectName = (existingPlan as any).subjects?.name || 'this subject';
+        const gradeName = (existingPlan as any).grade_levels?.name || 'this grade';
+
+        const confirmReplace = confirm(
+          `You already have an active study plan for ${subjectName} (${gradeName}). Creating a new plan will deactivate the existing one. Do you want to continue?`
+        );
+
+        if (!confirmReplace) {
+          setGenerating(false);
+          return;
+        }
+
+        // Deactivate the existing plan
+        const { error: deactivateError } = await supabase
+          .from('study_plan_schedules')
+          .update({ is_active: false })
+          .eq('id', existingPlan.id);
+
+        if (deactivateError) {
+          console.error('Error deactivating existing plan:', deactivateError);
+          throw deactivateError;
+        }
+      }
+
       // Create the schedule
       const { data: schedule, error: scheduleError } = await supabase
         .from('study_plan_schedules')
