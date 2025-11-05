@@ -19,7 +19,8 @@ import {
   Trash2,
   Eye,
   Grid3x3,
-  List
+  List,
+  X
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
