@@ -98,6 +98,7 @@ export function ChatHub({
   const [loadingTodayEvents, setLoadingTodayEvents] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   // Disable blink animation after 10 seconds
   useEffect(() => {
@@ -435,51 +436,94 @@ export function ChatHub({
         <div className="w-full md:w-80 bg-white border-r border-gray-200 flex flex-col">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
+            {/* Logo */}
+            <div className="flex items-center mb-3">
+              <button
+                onClick={onNavigateHome}
+                className="hover:opacity-80 transition-opacity"
+                title="Go to homepage"
+              >
+                <img src="/assets/logo.svg" alt="AixamPaper" className="h-8" />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
 
-              {/* Desktop Navigation */}
-              <div className="hidden md:flex items-center space-x-1">
+              {/* Desktop Hamburger Menu */}
+              <div className="hidden md:block relative">
                 <button
-                  onClick={onNavigateHome}
+                  onClick={() => setDesktopMenuOpen(!desktopMenuOpen)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Go to homepage"
+                  title="Menu"
                 >
-                  <Home className="w-5 h-5 text-gray-700" />
+                  {desktopMenuOpen ? (
+                    <X className="w-5 h-5 text-gray-700" />
+                  ) : (
+                    <Menu className="w-5 h-5 text-gray-700" />
+                  )}
                 </button>
-                {onNavigateStudyPlan && (
-                  <button
-                    onClick={onNavigateStudyPlan}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Study Plan"
-                  >
-                    <Calendar className="w-5 h-5 text-black" />
-                  </button>
+
+                {/* Desktop Menu Dropdown */}
+                {desktopMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+                    <button
+                      onClick={() => {
+                        setDesktopMenuOpen(false);
+                        onNavigateHome();
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <Home className="w-5 h-5 text-gray-700" />
+                      <span>Home</span>
+                    </button>
+
+                    {onNavigateStudyPlan && (
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          onNavigateStudyPlan();
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <Calendar className="w-5 h-5 text-gray-700" />
+                        <span>Study Plan</span>
+                      </button>
+                    )}
+
+                    <div className="relative">
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          setShowProfileModal(true);
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <User className="w-5 h-5 text-gray-700" />
+                        <span>Profile</span>
+                      </button>
+                      <ContextualHint
+                        show={shouldShowHint('profileSubscription') && desktopMenuOpen && !loading}
+                        onDismiss={() => markHintAsSeen('profileSubscription')}
+                        title="Your Profile"
+                        message="Click here to view your subscription details, payment history, and account settings."
+                        position="bottom"
+                        delay={1000}
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setDesktopMenuOpen(false);
+                        handleSignOut();
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <LogOut className="w-5 h-5 text-gray-700" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 )}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowProfileModal(true)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="My Profile"
-                  >
-                    <User className="w-5 h-5 text-gray-700" />
-                  </button>
-                  <ContextualHint
-                    show={shouldShowHint('profileSubscription') && !loading}
-                    onDismiss={() => markHintAsSeen('profileSubscription')}
-                    title="Your Profile"
-                    message="Click here to view your subscription details, payment history, and account settings."
-                    position="bottom"
-                    delay={3000}
-                  />
-                </div>
-                <button
-                  onClick={handleSignOut}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Sign out"
-                >
-                  <LogOut className="w-5 h-5 text-gray-700" />
-                </button>
               </div>
 
               {/* Mobile Hamburger Menu */}
@@ -518,7 +562,7 @@ export function ChatHub({
                     }}
                     className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
                   >
-                    <Calendar className="w-5 h-5 text-black" />
+                    <Calendar className="w-5 h-5 text-gray-700" />
                     <span>Study Plan</span>
                   </button>
                 )}
@@ -580,7 +624,7 @@ export function ChatHub({
             <div className="md:hidden border-b border-gray-200 p-4 bg-gray-50">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-black" />
+                  <Calendar className="w-4 h-4 text-gray-700" />
                   <h3 className="text-sm font-bold text-gray-900">Today's Study Plan</h3>
                 </div>
                 {onNavigateStudyPlan && (
@@ -910,7 +954,7 @@ export function ChatHub({
                 <div className="hidden md:block mb-6 bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-black" />
+                      <Calendar className="w-4 h-4 text-gray-700" />
                       <h3 className="text-sm font-bold text-gray-900">Today's Study Plan</h3>
                     </div>
                     {onNavigateStudyPlan && (
