@@ -252,16 +252,17 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
                   key={status}
                   onClick={() => handleUpdateStatus(status as StudyPlanEvent['status'])}
                   disabled={saving}
-                  className={`p-1.5 border-2 rounded-lg transition-all ${
+                  title={label}
+                  className={`p-2 md:p-1.5 border-2 rounded-lg transition-all ${
                     event.status === status
                       ? `border-${color}-600 bg-${color}-50`
                       : 'border-gray-200 hover:border-gray-300'
                   } disabled:opacity-50`}
                 >
-                  <Icon className={`w-3.5 h-3.5 mx-auto mb-0.5 ${
+                  <Icon className={`w-4 h-4 md:w-3.5 md:h-3.5 mx-auto md:mb-0.5 ${
                     event.status === status ? `text-${color}-600` : 'text-gray-400'
                   }`} />
-                  <span className={`text-[10px] font-medium block ${
+                  <span className={`hidden md:block text-[10px] font-medium ${
                     event.status === status ? `text-${color}-900` : 'text-gray-700'
                   }`}>
                     {label}

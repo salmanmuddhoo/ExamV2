@@ -624,6 +624,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -677,6 +678,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -698,6 +700,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -720,6 +723,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -746,6 +750,7 @@ function App() {
         onNavigateChatHub={handleNavigateToChatHub}
         onNavigateStudyPlan={handleNavigateToStudyPlan}
         onNavigateBlog={handleNavigateToBlog}
+        onNavigateProfile={handleNavigateToProfile}
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
