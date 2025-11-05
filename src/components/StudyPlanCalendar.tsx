@@ -1029,13 +1029,28 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
           setShowEventModal(false);
           setSelectedEvent(null);
         }}
-        onUpdate={() => {
-          fetchEvents();
-          // Update selectedEvent with latest data
+        onUpdate={async () => {
+          await fetchEvents();
+          // After fetching, update selectedEvent with latest data
           if (selectedEvent) {
-            const updatedEvent = events.find(e => e.id === selectedEvent.id);
-            if (updatedEvent) {
-              setSelectedEvent(updatedEvent);
+            // Re-fetch the specific event to get the latest data
+            const { data: updatedEventData, error } = await supabase
+              .from('study_plan_events')
+              .select(`
+                *,
+                study_plan_schedules!inner(
+                  subjects(name, id)
+                )
+              `)
+              .eq('id', selectedEvent.id)
+              .single();
+
+            if (!error && updatedEventData) {
+              setSelectedEvent(updatedEventData);
+            } else {
+              // Event might have been deleted or moved out of view
+              setShowEventModal(false);
+              setSelectedEvent(null);
             }
           }
         }}
