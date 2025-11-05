@@ -21,12 +21,17 @@ import {
   Grid3x3,
   List,
   X,
-  Zap
+  Zap,
+  Power,
+  PowerOff,
+  FileText
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
 import { EventDetailModal } from './EventDetailModal';
 import { formatTokenCount } from '../lib/formatUtils';
+import { AlertModal } from './AlertModal';
+import { ConfirmModal } from './ConfirmModal';
 
 interface StudyPlanCalendarProps {
   onBack: () => void;
@@ -56,6 +61,30 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const [showMobileDateModal, setShowMobileDateModal] = useState(false);
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
+
+  // Progress tracking state
+  const [scheduleProgress, setScheduleProgress] = useState<Record<string, { total: number; completed: number; percentage: number }>>({});
+
+  // Alert modal state
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'info' | 'warning'
+  });
+
+  // Confirm modal state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  // Summary modal state
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summarySchedule, setSummarySchedule] = useState<(StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } }) | null>(null);
+  const [summaryEvents, setSummaryEvents] = useState<StudyPlanEvent[]>([]);
 
   useEffect(() => {
     checkAccess();
@@ -136,15 +165,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('study_plan_events')
         .select(`
           *,
           study_plan_schedules!inner(
-            subjects(name, id)
+            subjects(name, id),
+            is_active
           )
         `)
         .eq('user_id', user.id)
+        .eq('study_plan_schedules.is_active', true)
         .gte('event_date', startOfMonth.toISOString().split('T')[0])
         .lte('event_date', endOfMonth.toISOString().split('T')[0])
         .order('event_date', { ascending: true });
@@ -173,35 +204,162 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           grade_levels(name)
         `)
         .eq('user_id', user.id)
-        .eq('is_active', true)
+        .order('is_active', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       setSchedules(data || []);
+
+      // Fetch progress for all schedules
+      if (data && data.length > 0) {
+        fetchScheduleProgress(data.map(s => s.id));
+      }
     } catch (error) {
       console.error('Error fetching schedules:', error);
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId: string) => {
-    if (!confirm('Are you sure you want to delete this study plan? All associated events will be deleted.')) {
-      return;
-    }
+  const fetchScheduleProgress = async (scheduleIds: string[]) => {
+    if (!user || scheduleIds.length === 0) return;
 
     try {
+      // Fetch all events for these schedules
+      const { data: allEvents, error } = await supabase
+        .from('study_plan_events')
+        .select('schedule_id, status')
+        .eq('user_id', user.id)
+        .in('schedule_id', scheduleIds);
+
+      if (error) throw error;
+
+      // Calculate progress for each schedule
+      const progressMap: Record<string, { total: number; completed: number; percentage: number }> = {};
+
+      scheduleIds.forEach(scheduleId => {
+        const scheduleEvents = allEvents?.filter(e => e.schedule_id === scheduleId) || [];
+        const total = scheduleEvents.length;
+        const completed = scheduleEvents.filter(e => e.status === 'completed').length;
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        progressMap[scheduleId] = { total, completed, percentage };
+      });
+
+      setScheduleProgress(progressMap);
+    } catch (error) {
+      console.error('Error fetching schedule progress:', error);
+    }
+  };
+
+  const handleDeleteSchedule = (scheduleId: string) => {
+    setConfirmConfig({
+      title: 'Delete Study Plan',
+      message: 'Are you sure you want to delete this study plan? All associated events will be permanently deleted. This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('study_plan_schedules')
+            .delete()
+            .eq('id', scheduleId);
+
+          if (error) throw error;
+
+          fetchSchedules();
+          fetchEvents();
+          setAlertConfig({
+            title: 'Success',
+            message: 'Study plan deleted successfully',
+            type: 'success'
+          });
+          setShowAlert(true);
+        } catch (error) {
+          console.error('Error deleting schedule:', error);
+          setAlertConfig({
+            title: 'Error',
+            message: 'Failed to delete study plan',
+            type: 'error'
+          });
+          setShowAlert(true);
+        }
+      }
+    });
+    setShowConfirm(true);
+  };
+
+  const handleToggleScheduleActive = async (scheduleId: string, currentlyActive: boolean, subjectId: string, gradeId: string) => {
+    try {
+      if (!currentlyActive) {
+        // Activating this plan - first deactivate any other active plan for same subject/grade
+        const { error: deactivateError } = await supabase
+          .from('study_plan_schedules')
+          .update({ is_active: false })
+          .eq('user_id', user?.id)
+          .eq('subject_id', subjectId)
+          .eq('grade_id', gradeId)
+          .eq('is_active', true);
+
+        if (deactivateError) throw deactivateError;
+      }
+
+      // Toggle this plan's active status
       const { error } = await supabase
         .from('study_plan_schedules')
-        .delete()
+        .update({ is_active: !currentlyActive })
         .eq('id', scheduleId);
 
       if (error) throw error;
 
       fetchSchedules();
       fetchEvents();
+      setAlertConfig({
+        title: 'Success',
+        message: `Study plan ${!currentlyActive ? 'activated' : 'deactivated'} successfully`,
+        type: 'success'
+      });
+      setShowAlert(true);
     } catch (error) {
-      console.error('Error deleting schedule:', error);
-      alert('Failed to delete study plan');
+      console.error('Error toggling schedule active status:', error);
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to update study plan status',
+        type: 'error'
+      });
+      setShowAlert(true);
+    }
+  };
+
+  const handleShowSummary = async (schedule: StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } }) => {
+    if (!user) return;
+
+    try {
+      // Fetch all events for this schedule
+      const { data, error } = await supabase
+        .from('study_plan_events')
+        .select(`
+          *,
+          study_plan_schedules!inner(
+            subjects(name, id),
+            is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('schedule_id', schedule.id)
+        .order('event_date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+
+      setSummarySchedule(schedule);
+      setSummaryEvents(data || []);
+      setShowSummaryModal(true);
+    } catch (error) {
+      console.error('Error fetching summary events:', error);
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to load study plan summary',
+        type: 'error'
+      });
+      setShowAlert(true);
     }
   };
 
@@ -229,6 +387,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           ? { ...event, ...updateData }
           : event
       ));
+
+      // Refresh progress for all schedules to update progress bars
+      if (schedules.length > 0) {
+        fetchScheduleProgress(schedules.map(s => s.id));
+      }
     } catch (error) {
       console.error('Error updating event status:', error);
     }
@@ -564,8 +727,14 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Times
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Progress
+                            </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Action
+                              Actions
                             </th>
                           </tr>
                         </thead>
@@ -614,14 +783,95 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   <span className="text-sm text-gray-400">-</span>
                                 )}
                               </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {schedule.is_active ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>
+                                    Inactive
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {(() => {
+                                  const progress = scheduleProgress[schedule.id];
+                                  if (!progress || progress.total === 0) {
+                                    return <span className="text-sm text-gray-400">No sessions</span>;
+                                  }
+
+                                  const isCompleted = progress.percentage === 100;
+
+                                  return (
+                                    <div className="flex items-center space-x-2">
+                                      <div className="flex-1 min-w-[100px]">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="text-xs font-medium text-gray-700">
+                                            {progress.completed}/{progress.total}
+                                          </span>
+                                          <span className={`text-xs font-semibold ${
+                                            isCompleted ? 'text-green-600' : 'text-gray-600'
+                                          }`}>
+                                            {progress.percentage}%
+                                          </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                          <div
+                                            className={`h-full transition-all duration-300 ${
+                                              isCompleted
+                                                ? 'bg-green-500'
+                                                : progress.percentage >= 75
+                                                ? 'bg-blue-500'
+                                                : progress.percentage >= 50
+                                                ? 'bg-yellow-500'
+                                                : 'bg-orange-500'
+                                            }`}
+                                            style={{ width: `${progress.percentage}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                      {isCompleted && (
+                                        <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
                               <td className="px-4 py-3 whitespace-nowrap text-right">
-                                <button
-                                  onClick={() => handleDeleteSchedule(schedule.id)}
-                                  className="p-1.5 hover:bg-red-50 rounded transition-colors"
-                                  title="Delete study plan"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </button>
+                                <div className="flex items-center justify-end space-x-2">
+                                  <button
+                                    onClick={() => handleToggleScheduleActive(schedule.id, schedule.is_active, schedule.subject_id, schedule.grade_id)}
+                                    className={`p-1.5 rounded transition-colors ${
+                                      schedule.is_active
+                                        ? 'bg-green-100 hover:bg-green-200 text-green-700'
+                                        : 'bg-red-100 hover:bg-red-200 text-red-700'
+                                    }`}
+                                    title={schedule.is_active ? 'Active - Click to deactivate' : 'Inactive - Click to activate'}
+                                  >
+                                    {schedule.is_active ? (
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    ) : (
+                                      <PlayCircle className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleShowSummary(schedule)}
+                                    className="p-1.5 hover:bg-blue-50 rounded transition-colors"
+                                    title="View summary of all sessions"
+                                  >
+                                    <FileText className="w-4 h-4 text-blue-600" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                    className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                                    title="Delete study plan"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -677,35 +927,61 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
               </div>
             )}
 
-            {/* Study Plan Filter */}
-            {schedules.length > 1 && (
+            {/* Study Plan Filter - Select Subject then Plan */}
+            {schedules.filter(s => s.is_active).length > 0 && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Study Plan</label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSelectedScheduleFilter(null)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      !selectedScheduleFilter
-                        ? 'bg-black text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+
+                {/* Subject Dropdown */}
+                <div className="mb-3">
+                  <select
+                    value={selectedSubjectFilter || ''}
+                    onChange={(e) => {
+                      setSelectedSubjectFilter(e.target.value || null);
+                      setSelectedScheduleFilter(null); // Reset plan filter when subject changes
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                   >
-                    All Study Plans
-                  </button>
-                  {schedules.map(schedule => (
-                    <button
-                      key={schedule.id}
-                      onClick={() => setSelectedScheduleFilter(schedule.id)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        selectedScheduleFilter === schedule.id
-                          ? 'bg-black text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {schedule.subjects?.name || 'Study Plan'} - {schedule.grade_levels?.name || 'Grade'}
-                    </button>
-                  ))}
+                    <option value="">All Subjects</option>
+                    {getUniqueSubjects().map(subject => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
+                {/* Active Plans for Selected Subject */}
+                {selectedSubjectFilter && schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).length > 1 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Select Plan</label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedScheduleFilter(null)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          !selectedScheduleFilter
+                            ? 'bg-black text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        All Plans
+                      </button>
+                      {schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).map((schedule, idx) => (
+                        <button
+                          key={schedule.id}
+                          onClick={() => setSelectedScheduleFilter(schedule.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            selectedScheduleFilter === schedule.id
+                              ? 'bg-black text-white shadow-md'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Plan #{idx + 1} ({schedule.grade_levels?.name})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1119,6 +1395,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
           fetchEvents();
+          fetchSchedules();  // Also fetch schedules to show the newly created plan
           setShowCreateModal(false);
           // Refresh token balance after plan generation
           if (onRefreshTokens) {
@@ -1264,6 +1541,218 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        type="danger"
+        confirmText="Delete"
+      />
+
+      {/* Summary Modal */}
+      {showSummaryModal && summarySchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Study Plan Summary</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {summarySchedule.subjects?.name || 'Study Plan'} - {summarySchedule.grade_levels?.name || 'Grade'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSummaryModal(false)}
+                  className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Plan Details */}
+            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-6">
+                <div>
+                  <span className="text-gray-600">Duration: </span>
+                  <span className="font-semibold text-gray-900">{summarySchedule.study_duration_minutes} min</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Sessions/Week: </span>
+                  <span className="font-semibold text-gray-900">{summarySchedule.sessions_per_week}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Period: </span>
+                  <span className="font-semibold text-gray-900">
+                    {new Date(summarySchedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {summarySchedule.end_date && ` - ${new Date(summarySchedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {summarySchedule.is_active ? (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
+                    Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>
+                    Inactive
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Sessions Table */}
+            <div className="flex-1 overflow-y-auto">
+              {summaryEvents.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">No sessions found for this study plan</p>
+                  </div>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        #
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Time
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Topics
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {summaryEvents.map((event, idx) => (
+                      <tr key={event.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(event.event_date).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <div className="max-w-xs">
+                            <div className="font-medium">{event.title}</div>
+                            {event.description && (
+                              <div className="text-xs text-gray-500 mt-1 line-clamp-1">{event.description}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {event.topics && event.topics.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {event.topics.slice(0, 2).map((topic, tidx) => (
+                                <span
+                                  key={tidx}
+                                  className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                                >
+                                  {topic}
+                                </span>
+                              ))}
+                              {event.topics.length > 2 && (
+                                <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                                  +{event.topics.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {event.status === 'completed' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Completed
+                            </span>
+                          ) : event.status === 'in_progress' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <PlayCircle className="w-3 h-3 mr-1" />
+                              In Progress
+                            </span>
+                          ) : event.status === 'skipped' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              <SkipForward className="w-3 h-3 mr-1" />
+                              Skipped
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              <Circle className="w-3 h-3 mr-1" />
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <span className="font-semibold text-gray-900">{summaryEvents.length}</span> total sessions
+                {summaryEvents.length > 0 && (
+                  <>
+                    {' • '}
+                    <span className="font-semibold text-green-700">
+                      {summaryEvents.filter(e => e.status === 'completed').length}
+                    </span> completed
+                    {' • '}
+                    <span className="font-semibold text-gray-700">
+                      {summaryEvents.filter(e => e.status === 'pending').length}
+                    </span> pending
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setShowSummaryModal(false)}
+                className="px-4 py-2 text-sm font-medium bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

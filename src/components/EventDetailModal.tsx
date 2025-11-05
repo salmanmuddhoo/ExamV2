@@ -13,6 +13,8 @@ import {
   BookOpen
 } from 'lucide-react';
 import { StudyPlanEvent } from '../types/studyPlan';
+import { AlertModal } from './AlertModal';
+import { ConfirmModal } from './ConfirmModal';
 
 interface EventDetailModalProps {
   event: StudyPlanEvent | null;
@@ -29,6 +31,22 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
   const [editDate, setEditDate] = useState('');
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
+
+  // Alert modal state
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'info' | 'warning'
+  });
+
+  // Confirm modal state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     if (event) {
@@ -68,7 +86,12 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       onUpdate();
     } catch (error) {
       console.error('Error updating event:', error);
-      alert('Failed to update event status');
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to update event status',
+        type: 'error'
+      });
+      setShowAlert(true);
     } finally {
       setSaving(false);
     }
@@ -88,37 +111,55 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       if (error) throw error;
 
       onUpdate();
-      alert('Notes saved successfully');
+      setAlertConfig({
+        title: 'Success',
+        message: 'Notes saved successfully',
+        type: 'success'
+      });
+      setShowAlert(true);
     } catch (error) {
       console.error('Error saving notes:', error);
-      alert('Failed to save notes');
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to save notes',
+        type: 'error'
+      });
+      setShowAlert(true);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this study session?')) {
-      return;
-    }
+  const handleDelete = () => {
+    setConfirmConfig({
+      title: 'Delete Study Session',
+      message: 'Are you sure you want to delete this study session? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          setDeleting(true);
+          const { error } = await supabase
+            .from('study_plan_events')
+            .delete()
+            .eq('id', event.id);
 
-    try {
-      setDeleting(true);
-      const { error } = await supabase
-        .from('study_plan_events')
-        .delete()
-        .eq('id', event.id);
+          if (error) throw error;
 
-      if (error) throw error;
-
-      onDelete();
-      onClose();
-    } catch (error) {
-      console.error('Error deleting event:', error);
-      alert('Failed to delete event');
-    } finally {
-      setDeleting(false);
-    }
+          onDelete();
+          onClose();
+        } catch (error) {
+          console.error('Error deleting event:', error);
+          setAlertConfig({
+            title: 'Error',
+            message: 'Failed to delete event',
+            type: 'error'
+          });
+          setShowAlert(true);
+        } finally {
+          setDeleting(false);
+        }
+      }
+    });
+    setShowConfirm(true);
   };
 
   const handleSaveDateTime = async () => {
@@ -144,7 +185,12 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       onUpdate();
     } catch (error) {
       console.error('Error updating date/time:', error);
-      alert('Failed to update date/time');
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to update date/time',
+        type: 'error'
+      });
+      setShowAlert(true);
     } finally {
       setSaving(false);
     }
@@ -465,6 +511,26 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
           </button>
         </div>
       </div>
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        type="danger"
+        confirmText="Delete"
+      />
     </div>
   );
 }
