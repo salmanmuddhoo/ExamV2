@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { X, Calendar, Clock, BookOpen, Sparkles, ChevronRight, ChevronLeft, Loader } from 'lucide-react';
+import { X, Calendar, Clock, BookOpen, Sparkles, ChevronRight, ChevronLeft, Loader, Zap } from 'lucide-react';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface Subject {
   id: string;
@@ -32,9 +33,10 @@ interface StudyPlanWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  tokensRemaining?: number;
 }
 
-export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardProps) {
+export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0 }: StudyPlanWizardProps) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -204,7 +206,6 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
           user_id: user.id,
           subject_id: selectedSubject,
           grade_id: selectedGrade,
-          syllabus_id: selectedSyllabus,
           study_duration_minutes: studyDuration,
           sessions_per_week: sessionsPerWeek,
           preferred_times: preferredTimes,
@@ -298,22 +299,35 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <Sparkles className="w-5 h-5 text-black" />
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Sparkles className="w-5 h-5 text-black" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Create Study Plan</h2>
+                <p className="text-sm text-gray-600">AI-powered personalized schedule</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Create Study Plan</h2>
-              <p className="text-sm text-gray-600">AI-powered personalized schedule</p>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+          {/* AI Tokens Display */}
+          <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+            <Zap className="w-4 h-4 text-purple-600" />
+            <div className="text-xs flex-1">
+              <span className="font-semibold text-gray-900">{formatTokenCount(tokensRemaining)}</span>
+              <span className="text-gray-600 ml-1">AI Tokens Available</span>
+            </div>
+            <div className="text-xs text-gray-600">
+              • Tokens will be used to generate your personalized study plan
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-600" />
-          </button>
         </div>
 
         {/* Progress Steps */}
@@ -405,11 +419,10 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess }: StudyPlanWizardP
                   >
                     <option value="">Choose a syllabus...</option>
                     {syllabi.map(syllabus => {
-                      const displayName = [
-                        syllabus.title,
-                        syllabus.region,
-                        syllabus.academic_year
-                      ].filter(Boolean).join(' - ') || 'Standard Syllabus';
+                      // Display only the title if available, otherwise show descriptive text
+                      const displayName = syllabus.title ||
+                        [syllabus.region, syllabus.academic_year].filter(Boolean).join(' - ') ||
+                        'Syllabus';
 
                       return (
                         <option key={syllabus.id} value={syllabus.id}>

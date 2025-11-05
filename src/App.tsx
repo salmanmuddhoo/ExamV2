@@ -730,6 +730,7 @@ function App() {
         <StudyPlanCalendar
           onBack={handleBackToChatHub}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+          tokensRemaining={tokensRemaining}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}

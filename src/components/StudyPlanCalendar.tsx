@@ -20,18 +20,21 @@ import {
   Eye,
   Grid3x3,
   List,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
 import { EventDetailModal } from './EventDetailModal';
+import { formatTokenCount } from '../lib/formatUtils';
 
 interface StudyPlanCalendarProps {
   onBack: () => void;
   onOpenSubscriptions: () => void;
+  tokensRemaining?: number;
 }
 
-export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCalendarProps) {
+export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0 }: StudyPlanCalendarProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -437,15 +440,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={onBack}
-                className="hidden md:block p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
-              </button>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Study Plan</h1>
                 <p className="hidden md:block text-sm text-gray-600">AI-powered personalized schedule</p>
+              </div>
+              {/* AI Tokens Display */}
+              <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                <Zap className="w-4 h-4 text-purple-600" />
+                <div className="text-xs">
+                  <span className="font-semibold text-gray-900">{formatTokenCount(tokensRemaining)}</span>
+                  <span className="text-gray-600 ml-1">AI Tokens</span>
+                </div>
               </div>
             </div>
             <button
@@ -1015,6 +1020,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
           fetchEvents();
           setShowCreateModal(false);
         }}
+        tokensRemaining={tokensRemaining}
       />
 
       {/* Event Detail Modal */}
