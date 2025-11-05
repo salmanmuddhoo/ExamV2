@@ -401,7 +401,7 @@ export function ChatHub({
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     title="Study Plan"
                   >
-                    <Calendar className="w-5 h-5 text-purple-600" />
+                    <Calendar className="w-5 h-5 text-black" />
                   </button>
                 )}
                 <div className="relative">
@@ -464,9 +464,9 @@ export function ChatHub({
                       setMobileMenuOpen(false);
                       onNavigateStudyPlan();
                     }}
-                    className="w-full flex items-center space-x-2 px-4 py-2 text-purple-700 hover:bg-purple-50"
+                    className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
                   >
-                    <Calendar className="w-5 h-5 text-purple-600" />
+                    <Calendar className="w-5 h-5 text-black" />
                     <span>Study Plan</span>
                   </button>
                 )}

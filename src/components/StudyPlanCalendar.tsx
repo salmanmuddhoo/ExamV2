@@ -46,6 +46,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
   const [showSchedules, setShowSchedules] = useState(false);
   const [mobileView, setMobileView] = useState<'calendar' | 'list'>('calendar');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string | null>(null);
+  const [showMobileDateModal, setShowMobileDateModal] = useState(false);
+  const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
+  const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
 
   useEffect(() => {
     checkAccess();
@@ -275,13 +278,26 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
     return Array.from(subjectsMap.entries()).map(([id, name]) => ({ id, name }));
   };
 
-  // Filter events by subject
+  // Filter events by subject and schedule
   const getFilteredEvents = () => {
-    if (!selectedSubjectFilter) return events;
-    return events.filter(event => {
-      const subjectId = (event as any).study_plan_schedules?.subjects?.id;
-      return subjectId === selectedSubjectFilter;
-    });
+    let filteredEvents = events;
+
+    // Filter by subject
+    if (selectedSubjectFilter) {
+      filteredEvents = filteredEvents.filter(event => {
+        const subjectId = (event as any).study_plan_schedules?.subjects?.id;
+        return subjectId === selectedSubjectFilter;
+      });
+    }
+
+    // Filter by schedule
+    if (selectedScheduleFilter) {
+      filteredEvents = filteredEvents.filter(event => {
+        return event.schedule_id === selectedScheduleFilter;
+      });
+    }
+
+    return filteredEvents;
   };
 
   // Group events by subject
@@ -511,35 +527,72 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
           </div>
         )}
 
-        {/* Subject Filter */}
-        {getUniqueSubjects().length > 1 && (
-          <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Subject</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedSubjectFilter(null)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  !selectedSubjectFilter
-                    ? 'bg-black text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All Subjects
-              </button>
-              {getUniqueSubjects().map(subject => (
-                <button
-                  key={subject.id}
-                  onClick={() => setSelectedSubjectFilter(subject.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    selectedSubjectFilter === subject.id
-                      ? 'bg-black text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {subject.name}
-                </button>
-              ))}
-            </div>
+        {/* Filters */}
+        {(getUniqueSubjects().length > 1 || schedules.length > 1) && (
+          <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
+            {/* Subject Filter */}
+            {getUniqueSubjects().length > 1 && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Subject</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedSubjectFilter(null)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      !selectedSubjectFilter
+                        ? 'bg-black text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All Subjects
+                  </button>
+                  {getUniqueSubjects().map(subject => (
+                    <button
+                      key={subject.id}
+                      onClick={() => setSelectedSubjectFilter(subject.id)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        selectedSubjectFilter === subject.id
+                          ? 'bg-black text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {subject.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Study Plan Filter */}
+            {schedules.length > 1 && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Study Plan</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedScheduleFilter(null)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      !selectedScheduleFilter
+                        ? 'bg-black text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All Study Plans
+                  </button>
+                  {schedules.map(schedule => (
+                    <button
+                      key={schedule.id}
+                      onClick={() => setSelectedScheduleFilter(schedule.id)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        selectedScheduleFilter === schedule.id
+                          ? 'bg-black text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {schedule.subjects?.name || 'Study Plan'} - {schedule.grade_levels?.name || 'Grade'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -795,8 +848,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                     <div
                       key={index}
                       onClick={() => {
-                        if (day && hasEvents) {
-                          setSelectedDate(day);
+                        if (day) {
+                          setMobileDateModalDate(day);
+                          setShowMobileDateModal(true);
                         }
                       }}
                       className={`min-h-[60px] p-1 border rounded transition-all ${
@@ -840,46 +894,6 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                   );
                 })}
               </div>
-
-              {/* Selected Date Events (Mobile) */}
-              {selectedDate && getEventsForDate(selectedDate).length > 0 && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900">
-                      {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </h3>
-                    <button
-                      onClick={() => setSelectedDate(null)}
-                      className="text-sm text-black font-medium"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {getEventsForDate(selectedDate).map(event => (
-                      <div
-                        key={event.id}
-                        onClick={() => {
-                          setSelectedEvent(event);
-                          setShowEventModal(true);
-                        }}
-                        className={`p-3 rounded-lg border ${getStatusColor(event.status)} cursor-pointer hover:shadow-md transition-shadow`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center space-x-2">
-                            {getStatusIcon(event.status)}
-                            <span className="font-semibold text-sm">{event.title}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2 text-xs text-gray-600">
-                          <Clock className="w-3 h-3" />
-                          <span>{event.start_time} - {event.end_time}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1017,6 +1031,117 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
           setSelectedEvent(null);
         }}
       />
+
+      {/* Mobile Date Tasks Modal */}
+      {showMobileDateModal && mobileDateModalDate && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowMobileDateModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {mobileDateModalDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {mobileDateModalDate.toLocaleDateString('en-US', { weekday: 'long' })}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMobileDateModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Tasks List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {getEventsForDate(mobileDateModalDate).length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Calendar className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 mb-1">No tasks scheduled</p>
+                  <p className="text-xs text-gray-600">
+                    {events.length === 0
+                      ? 'Create your first study plan'
+                      : 'No tasks for this date'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {getEventsForDate(mobileDateModalDate).map(event => {
+                    const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowEventModal(true);
+                          setShowMobileDateModal(false);
+                        }}
+                        className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2 flex-1">
+                            {getStatusIcon(event.status)}
+                            <span className="font-semibold text-sm">{event.title}</span>
+                          </div>
+                        </div>
+
+                        {subjectName && (
+                          <div className="mb-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                              <BookOpen className="w-3 h-3 mr-1" />
+                              {subjectName}
+                            </span>
+                          </div>
+                        )}
+
+                        {event.description && (
+                          <p className="text-sm text-gray-700 mb-2 line-clamp-2">{event.description}</p>
+                        )}
+
+                        <div className="flex items-center space-x-4 text-xs text-gray-600">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{event.start_time} - {event.end_time}</span>
+                          </div>
+                        </div>
+
+                        {event.topics && event.topics.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {event.topics.slice(0, 2).map((topic, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                            {event.topics.length > 2 && (
+                              <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                                +{event.topics.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
