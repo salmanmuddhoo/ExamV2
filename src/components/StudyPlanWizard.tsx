@@ -210,8 +210,21 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
-      // Create the schedule (always set is_active to false for new plans)
-      // User can activate it later from the calendar
+      // Deactivate any existing active plans for the same subject/grade
+      const { error: deactivateError } = await supabase
+        .from('study_plan_schedules')
+        .update({ is_active: false })
+        .eq('user_id', user.id)
+        .eq('subject_id', selectedSubject)
+        .eq('grade_id', selectedGrade)
+        .eq('is_active', true);
+
+      if (deactivateError) {
+        console.error('Error deactivating existing plans:', deactivateError);
+        // Don't throw - continue with creation even if deactivation fails
+      }
+
+      // Create the schedule (new plans are active by default)
       const { data: schedule, error: scheduleError } = await supabase
         .from('study_plan_schedules')
         .insert({
@@ -224,7 +237,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           start_date: startDate,
           end_date: endDate,
           ai_generated: true,
-          is_active: false  // New plans start as inactive
+          is_active: true  // New plans are active by default
         })
         .select()
         .single();

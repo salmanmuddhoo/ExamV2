@@ -61,6 +61,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
 
+  // Progress tracking state
+  const [scheduleProgress, setScheduleProgress] = useState<Record<string, { total: number; completed: number; percentage: number }>>({});
+
   // Alert modal state
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
@@ -201,8 +204,44 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       if (error) throw error;
 
       setSchedules(data || []);
+
+      // Fetch progress for all schedules
+      if (data && data.length > 0) {
+        fetchScheduleProgress(data.map(s => s.id));
+      }
     } catch (error) {
       console.error('Error fetching schedules:', error);
+    }
+  };
+
+  const fetchScheduleProgress = async (scheduleIds: string[]) => {
+    if (!user || scheduleIds.length === 0) return;
+
+    try {
+      // Fetch all events for these schedules
+      const { data: allEvents, error } = await supabase
+        .from('study_plan_events')
+        .select('schedule_id, status')
+        .eq('user_id', user.id)
+        .in('schedule_id', scheduleIds);
+
+      if (error) throw error;
+
+      // Calculate progress for each schedule
+      const progressMap: Record<string, { total: number; completed: number; percentage: number }> = {};
+
+      scheduleIds.forEach(scheduleId => {
+        const scheduleEvents = allEvents?.filter(e => e.schedule_id === scheduleId) || [];
+        const total = scheduleEvents.length;
+        const completed = scheduleEvents.filter(e => e.status === 'completed').length;
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        progressMap[scheduleId] = { total, completed, percentage };
+      });
+
+      setScheduleProgress(progressMap);
+    } catch (error) {
+      console.error('Error fetching schedule progress:', error);
     }
   };
 
@@ -307,6 +346,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           ? { ...event, ...updateData }
           : event
       ));
+
+      // Refresh progress for all schedules to update progress bars
+      if (schedules.length > 0) {
+        fetchScheduleProgress(schedules.map(s => s.id));
+      }
     } catch (error) {
       console.error('Error updating event status:', error);
     }
@@ -645,6 +689,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Status
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Progress
+                            </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Actions
                             </th>
@@ -708,21 +755,65 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   </span>
                                 )}
                               </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {(() => {
+                                  const progress = scheduleProgress[schedule.id];
+                                  if (!progress || progress.total === 0) {
+                                    return <span className="text-sm text-gray-400">No sessions</span>;
+                                  }
+
+                                  const isCompleted = progress.percentage === 100;
+
+                                  return (
+                                    <div className="flex items-center space-x-2">
+                                      <div className="flex-1 min-w-[100px]">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="text-xs font-medium text-gray-700">
+                                            {progress.completed}/{progress.total}
+                                          </span>
+                                          <span className={`text-xs font-semibold ${
+                                            isCompleted ? 'text-green-600' : 'text-gray-600'
+                                          }`}>
+                                            {progress.percentage}%
+                                          </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                          <div
+                                            className={`h-full transition-all duration-300 ${
+                                              isCompleted
+                                                ? 'bg-green-500'
+                                                : progress.percentage >= 75
+                                                ? 'bg-blue-500'
+                                                : progress.percentage >= 50
+                                                ? 'bg-yellow-500'
+                                                : 'bg-orange-500'
+                                            }`}
+                                            style={{ width: `${progress.percentage}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                      {isCompleted && (
+                                        <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
                               <td className="px-4 py-3 whitespace-nowrap text-right">
                                 <div className="flex items-center justify-end space-x-2">
                                   <button
                                     onClick={() => handleToggleScheduleActive(schedule.id, schedule.is_active, schedule.subject_id, schedule.grade_id)}
                                     className={`p-1.5 rounded transition-colors ${
                                       schedule.is_active
-                                        ? 'hover:bg-orange-50 text-orange-600'
-                                        : 'hover:bg-green-50 text-green-600'
+                                        ? 'bg-green-100 hover:bg-green-200 text-green-700'
+                                        : 'bg-red-100 hover:bg-red-200 text-red-700'
                                     }`}
-                                    title={schedule.is_active ? 'Deactivate study plan' : 'Activate study plan'}
+                                    title={schedule.is_active ? 'Active - Click to deactivate' : 'Inactive - Click to activate'}
                                   >
                                     {schedule.is_active ? (
-                                      <PowerOff className="w-4 h-4" />
+                                      <CheckCircle2 className="w-4 h-4" />
                                     ) : (
-                                      <Power className="w-4 h-4" />
+                                      <PlayCircle className="w-4 h-4" />
                                     )}
                                   </button>
                                   <button
