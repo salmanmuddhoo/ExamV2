@@ -23,7 +23,8 @@ import {
   X,
   Zap,
   Power,
-  PowerOff
+  PowerOff,
+  FileText
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
@@ -79,6 +80,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     message: '',
     onConfirm: () => {}
   });
+
+  // Summary modal state
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summarySchedule, setSummarySchedule] = useState<(StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } }) | null>(null);
+  const [summaryEvents, setSummaryEvents] = useState<StudyPlanEvent[]>([]);
 
   useEffect(() => {
     checkAccess();
@@ -316,6 +322,41 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       setAlertConfig({
         title: 'Error',
         message: 'Failed to update study plan status',
+        type: 'error'
+      });
+      setShowAlert(true);
+    }
+  };
+
+  const handleShowSummary = async (schedule: StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } }) => {
+    if (!user) return;
+
+    try {
+      // Fetch all events for this schedule
+      const { data, error } = await supabase
+        .from('study_plan_events')
+        .select(`
+          *,
+          study_plan_schedules!inner(
+            subjects(name, id),
+            is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('schedule_id', schedule.id)
+        .order('event_date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+
+      setSummarySchedule(schedule);
+      setSummaryEvents(data || []);
+      setShowSummaryModal(true);
+    } catch (error) {
+      console.error('Error fetching summary events:', error);
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to load study plan summary',
         type: 'error'
       });
       setShowAlert(true);
@@ -817,6 +858,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                     )}
                                   </button>
                                   <button
+                                    onClick={() => handleShowSummary(schedule)}
+                                    className="p-1.5 hover:bg-blue-50 rounded transition-colors"
+                                    title="View summary of all sessions"
+                                  >
+                                    <FileText className="w-4 h-4 text-blue-600" />
+                                  </button>
+                                  <button
                                     onClick={() => handleDeleteSchedule(schedule.id)}
                                     className="p-1.5 hover:bg-red-50 rounded transition-colors"
                                     title="Delete study plan"
@@ -880,7 +928,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
             )}
 
             {/* Study Plan Filter */}
-            {schedules.length > 1 && (
+            {schedules.filter(s => s.is_active).length > 1 && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Study Plan</label>
                 <div className="flex flex-wrap gap-2">
@@ -894,7 +942,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   >
                     All Study Plans
                   </button>
-                  {schedules.map(schedule => (
+                  {schedules.filter(s => s.is_active).map(schedule => (
                     <button
                       key={schedule.id}
                       onClick={() => setSelectedScheduleFilter(schedule.id)}
@@ -1491,6 +1539,198 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         type="danger"
         confirmText="Delete"
       />
+
+      {/* Summary Modal */}
+      {showSummaryModal && summarySchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Study Plan Summary</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {summarySchedule.subjects?.name || 'Study Plan'} - {summarySchedule.grade_levels?.name || 'Grade'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSummaryModal(false)}
+                  className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Plan Details */}
+            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-6">
+                <div>
+                  <span className="text-gray-600">Duration: </span>
+                  <span className="font-semibold text-gray-900">{summarySchedule.study_duration_minutes} min</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Sessions/Week: </span>
+                  <span className="font-semibold text-gray-900">{summarySchedule.sessions_per_week}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Period: </span>
+                  <span className="font-semibold text-gray-900">
+                    {new Date(summarySchedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {summarySchedule.end_date && ` - ${new Date(summarySchedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {summarySchedule.is_active ? (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
+                    Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>
+                    Inactive
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Sessions Table */}
+            <div className="flex-1 overflow-y-auto">
+              {summaryEvents.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">No sessions found for this study plan</p>
+                  </div>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        #
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Time
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Topics
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {summaryEvents.map((event, idx) => (
+                      <tr key={event.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(event.event_date).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <div className="max-w-xs">
+                            <div className="font-medium">{event.title}</div>
+                            {event.description && (
+                              <div className="text-xs text-gray-500 mt-1 line-clamp-1">{event.description}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {event.topics && event.topics.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {event.topics.slice(0, 2).map((topic, tidx) => (
+                                <span
+                                  key={tidx}
+                                  className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                                >
+                                  {topic}
+                                </span>
+                              ))}
+                              {event.topics.length > 2 && (
+                                <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                                  +{event.topics.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {event.status === 'completed' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Completed
+                            </span>
+                          ) : event.status === 'in_progress' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <PlayCircle className="w-3 h-3 mr-1" />
+                              In Progress
+                            </span>
+                          ) : event.status === 'skipped' ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              <SkipForward className="w-3 h-3 mr-1" />
+                              Skipped
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              <Circle className="w-3 h-3 mr-1" />
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <span className="font-semibold text-gray-900">{summaryEvents.length}</span> total sessions
+                {summaryEvents.length > 0 && (
+                  <>
+                    {' • '}
+                    <span className="font-semibold text-green-700">
+                      {summaryEvents.filter(e => e.status === 'completed').length}
+                    </span> completed
+                    {' • '}
+                    <span className="font-semibold text-gray-700">
+                      {summaryEvents.filter(e => e.status === 'pending').length}
+                    </span> pending
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setShowSummaryModal(false)}
+                className="px-4 py-2 text-sm font-medium bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
