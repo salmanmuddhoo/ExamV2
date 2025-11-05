@@ -16,6 +16,7 @@ import { ResetPassword } from './components/ResetPassword';
 import { BlogList } from './components/BlogList';
 import { BlogPost } from './components/BlogPost';
 import { StudyPlanCalendar } from './components/StudyPlanCalendar';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
@@ -648,6 +649,7 @@ function App() {
           onSuccess={handleSubscriptionSuccess}
           onNavigateToPayment={handleNavigateToPayment}
         />
+        <PWAInstallBanner variant="floating" />
       </>
     );
   }
@@ -690,6 +692,7 @@ function App() {
           onSelectPaper={handleSelectPaper}
           selectedGradeFromNavbar={selectedGradeFromNavbar}
         />
+        <PWAInstallBanner variant="floating" />
       </>
     );
   }
@@ -744,6 +747,7 @@ function App() {
           onSelectPost={handleSelectBlogPost}
           onBack={handleBackToHome}
         />
+        <PWAInstallBanner variant="floating" />
       </>
     );
   }
@@ -766,6 +770,7 @@ function App() {
           post={selectedBlogPost}
           onBack={handleBackToBlogList}
         />
+        <PWAInstallBanner variant="floating" />
       </>
     );
   }
@@ -799,6 +804,7 @@ function App() {
           onSuccess={handleSubscriptionSuccess}
           onNavigateToPayment={handleNavigateToPayment}
         />
+        <PWAInstallBanner variant="floating" />
       </>
     );
   }
@@ -838,6 +844,9 @@ function App() {
         onSuccess={handleSubscriptionSuccess}
         onNavigateToPayment={handleNavigateToPayment}
       />
+
+      {/* PWA Install Banner */}
+      <PWAInstallBanner variant="floating" />
     </>
   );
 }
