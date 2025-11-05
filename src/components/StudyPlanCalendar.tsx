@@ -21,12 +21,16 @@ import {
   Grid3x3,
   List,
   X,
-  Zap
+  Zap,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
 import { EventDetailModal } from './EventDetailModal';
 import { formatTokenCount } from '../lib/formatUtils';
+import { AlertModal } from './AlertModal';
+import { ConfirmModal } from './ConfirmModal';
 
 interface StudyPlanCalendarProps {
   onBack: () => void;
@@ -56,6 +60,22 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const [showMobileDateModal, setShowMobileDateModal] = useState(false);
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
+
+  // Alert modal state
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'info' | 'warning'
+  });
+
+  // Confirm modal state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     checkAccess();
@@ -136,15 +156,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('study_plan_events')
         .select(`
           *,
           study_plan_schedules!inner(
-            subjects(name, id)
+            subjects(name, id),
+            is_active
           )
         `)
         .eq('user_id', user.id)
+        .eq('study_plan_schedules.is_active', true)
         .gte('event_date', startOfMonth.toISOString().split('T')[0])
         .lte('event_date', endOfMonth.toISOString().split('T')[0])
         .order('event_date', { ascending: true });
@@ -173,7 +195,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           grade_levels(name)
         `)
         .eq('user_id', user.id)
-        .eq('is_active', true)
+        .order('is_active', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -184,24 +206,80 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId: string) => {
-    if (!confirm('Are you sure you want to delete this study plan? All associated events will be deleted.')) {
-      return;
-    }
+  const handleDeleteSchedule = (scheduleId: string) => {
+    setConfirmConfig({
+      title: 'Delete Study Plan',
+      message: 'Are you sure you want to delete this study plan? All associated events will be permanently deleted. This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('study_plan_schedules')
+            .delete()
+            .eq('id', scheduleId);
 
+          if (error) throw error;
+
+          fetchSchedules();
+          fetchEvents();
+          setAlertConfig({
+            title: 'Success',
+            message: 'Study plan deleted successfully',
+            type: 'success'
+          });
+          setShowAlert(true);
+        } catch (error) {
+          console.error('Error deleting schedule:', error);
+          setAlertConfig({
+            title: 'Error',
+            message: 'Failed to delete study plan',
+            type: 'error'
+          });
+          setShowAlert(true);
+        }
+      }
+    });
+    setShowConfirm(true);
+  };
+
+  const handleToggleScheduleActive = async (scheduleId: string, currentlyActive: boolean, subjectId: string, gradeId: string) => {
     try {
+      if (!currentlyActive) {
+        // Activating this plan - first deactivate any other active plan for same subject/grade
+        const { error: deactivateError } = await supabase
+          .from('study_plan_schedules')
+          .update({ is_active: false })
+          .eq('user_id', user?.id)
+          .eq('subject_id', subjectId)
+          .eq('grade_id', gradeId)
+          .eq('is_active', true);
+
+        if (deactivateError) throw deactivateError;
+      }
+
+      // Toggle this plan's active status
       const { error } = await supabase
         .from('study_plan_schedules')
-        .delete()
+        .update({ is_active: !currentlyActive })
         .eq('id', scheduleId);
 
       if (error) throw error;
 
       fetchSchedules();
       fetchEvents();
+      setAlertConfig({
+        title: 'Success',
+        message: `Study plan ${!currentlyActive ? 'activated' : 'deactivated'} successfully`,
+        type: 'success'
+      });
+      setShowAlert(true);
     } catch (error) {
-      console.error('Error deleting schedule:', error);
-      alert('Failed to delete study plan');
+      console.error('Error toggling schedule active status:', error);
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to update study plan status',
+        type: 'error'
+      });
+      setShowAlert(true);
     }
   };
 
@@ -564,8 +642,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Times
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Status
+                            </th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Action
+                              Actions
                             </th>
                           </tr>
                         </thead>
@@ -614,14 +695,44 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   <span className="text-sm text-gray-400">-</span>
                                 )}
                               </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                {schedule.is_active ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>
+                                    Inactive
+                                  </span>
+                                )}
+                              </td>
                               <td className="px-4 py-3 whitespace-nowrap text-right">
-                                <button
-                                  onClick={() => handleDeleteSchedule(schedule.id)}
-                                  className="p-1.5 hover:bg-red-50 rounded transition-colors"
-                                  title="Delete study plan"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </button>
+                                <div className="flex items-center justify-end space-x-2">
+                                  <button
+                                    onClick={() => handleToggleScheduleActive(schedule.id, schedule.is_active, schedule.subject_id, schedule.grade_id)}
+                                    className={`p-1.5 rounded transition-colors ${
+                                      schedule.is_active
+                                        ? 'hover:bg-orange-50 text-orange-600'
+                                        : 'hover:bg-green-50 text-green-600'
+                                    }`}
+                                    title={schedule.is_active ? 'Deactivate study plan' : 'Activate study plan'}
+                                  >
+                                    {schedule.is_active ? (
+                                      <PowerOff className="w-4 h-4" />
+                                    ) : (
+                                      <Power className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                    className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                                    title="Delete study plan"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -1119,6 +1230,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
           fetchEvents();
+          fetchSchedules();  // Also fetch schedules to show the newly created plan
           setShowCreateModal(false);
           // Refresh token balance after plan generation
           if (onRefreshTokens) {
@@ -1268,6 +1380,26 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           </div>
         </div>
       )}
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        type="danger"
+        confirmText="Delete"
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { X, Calendar, Clock, BookOpen, Sparkles, ChevronRight, ChevronLeft, Loader, Zap } from 'lucide-react';
 import { formatTokenCount } from '../lib/formatUtils';
+import { AlertModal } from './AlertModal';
 
 interface Subject {
   id: string;
@@ -47,6 +48,14 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [generating, setGenerating] = useState(false);
+
+  // Alert modal state
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' as 'success' | 'error' | 'info' | 'warning'
+  });
 
   // Form state
   const [selectedGrade, setSelectedGrade] = useState('');
@@ -201,48 +210,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
-      // Check for existing active study plan for this user/subject/grade combination
-      const { data: existingPlan, error: checkError } = await supabase
-        .from('study_plan_schedules')
-        .select('id, subjects(name), grade_levels(name)')
-        .eq('user_id', user.id)
-        .eq('subject_id', selectedSubject)
-        .eq('grade_id', selectedGrade)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error('Error checking for existing plan:', checkError);
-        throw checkError;
-      }
-
-      // If an active plan exists, ask user if they want to replace it
-      if (existingPlan) {
-        const subjectName = (existingPlan as any).subjects?.name || 'this subject';
-        const gradeName = (existingPlan as any).grade_levels?.name || 'this grade';
-
-        const confirmReplace = confirm(
-          `You already have an active study plan for ${subjectName} (${gradeName}). Creating a new plan will deactivate the existing one. Do you want to continue?`
-        );
-
-        if (!confirmReplace) {
-          setGenerating(false);
-          return;
-        }
-
-        // Deactivate the existing plan
-        const { error: deactivateError } = await supabase
-          .from('study_plan_schedules')
-          .update({ is_active: false })
-          .eq('id', existingPlan.id);
-
-        if (deactivateError) {
-          console.error('Error deactivating existing plan:', deactivateError);
-          throw deactivateError;
-        }
-      }
-
-      // Create the schedule
+      // Create the schedule (always set is_active to false for new plans)
+      // User can activate it later from the calendar
       const { data: schedule, error: scheduleError } = await supabase
         .from('study_plan_schedules')
         .insert({
@@ -255,7 +224,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           start_date: startDate,
           end_date: endDate,
           ai_generated: true,
-          is_active: true
+          is_active: false  // New plans start as inactive
         })
         .select()
         .single();
@@ -298,7 +267,12 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       onClose();
     } catch (error) {
       console.error('Error generating study plan:', error);
-      alert('Failed to generate study plan. Please try again.');
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to generate study plan. Please try again.',
+        type: 'error'
+      });
+      setShowAlert(true);
     } finally {
       setGenerating(false);
     }
@@ -785,6 +759,15 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           border: none;
         }
       `}</style>
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={showAlert}
+        onClose={() => setShowAlert(false)}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+      />
     </div>
   );
 }
