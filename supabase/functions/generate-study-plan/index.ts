@@ -337,6 +337,17 @@ Return ONLY the JSON array, no additional text.`;
         console.log("✅ JSON pattern found");
         studyEvents = JSON.parse(jsonMatch[0]);
         console.log(`✅ Parsed ${studyEvents.length} study events`);
+
+        // Validate event count
+        if (studyEvents.length === 0) {
+          throw new Error('AI generated 0 events. Please try again with different parameters.');
+        }
+
+        if (studyEvents.length > 500) {
+          console.warn(`⚠️ AI generated ${studyEvents.length} events, limiting to 500`);
+          studyEvents = studyEvents.slice(0, 500);
+        }
+
         console.log("📋 First event:", JSON.stringify(studyEvents[0], null, 2));
       } else {
         console.error("❌ No valid JSON array found in response");
@@ -373,16 +384,46 @@ Return ONLY the JSON array, no additional text.`;
     console.log(`📝 Prepared ${eventsToInsert.length} events for insertion`);
     console.log("📋 First event to insert:", JSON.stringify(eventsToInsert[0], null, 2));
 
-    console.log("💾 Inserting events into database...");
-    const { data: insertedEvents, error: insertError } = await supabaseClient
-      .from('study_plan_events')
-      .insert(eventsToInsert)
-      .select();
+    // Insert events in batches to avoid connection timeouts
+    console.log("💾 Inserting events into database in batches...");
+    const BATCH_SIZE = 50;
+    const batches = [];
 
-    if (insertError) {
-      console.error('❌ Error inserting events:', insertError);
-      console.error('Error details:', JSON.stringify(insertError, null, 2));
-      throw insertError;
+    for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
+      batches.push(eventsToInsert.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`📦 Split into ${batches.length} batches of max ${BATCH_SIZE} events each`);
+
+    let insertedEvents: any[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      console.log(`💾 Inserting batch ${i + 1}/${batches.length} (${batch.length} events)...`);
+
+      try {
+        const { data: batchData, error: batchError } = await supabaseClient
+          .from('study_plan_events')
+          .insert(batch)
+          .select();
+
+        if (batchError) {
+          console.error(`❌ Error inserting batch ${i + 1}:`, batchError);
+          console.error('Error details:', JSON.stringify(batchError, null, 2));
+          throw batchError;
+        }
+
+        insertedEvents = insertedEvents.concat(batchData || []);
+        console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
+
+        // Small delay between batches to avoid overwhelming the connection
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`❌ Failed to insert batch ${i + 1}:`, error);
+        throw error;
+      }
     }
 
     console.log(`✅ Successfully inserted ${insertedEvents.length} events`);
