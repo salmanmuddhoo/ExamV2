@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     console.log("🔍 Fetching syllabus and chapters...");
     const { data: syllabusData, error: syllabusError } = await supabaseClient
       .from('syllabus')
-      .select('id')
+      .select('id, file_url')
       .eq('subject_id', subject_id)
       .eq('grade_id', grade_id)
       .single();
@@ -123,13 +123,16 @@ Deno.serve(async (req) => {
       console.log("📝 Will generate study plan without specific chapters");
     } else {
       console.log("✅ Syllabus found:", syllabusData.id);
+      console.log("📄 Syllabus PDF URL:", syllabusData.file_url);
     }
 
     let chapters: any[] = [];
+    let syllabusPdfBase64: string | null = null;
+
     if (syllabusData) {
       let chaptersQuery = supabaseClient
         .from('syllabus_chapters')
-        .select('id, chapter_number, chapter_title')
+        .select('id, chapter_number, chapter_title, chapter_description, subtopics')
         .eq('syllabus_id', syllabusData.id);
 
       // Filter by specific chapter IDs if provided
@@ -154,6 +157,30 @@ Deno.serve(async (req) => {
           console.log(`   - Chapter ${ch.chapter_number}: ${ch.chapter_title}`);
         });
       }
+
+      // Download the syllabus PDF for AI context
+      if (syllabusData.file_url) {
+        try {
+          console.log("📥 Downloading syllabus PDF for AI context...");
+          const pdfResponse = await fetch(syllabusData.file_url);
+
+          if (!pdfResponse.ok) {
+            console.warn("⚠️ Failed to download PDF:", pdfResponse.status);
+          } else {
+            const pdfArrayBuffer = await pdfResponse.arrayBuffer();
+            const pdfBytes = new Uint8Array(pdfArrayBuffer);
+
+            // Convert to base64
+            const base64 = btoa(String.fromCharCode(...pdfBytes));
+            syllabusPdfBase64 = base64;
+            console.log("✅ PDF downloaded and converted to base64");
+            console.log(`📊 PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
+          }
+        } catch (pdfError) {
+          console.error("❌ Error downloading PDF:", pdfError);
+          console.log("⚠️ Continuing without PDF context");
+        }
+      }
     }
 
     // Get Gemini API key
@@ -166,20 +193,40 @@ Deno.serve(async (req) => {
     console.log("✅ Gemini API key found (length:", geminiApiKey.length, ")");
 
     // Prepare prompt for Gemini
-    const chaptersInfo = chapters && chapters.length > 0
-      ? chapters.map(ch => `Chapter ${ch.chapter_number}: ${ch.chapter_title}`).join('\n')
-      : 'No specific chapters available';
-
     const isChapterSpecific = chapter_ids && chapter_ids.length > 0;
+
+    let chaptersInfo = '';
+    if (chapters && chapters.length > 0) {
+      if (isChapterSpecific) {
+        // For selected chapters, provide detailed information
+        chaptersInfo = chapters.map(ch => {
+          let info = `Chapter ${ch.chapter_number}: ${ch.chapter_title}`;
+          if (ch.chapter_description) {
+            info += `\n  Description: ${ch.chapter_description}`;
+          }
+          if (ch.subtopics && ch.subtopics.length > 0) {
+            info += `\n  Subtopics: ${ch.subtopics.join(', ')}`;
+          }
+          return info;
+        }).join('\n\n');
+      } else {
+        // For all chapters, provide basic information
+        chaptersInfo = chapters.map(ch => `Chapter ${ch.chapter_number}: ${ch.chapter_title}`).join('\n');
+      }
+    } else {
+      chaptersInfo = 'No specific chapters available';
+    }
+
     const chapterScope = isChapterSpecific
-      ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s))`
-      : 'Cover all available chapters';
+      ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s)). Do NOT include any other chapters from the syllabus.`
+      : 'Cover all available chapters systematically from the syllabus.';
 
     console.log("📝 Preparing AI prompt...");
-    console.log("📚 Chapters info:", chaptersInfo);
+    console.log("📚 Chapters info length:", chaptersInfo.length);
     console.log("🎯 Chapter scope:", chapterScope);
+    console.log("📄 Has PDF:", syllabusPdfBase64 ? 'Yes' : 'No');
 
-    const prompt = `You are an expert education planner. Generate a detailed study plan for a student with the following requirements:
+    const prompt = `You are an expert education planner. I have attached the complete syllabus document for reference. Generate a detailed study plan for a student with the following requirements:
 
 Subject: ${subjectName}
 Grade Level: ${gradeName}
@@ -189,7 +236,10 @@ Preferred Study Times: ${preferred_times.join(', ')}
 Start Date: ${start_date}
 End Date: ${end_date}
 
-${chapterScope}:
+IMPORTANT - Chapter Selection:
+${chapterScope}
+
+${isChapterSpecific ? 'Selected Chapters:' : 'All Chapters:'}
 ${chaptersInfo}
 
 Please generate a JSON array of study events with the following structure:
@@ -223,6 +273,25 @@ Return ONLY the JSON array, no additional text.`;
     console.log("🤖 Calling Gemini API...");
     console.log("📏 Prompt length:", prompt.length, "characters");
 
+    // Prepare parts for Gemini API
+    const parts: any[] = [];
+
+    // Add PDF first if available
+    if (syllabusPdfBase64) {
+      console.log("📄 Adding syllabus PDF to request");
+      parts.push({
+        inline_data: {
+          mime_type: "application/pdf",
+          data: syllabusPdfBase64
+        }
+      });
+    }
+
+    // Add text prompt
+    parts.push({
+      text: prompt
+    });
+
     // Call Gemini API
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -233,9 +302,7 @@ Return ONLY the JSON array, no additional text.`;
         },
         body: JSON.stringify({
           contents: [{
-            parts: [{
-              text: prompt
-            }]
+            parts: parts
           }],
           generationConfig: {
             temperature: 0.7,
