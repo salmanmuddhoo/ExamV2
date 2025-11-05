@@ -93,6 +93,8 @@ export function ChatHub({
   const [userTier, setUserTier] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBlinkAnimation, setShowBlinkAnimation] = useState(true);
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [loadingTodayEvents, setLoadingTodayEvents] = useState(false);
 
   // Disable blink animation after 10 seconds
   useEffect(() => {
@@ -107,6 +109,7 @@ export function ChatHub({
     if (user) {
       fetchConversations();
       fetchUserTier();
+      fetchTodayEvents();
     }
   }, [user]);
 
@@ -155,6 +158,40 @@ export function ChatHub({
         setUserTier((data.subscription_tiers as any).name);
       }
     } catch (error) {
+    }
+  };
+
+  const fetchTodayEvents = async () => {
+    if (!user) return;
+
+    try {
+      setLoadingTodayEvents(true);
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('study_plan_events')
+        .select(`
+          *,
+          study_plan_schedules!inner(
+            subjects(name, id)
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('event_date', today)
+        .order('start_time', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching today events:', error);
+        setTodayEvents([]);
+        return;
+      }
+
+      setTodayEvents(data || []);
+    } catch (error) {
+      console.error('Error fetching today events:', error);
+      setTodayEvents([]);
+    } finally {
+      setLoadingTodayEvents(false);
     }
   };
 
@@ -791,13 +828,75 @@ export function ChatHub({
             </div>
           ) : (
             <div className="flex items-center justify-center h-full p-6">
-              <div className="text-center max-w-md">
+              <div className="text-center max-w-md w-full">
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   Ready to ace your exams?
                 </h2>
-                <p className="text-gray-600 mb-8">
+                <p className="text-gray-600 mb-6">
                   Choose a conversation to continue, or click <span className={`font-extrabold text-gray-900 ${showBlinkAnimation ? 'animate-blink' : ''}`}>"New Conversation"</span> to start working on a new exam paper.
                 </p>
+
+                {/* Today's Study Plan Summary */}
+                {!loadingTodayEvents && todayEvents.length > 0 && (
+                  <div className="mb-8 bg-white border-2 border-gray-200 rounded-lg p-5 text-left">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-5 h-5 text-black" />
+                        <h3 className="text-lg font-bold text-gray-900">Today's Study Plan</h3>
+                      </div>
+                      {onNavigateStudyPlan && (
+                        <button
+                          onClick={onNavigateStudyPlan}
+                          className="text-xs text-gray-600 hover:text-gray-900 underline"
+                        >
+                          View All
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {todayEvents.slice(0, 3).map((event) => {
+                        const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+                        const isCompleted = event.status === 'completed';
+                        return (
+                          <div
+                            key={event.id}
+                            className={`flex items-start space-x-3 p-3 rounded-lg border ${
+                              isCompleted
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-gray-50 border-gray-200'
+                            }`}
+                          >
+                            <div className="flex-shrink-0 mt-0.5">
+                              {isCompleted ? (
+                                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 border-2 border-gray-400 rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-semibold ${isCompleted ? 'text-green-900 line-through' : 'text-gray-900'}`}>
+                                {event.title}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {event.start_time} - {event.end_time}
+                                {subjectName && ` • ${subjectName}`}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {todayEvents.length > 3 && (
+                        <p className="text-xs text-gray-500 text-center pt-2">
+                          +{todayEvents.length - 3} more task{todayEvents.length - 3 !== 1 ? 's' : ''} today
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {userTier !== 'pro' ? (
                   <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-lg p-6">

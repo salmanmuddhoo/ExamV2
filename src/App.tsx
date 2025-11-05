@@ -508,6 +508,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
@@ -533,6 +534,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
@@ -595,6 +597,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
@@ -647,6 +650,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
@@ -667,6 +671,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
@@ -688,6 +693,7 @@ function App() {
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onSelectGrade={handleSelectGrade}
           currentView={view}
@@ -713,6 +719,7 @@ function App() {
         onNavigateAdmin={handleNavigateToAdmin}
         onNavigateLogin={handleNavigateToLogin}
         onNavigateChatHub={handleNavigateToChatHub}
+        onNavigateStudyPlan={handleNavigateToStudyPlan}
         onNavigateBlog={handleNavigateToBlog}
         onSelectGrade={handleSelectGrade}
         currentView={view}
