@@ -27,21 +27,12 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
-  const [hasStudyPlanAccess, setHasStudyPlanAccess] = useState(false);
   const desktopMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchGradeLevels();
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      checkStudyPlanAccess();
-    } else {
-      setHasStudyPlanAccess(false);
-    }
-  }, [user]);
 
   // Click outside handler for desktop menu
   useEffect(() => {
@@ -93,35 +84,6 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
       if (error) throw error;
       setGradeLevels(data || []);
     } catch (error) {
-    }
-  };
-
-  const checkStudyPlanAccess = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select(`
-          subscription_tiers!inner(
-            can_access_study_plan
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
-
-      if (error) {
-        console.error('Error checking study plan access:', error);
-        setHasStudyPlanAccess(false);
-        return;
-      }
-
-      const canAccess = data?.subscription_tiers?.can_access_study_plan || false;
-      setHasStudyPlanAccess(canAccess);
-    } catch (error) {
-      console.error('Error checking study plan access:', error);
-      setHasStudyPlanAccess(false);
     }
   };
 
@@ -221,7 +183,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                         <span>My Conversations</span>
                       </button>
                     )}
-                    {onNavigateStudyPlan && hasStudyPlanAccess && (
+                    {onNavigateStudyPlan && (
                       <button
                         onClick={() => {
                           setDesktopMenuOpen(false);
@@ -338,7 +300,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                       <span>My Conversations</span>
                     </button>
                   )}
-                  {onNavigateStudyPlan && hasStudyPlanAccess && (
+                  {onNavigateStudyPlan && (
                     <button
                       onClick={() => {
                         onNavigateStudyPlan();
