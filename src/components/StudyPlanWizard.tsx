@@ -35,9 +35,10 @@ interface StudyPlanWizardProps {
   onSuccess: () => void;
   tokensRemaining?: number;
   tokensLimit?: number | null;
+  tokensUsed?: number;
 }
 
-export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0, tokensLimit = null }: StudyPlanWizardProps) {
+export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0 }: StudyPlanWizardProps) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -325,8 +326,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               <span className="text-gray-600">AI Tokens: </span>
               <span className="font-semibold text-gray-900">
                 {tokensLimit === null
-                  ? `${formatTokenCount(tokensRemaining)} remaining`
-                  : `${formatTokenCount(tokensRemaining)} / ${formatTokenCount(tokensLimit)}`
+                  ? `Unlimited`
+                  : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`
                 }
               </span>
             </div>
