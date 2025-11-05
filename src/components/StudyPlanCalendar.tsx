@@ -782,21 +782,22 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                             }}
                             className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer hover:shadow-lg transition-all`}
                           >
+                            {/* Subject Badge - Prominent at top */}
+                            {subjectName && (
+                              <div className="mb-3">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                                  <BookOpen className="w-4 h-4 mr-1.5" />
+                                  {subjectName}
+                                </span>
+                              </div>
+                            )}
+
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center space-x-2 flex-1">
                                 {getStatusIcon(event.status)}
                                 <span className="font-semibold text-sm">{event.title}</span>
                               </div>
                             </div>
-
-                            {subjectName && (
-                              <div className="mb-2">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                                  <BookOpen className="w-3 h-3 mr-1" />
-                                  {subjectName}
-                                </span>
-                              </div>
-                            )}
 
                             {event.description && (
                               <p className="text-sm text-gray-700 mb-2 line-clamp-2">{event.description}</p>
@@ -1102,6 +1103,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
               ) : (
                 <div className="space-y-2">
                   {getEventsForDate(mobileDateModalDate).map(event => {
+                    const subjectName = (event as any).study_plan_schedules?.subjects?.name;
                     return (
                       <div
                         key={event.id}
@@ -1110,27 +1112,39 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                           setShowEventModal(true);
                           setShowMobileDateModal(false);
                         }}
-                        className={`p-3 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all flex items-center space-x-3`}
+                        className={`p-3 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all`}
                       >
-                        {/* Status Icon */}
-                        <div className="flex-shrink-0">
-                          {getStatusIcon(event.status)}
-                        </div>
-
-                        {/* Task Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-gray-900 truncate">{event.title}</p>
-                          <div className="flex items-center space-x-1 text-xs text-gray-600 mt-0.5">
-                            <Clock className="w-3 h-3" />
-                            <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                        {/* Subject Badge - Prominent at top */}
+                        {subjectName && (
+                          <div className="mb-2">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                              <BookOpen className="w-3.5 h-3.5 mr-1" />
+                              {subjectName}
+                            </span>
                           </div>
-                        </div>
+                        )}
 
-                        {/* Arrow Icon */}
-                        <div className="flex-shrink-0">
-                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                        <div className="flex items-center space-x-3">
+                          {/* Status Icon */}
+                          <div className="flex-shrink-0">
+                            {getStatusIcon(event.status)}
+                          </div>
+
+                          {/* Task Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 truncate">{event.title}</p>
+                            <div className="flex items-center space-x-1 text-xs text-gray-600 mt-0.5">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                            </div>
+                          </div>
+
+                          {/* Arrow Icon */}
+                          <div className="flex-shrink-0">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
                         </div>
                       </div>
                     );
