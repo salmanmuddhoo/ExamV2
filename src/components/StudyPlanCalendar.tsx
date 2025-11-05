@@ -927,35 +927,61 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
               </div>
             )}
 
-            {/* Study Plan Filter */}
-            {schedules.filter(s => s.is_active).length > 1 && (
+            {/* Study Plan Filter - Select Subject then Plan */}
+            {schedules.filter(s => s.is_active).length > 0 && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Study Plan</label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSelectedScheduleFilter(null)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      !selectedScheduleFilter
-                        ? 'bg-black text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+
+                {/* Subject Dropdown */}
+                <div className="mb-3">
+                  <select
+                    value={selectedSubjectFilter || ''}
+                    onChange={(e) => {
+                      setSelectedSubjectFilter(e.target.value || null);
+                      setSelectedScheduleFilter(null); // Reset plan filter when subject changes
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                   >
-                    All Study Plans
-                  </button>
-                  {schedules.filter(s => s.is_active).map(schedule => (
-                    <button
-                      key={schedule.id}
-                      onClick={() => setSelectedScheduleFilter(schedule.id)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        selectedScheduleFilter === schedule.id
-                          ? 'bg-black text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {schedule.subjects?.name || 'Study Plan'} - {schedule.grade_levels?.name || 'Grade'}
-                    </button>
-                  ))}
+                    <option value="">All Subjects</option>
+                    {getUniqueSubjects().map(subject => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
+                {/* Active Plans for Selected Subject */}
+                {selectedSubjectFilter && schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).length > 1 && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Select Plan</label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedScheduleFilter(null)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          !selectedScheduleFilter
+                            ? 'bg-black text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        All Plans
+                      </button>
+                      {schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).map((schedule, idx) => (
+                        <button
+                          key={schedule.id}
+                          onClick={() => setSelectedScheduleFilter(schedule.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            selectedScheduleFilter === schedule.id
+                              ? 'bg-black text-white shadow-md'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Plan #{idx + 1} ({schedule.grade_levels?.name})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

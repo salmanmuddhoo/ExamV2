@@ -84,30 +84,51 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   }, [isOpen]);
 
   const fetchSubjects = async () => {
+    if (!user) return;
+
     try {
+      // Use RPC function to get only accessible subjects based on subscription
       const { data, error } = await supabase
-        .from('subjects')
-        .select('id, name')
-        .order('name');
+        .rpc('get_accessible_subjects_for_user', {
+          p_user_id: user.id,
+          p_grade_id: null
+        });
 
       if (error) throw error;
-      setSubjects(data || []);
+
+      // Map the returned data to match expected format
+      const formattedSubjects = (data || []).map((item: any) => ({
+        id: item.subject_id,
+        name: item.subject_name
+      }));
+
+      setSubjects(formattedSubjects);
     } catch (error) {
-      console.error('Error fetching subjects:', error);
+      console.error('Error fetching accessible subjects:', error);
     }
   };
 
   const fetchGrades = async () => {
+    if (!user) return;
+
     try {
+      // Use RPC function to get only accessible grades based on subscription
       const { data, error } = await supabase
-        .from('grade_levels')
-        .select('id, name')
-        .order('name');
+        .rpc('get_accessible_grades_for_user', {
+          p_user_id: user.id
+        });
 
       if (error) throw error;
-      setGrades(data || []);
+
+      // Map the returned data to match expected format
+      const formattedGrades = (data || []).map((item: any) => ({
+        id: item.grade_id,
+        name: item.grade_name
+      }));
+
+      setGrades(formattedGrades);
     } catch (error) {
-      console.error('Error fetching grades:', error);
+      console.error('Error fetching accessible grades:', error);
     }
   };
 
