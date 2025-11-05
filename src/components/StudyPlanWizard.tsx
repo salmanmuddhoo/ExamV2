@@ -83,6 +83,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     }
   }, [isOpen]);
 
+  // Auto-select grade if only one is available (non-pro users)
+  useEffect(() => {
+    if (grades.length === 1 && !selectedGrade) {
+      setSelectedGrade(grades[0].id);
+    }
+  }, [grades]);
+
   const fetchSubjects = async () => {
     if (!user) return;
 
@@ -430,7 +437,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                 <select
                   value={selectedGrade}
                   onChange={(e) => setSelectedGrade(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={grades.length === 1}
                 >
                   <option value="">Choose a grade level...</option>
                   {grades.map(grade => (
@@ -439,6 +447,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                     </option>
                   ))}
                 </select>
+                {grades.length === 1 && (
+                  <p className="text-xs text-gray-500 mt-2">This grade is assigned to your subscription</p>
+                )}
               </div>
 
               <div>
