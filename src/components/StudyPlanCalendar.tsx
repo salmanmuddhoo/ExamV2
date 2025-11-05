@@ -1021,17 +1021,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-40 bg-black bg-opacity-50"
             onClick={() => setShowQuickSummary(false)}
           />
 
-          {/* Popup */}
+          {/* Popup - Desktop: positioned near click, Mobile: bottom sheet */}
           <div
-            className="fixed z-50 bg-white rounded-lg shadow-2xl border-2 border-gray-200 p-4 w-80"
+            className="fixed z-50 bg-white shadow-2xl border-2 border-gray-200 p-5 w-full md:w-80 md:rounded-lg rounded-t-3xl left-0 right-0 md:left-auto md:right-auto bottom-0 md:bottom-auto"
             style={{
-              left: `${quickSummaryPosition.x}px`,
-              top: `${quickSummaryPosition.y}px`,
-              maxWidth: 'calc(100vw - 2rem)',
+              left: window.innerWidth >= 768 ? `${quickSummaryPosition.x}px` : undefined,
+              top: window.innerWidth >= 768 ? `${quickSummaryPosition.y}px` : undefined,
+              maxWidth: window.innerWidth >= 768 ? 'calc(100vw - 2rem)' : undefined,
             }}
           >
             {/* Status Badge */}
@@ -1214,8 +1214,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions }: StudyPlanCale
                       <div
                         key={event.id}
                         onClick={() => {
-                          setSelectedEvent(event);
-                          setShowEventModal(true);
+                          setQuickSummaryEvent(event);
+                          setShowQuickSummary(true);
                           setShowMobileDateModal(false);
                         }}
                         className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all`}
