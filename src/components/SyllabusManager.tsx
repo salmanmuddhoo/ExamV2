@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Edit2, Save, X, Plus, Trash2, Folder, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -64,6 +64,9 @@ export function SyllabusManager() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [editingChapter, setEditingChapter] = useState<string | null>(null);
   const [editedChapterData, setEditedChapterData] = useState<Partial<Chapter>>({});
+
+  // Subject folder expansion state
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchData();
@@ -634,92 +637,160 @@ export function SyllabusManager() {
         </form>
       </div>
 
-      {/* Syllabus List */}
+      {/* Syllabus List - Grouped by Subject */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Uploaded Syllabus</h3>
-        <div className="space-y-4">
-          {syllabusList.map((syllabus) => (
-            <div
-              key={syllabus.id}
-              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3 flex-1">
-                  <FileText className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">
-                      {syllabus.title || syllabus.file_name}
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {syllabus.subject?.name} - {syllabus.grade?.name}
-                      {syllabus.region && ` - ${syllabus.region}`}
-                      {syllabus.academic_year && ` (${syllabus.academic_year})`}
-                    </p>
-                    {syllabus.description && (
-                      <p className="text-sm text-gray-500 mt-1">{syllabus.description}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-2">
-                      Uploaded {new Date(syllabus.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center space-x-3 ml-4">
-                  {/* Status Badge */}
-                  {syllabus.processing_status === 'completed' && (
-                    <div className="flex items-center text-green-600 text-sm">
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      <span>Processed</span>
-                    </div>
-                  )}
-                  {syllabus.processing_status === 'processing' && (
-                    <div className="flex items-center text-blue-600 text-sm">
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                      <span>Processing...</span>
-                    </div>
-                  )}
-                  {syllabus.processing_status === 'failed' && (
-                    <div className="flex items-center text-red-600 text-sm">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      <span>Failed</span>
-                    </div>
-                  )}
+        {syllabusList.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p>No syllabus uploaded yet</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {(() => {
+              // Group syllabuses by subject
+              const groupedBySubject = syllabusList.reduce((acc, syllabus) => {
+                const subjectName = syllabus.subject?.name || 'Unknown Subject';
+                if (!acc[subjectName]) {
+                  acc[subjectName] = [];
+                }
+                acc[subjectName].push(syllabus);
+                return acc;
+              }, {} as Record<string, Syllabus[]>);
 
-                  {/* Action Buttons */}
-                  {syllabus.processing_status === 'completed' && (
-                    <button
-                      onClick={() => viewChapters(syllabus.id)}
-                      className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-                    >
-                      View Chapters
-                    </button>
-                  )}
-                  <a
-                    href={syllabus.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
-                  >
-                    View PDF
-                  </a>
-                  <button
-                    onClick={() => deleteSyllabus(syllabus.id, syllabus.file_url)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+              const toggleSubject = (subjectName: string) => {
+                setExpandedSubjects(prev => {
+                  const newSet = new Set(prev);
+                  if (newSet.has(subjectName)) {
+                    newSet.delete(subjectName);
+                  } else {
+                    newSet.add(subjectName);
+                  }
+                  return newSet;
+                });
+              };
 
-          {syllabusList.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p>No syllabus uploaded yet</p>
-            </div>
-          )}
-        </div>
+              return Object.entries(groupedBySubject)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([subjectName, syllabuses]) => {
+                  const isExpanded = expandedSubjects.has(subjectName);
+
+                  return (
+                    <div key={subjectName} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Subject Folder Header */}
+                      <button
+                        onClick={() => toggleSubject(subjectName)}
+                        className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-all"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Folder className="w-5 h-5 text-blue-600" />
+                          <span className="font-semibold text-gray-900">{subjectName}</span>
+                          <span className="text-sm text-gray-500 bg-white px-2 py-0.5 rounded-full">
+                            {syllabuses.length} {syllabuses.length === 1 ? 'syllabus' : 'syllabuses'}
+                          </span>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-500" />
+                        )}
+                      </button>
+
+                      {/* Syllabus Items */}
+                      {isExpanded && (
+                        <div className="divide-y divide-gray-200">
+                          {syllabuses.map((syllabus) => (
+                            <div
+                              key={syllabus.id}
+                              className="p-4 bg-white hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start space-x-3 flex-1">
+                                  <FileText className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      <h4 className="font-semibold text-gray-900">
+                                        {syllabus.title || syllabus.file_name}
+                                      </h4>
+                                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                                        {syllabus.grade?.name}
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                      {(syllabus.region || syllabus.academic_year) && (
+                                        <p>
+                                          {syllabus.region && `${syllabus.region}`}
+                                          {syllabus.region && syllabus.academic_year && ' • '}
+                                          {syllabus.academic_year && `${syllabus.academic_year}`}
+                                        </p>
+                                      )}
+                                      {syllabus.description && (
+                                        <p className="text-gray-500">{syllabus.description}</p>
+                                      )}
+                                      <p className="text-xs text-gray-500">
+                                        Uploaded {new Date(syllabus.created_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-3 ml-4">
+                                  {/* Status Badge */}
+                                  {syllabus.processing_status === 'completed' && (
+                                    <div className="flex items-center text-green-600 text-sm">
+                                      <CheckCircle className="w-4 h-4 mr-1" />
+                                      <span className="hidden sm:inline">Processed</span>
+                                    </div>
+                                  )}
+                                  {syllabus.processing_status === 'processing' && (
+                                    <div className="flex items-center text-blue-600 text-sm">
+                                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                      <span className="hidden sm:inline">Processing...</span>
+                                    </div>
+                                  )}
+                                  {syllabus.processing_status === 'failed' && (
+                                    <div className="flex items-center text-red-600 text-sm">
+                                      <AlertCircle className="w-4 h-4 mr-1" />
+                                      <span className="hidden sm:inline">Failed</span>
+                                    </div>
+                                  )}
+
+                                  {/* Action Buttons */}
+                                  {syllabus.processing_status === 'completed' && (
+                                    <button
+                                      onClick={() => viewChapters(syllabus.id)}
+                                      className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                                    >
+                                      View Chapters
+                                    </button>
+                                  )}
+                                  <a
+                                    href={syllabus.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
+                                  >
+                                    View PDF
+                                  </a>
+                                  <button
+                                    onClick={() => deleteSyllabus(syllabus.id, syllabus.file_url)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );
