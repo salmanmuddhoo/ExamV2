@@ -14,7 +14,7 @@ interface StudyPlanRequest {
   grade_id: string;
   chapter_ids?: string[]; // Optional: specific chapters to include
   study_duration_minutes: number;
-  sessions_per_week: number;
+  selected_days?: string[]; // Selected days of the week (e.g., ['monday', 'wednesday', 'friday'])
   preferred_times: string[];
   start_date: string;
   end_date: string;
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       grade_id,
       chapter_ids,
       study_duration_minutes,
-      sessions_per_week,
+      selected_days = ['monday', 'wednesday', 'friday'], // Default to MWF if not provided
       preferred_times,
       start_date,
       end_date
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     console.log("  - Grade ID:", grade_id);
     console.log("  - Chapter IDs:", chapter_ids || "All chapters");
     console.log("  - Duration:", study_duration_minutes, "minutes");
-    console.log("  - Sessions/week:", sessions_per_week);
+    console.log("  - Selected days:", selected_days.join(', '));
     console.log("  - Preferred times:", preferred_times);
     console.log("  - Date range:", start_date, "to", end_date);
 
@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
 Subject: ${subjectName}
 Grade Level: ${gradeName}
 Study Duration per Session: ${study_duration_minutes} minutes
-Sessions per Week: ${sessions_per_week}
+Selected Days of Week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}
 Preferred Study Times: ${preferred_times.join(', ')}
 Start Date: ${start_date}
 End Date: ${end_date}
@@ -289,7 +289,7 @@ Please generate a JSON array of study events with the following structure:
 Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by a descriptive session title (e.g., "${subjectName} - Chapter 1: Introduction", "${subjectName} - Review Session", "${subjectName} - Practice Problems")
-3. Distribute ${sessions_per_week} sessions per week
+3. CRITICAL: Schedule sessions ONLY on these days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. Do NOT schedule sessions on other days.
 4. Each session should be ${study_duration_minutes} minutes long
 5. Schedule sessions during ${preferred_times.join(' or ')} time slots
 6. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
@@ -297,9 +297,9 @@ Requirements:
 8. Start with easier topics and progress to harder ones
 9. Add milestone checkpoints for assessments
 10. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
-11. Space out sessions appropriately (don't schedule consecutive days unless necessary)
+11. Distribute sessions evenly across the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')})
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-13. If a time slot is taken on a specific date, choose a different time or different date
+13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next occurrence of that day of the week
 ${isChapterSpecific ? '14. Do NOT include any chapters that are not in the list above' : ''}
 
 Return ONLY the JSON array, no additional text.`;

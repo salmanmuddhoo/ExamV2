@@ -95,13 +95,11 @@ export function PWAProvider({ children }: { children: ReactNode }) {
       const choiceResult = await deferredPrompt.userChoice;
 
       if (choiceResult.outcome === 'accepted') {
-        console.log('User accepted the install prompt');
         setShowPrompt(false);
         // Clear dismissal tracking on acceptance
         localStorage.removeItem(PROMPT_DISMISS_KEY);
         localStorage.removeItem(PROMPT_DISMISS_COUNT_KEY);
       } else {
-        console.log('User dismissed the install prompt');
         dismissPrompt();
       }
 

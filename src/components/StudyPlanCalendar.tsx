@@ -107,7 +107,6 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   // Ensure selectedDate is always set to today if it becomes null
   useEffect(() => {
     if (!selectedDate) {
-      console.log('No date selected, defaulting to today');
       setSelectedDate(new Date());
     }
   }, [selectedDate]);
@@ -217,13 +216,15 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         throw error;
       }
 
-      console.log('Fetched events:', data);
-
-      // Filter events based on accessible subjects
-      const filteredData = (data || []).filter((event: any) => {
-        const subjectId = event.study_plan_schedules?.subjects?.id;
-        return subjectId && accessibleSubjectIds.includes(subjectId);
-      });
+      // For Pro users, show all events without filtering
+      // For other tiers, filter events based on accessible subjects
+      let filteredData = data || [];
+      if (tierName !== 'pro' && accessibleSubjectIds.length > 0) {
+        filteredData = filteredData.filter((event: any) => {
+          const subjectId = event.study_plan_schedules?.subjects?.id;
+          return subjectId && accessibleSubjectIds.includes(subjectId);
+        });
+      }
 
       setEvents(filteredData);
     } catch (error) {
@@ -247,11 +248,15 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
       if (error) throw error;
 
-      // Filter schedules based on accessible subjects
-      const filteredData = (data || []).filter((schedule: any) => {
-        const subjectId = schedule.subjects?.id;
-        return subjectId && accessibleSubjectIds.includes(subjectId);
-      });
+      // For Pro users, show all schedules without filtering
+      // For other tiers, filter schedules based on accessible subjects
+      let filteredData = data || [];
+      if (tierName !== 'pro' && accessibleSubjectIds.length > 0) {
+        filteredData = filteredData.filter((schedule: any) => {
+          const subjectId = schedule.subjects?.id;
+          return subjectId && accessibleSubjectIds.includes(subjectId);
+        });
+      }
 
       setSchedules(filteredData);
 
@@ -1282,8 +1287,6 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
               if (!selectedDate) return null;
 
               const dateEvents = getEventsForDate(selectedDate);
-              console.log('Right panel rendering for date:', selectedDate.toISOString().split('T')[0]);
-              console.log('Events for this date:', dateEvents.length);
 
               return (
                 <div className="w-1/3 border-l border-gray-200 pl-6 min-h-[400px]">

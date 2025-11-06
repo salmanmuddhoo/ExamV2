@@ -63,7 +63,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [selectedSyllabus, setSelectedSyllabus] = useState('');
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [studyDuration, setStudyDuration] = useState(60);
-  const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
+  const [selectedDays, setSelectedDays] = useState<string[]>(['monday', 'wednesday', 'friday']); // Default selection
   const [preferredTimes, setPreferredTimes] = useState<string[]>(['evening']);
   const [startDate, setStartDate] = useState(() => {
     const tomorrow = new Date();
@@ -75,6 +75,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     threeMonths.setMonth(threeMonths.getMonth() + 3);
     return threeMonths.toISOString().split('T')[0];
   });
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -183,7 +185,6 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         console.error('Error fetching chapters:', error);
         setChapters([]);
       } else {
-        console.log('Fetched chapters:', data);
         setChapters(data || []);
       }
     } catch (error) {
@@ -260,7 +261,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           subject_id: selectedSubject,
           grade_id: selectedGrade,
           study_duration_minutes: studyDuration,
-          sessions_per_week: sessionsPerWeek,
+          sessions_per_week: selectedDays.length,
           preferred_times: preferredTimes,
           start_date: startDate,
           end_date: endDate,
@@ -290,7 +291,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           syllabus_id: selectedSyllabus,
           chapter_ids: selectedChapters.length > 0 ? selectedChapters : undefined,
           study_duration_minutes: studyDuration,
-          sessions_per_week: sessionsPerWeek,
+          selected_days: selectedDays, // Selected days of the week
           preferred_times: preferredTimes,
           start_date: startDate,
           end_date: endDate
@@ -319,6 +320,76 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     }
   };
 
+  const toggleDay = (day: string) => {
+    setSelectedDays(prev => {
+      if (prev.includes(day)) {
+        return prev.filter(d => d !== day);
+      } else {
+        return [...prev, day];
+      }
+    });
+    setConflictWarning(null); // Clear warning when days change
+  };
+
+  const checkTimeConflicts = async () => {
+    if (!user || selectedDays.length === 0) return;
+
+    setCheckingConflicts(true);
+    setConflictWarning(null);
+
+    try {
+      // Fetch all existing events for the user
+      const { data: existingEvents, error } = await supabase
+        .from('study_plan_events')
+        .select('event_date, start_time, end_time, study_plan_schedules!inner(is_active)')
+        .eq('user_id', user.id)
+        .eq('study_plan_schedules.is_active', true);
+
+      if (error) throw error;
+
+      // Convert selected days to day numbers (0 = Sunday, 1 = Monday, etc.)
+      const dayMap: { [key: string]: number } = {
+        sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+        thursday: 4, friday: 5, saturday: 6
+      };
+      const selectedDayNumbers = selectedDays.map(day => dayMap[day.toLowerCase()]);
+
+      // Check if any of the selected days have conflicting events
+      const conflicts: string[] = [];
+      const eventsGroupedByDay: { [key: string]: number } = {};
+
+      existingEvents?.forEach((event: any) => {
+        const eventDate = new Date(event.event_date);
+        const dayOfWeek = eventDate.getDay();
+        const dayName = Object.keys(dayMap).find(key => dayMap[key] === dayOfWeek);
+
+        if (dayName && selectedDayNumbers.includes(dayOfWeek)) {
+          if (!eventsGroupedByDay[dayName]) {
+            eventsGroupedByDay[dayName] = 0;
+          }
+          eventsGroupedByDay[dayName]++;
+        }
+      });
+
+      // Check if any day has too many events (>3 per day considered full)
+      Object.entries(eventsGroupedByDay).forEach(([day, count]) => {
+        if (count >= 3) {
+          conflicts.push(day.charAt(0).toUpperCase() + day.slice(1));
+        }
+      });
+
+      if (conflicts.length > 0) {
+        setConflictWarning(
+          `Some days may have scheduling conflicts: ${conflicts.join(', ')}. The AI will try to find available time slots, but some sessions might be scheduled at different times than your preference.`
+        );
+      }
+    } catch (error) {
+      console.error('Error checking conflicts:', error);
+    } finally {
+      setCheckingConflicts(false);
+    }
+  };
+
   const resetForm = () => {
     setStep(1);
     setSelectedGrade('');
@@ -328,8 +399,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     setSelectedChapters([]);
     setChapters([]);
     setStudyDuration(60);
-    setSessionsPerWeek(3);
+    setSelectedDays(['monday', 'wednesday', 'friday']);
     setPreferredTimes(['evening']);
+    setConflictWarning(null);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setStartDate(tomorrow.toISOString().split('T')[0]);
@@ -343,7 +415,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       case 1:
         return selectedSubject && selectedGrade && selectedSyllabus;
       case 2:
-        return studyDuration > 0 && sessionsPerWeek > 0;
+        return studyDuration > 0 && selectedDays.length > 0;
       case 3:
         return preferredTimes.length > 0 && startDate && endDate;
       default:
@@ -619,39 +691,41 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
-                  Sessions per Week
+                  Select Study Days
                 </label>
-                {/* Mobile: Dropdown */}
-                <select
-                  value={sessionsPerWeek}
-                  onChange={(e) => setSessionsPerWeek(parseInt(e.target.value))}
-                  className="md:hidden w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
-                >
-                  {[1, 2, 3, 4, 5, 6, 7].map(num => (
-                    <option key={num} value={num}>
-                      {num} {num === 1 ? 'day' : 'days'} per week
-                    </option>
-                  ))}
-                </select>
-                {/* Desktop: Buttons */}
-                <div className="hidden md:grid grid-cols-7 gap-2">
-                  {[1, 2, 3, 4, 5, 6, 7].map(num => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                     <button
-                      key={num}
-                      onClick={() => setSessionsPerWeek(num)}
+                      key={day}
+                      onClick={() => toggleDay(day)}
                       className={`p-3 border-2 rounded-lg transition-all ${
-                        sessionsPerWeek === num
+                        selectedDays.includes(day)
                           ? 'border-black bg-gray-50 text-black'
                           : 'border-gray-200 hover:border-gray-300 text-gray-700'
                       }`}
                     >
                       <div className="text-center">
-                        <div className="font-bold">{num}</div>
-                        <div className="text-xs">{num === 1 ? 'day' : 'days'}</div>
+                        <div className="font-bold text-xs sm:text-sm">{day.slice(0, 3).toUpperCase()}</div>
+                        <div className="text-xs hidden sm:block">{day.charAt(0).toUpperCase() + day.slice(1)}</div>
                       </div>
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  Selected {selectedDays.length} day{selectedDays.length !== 1 ? 's' : ''} per week
+                </p>
+                <button
+                  onClick={checkTimeConflicts}
+                  disabled={checkingConflicts || selectedDays.length === 0}
+                  className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+                >
+                  {checkingConflicts ? 'Checking conflicts...' : 'Check for time conflicts'}
+                </button>
+                {conflictWarning && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-900">{conflictWarning}</p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
