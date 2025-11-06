@@ -35,94 +35,104 @@
 - ✅ Handles multimodal content (text + images) for all providers
 - ✅ Consistent token counting across providers
 
-## 🚧 Pending Implementation
+## ✅ FULLY IMPLEMENTED
 
 ### Edge Functions Integration
 
-Two edge functions need to be updated to use the multi-provider abstraction:
+Both edge functions have been updated to use the multi-provider abstraction:
 
-#### 1. `exam-assistant/index.ts` (Complex)
-**Status:** ⚠️ Requires careful refactoring
+#### 1. `exam-assistant/index.ts`
+**Status:** ✅ **COMPLETE**
 
-**Challenges:**
-- Dual cache mode (Gemini built-in cache vs. database cache)
-- Gemini-specific caching logic (~300 lines)
-- Question validation and context management
-- Conversation history handling
+**Implementation Details:**
+- ✅ Fetches user's preferred AI model
+- ✅ Falls back to default if no preference
+- ✅ **Non-Gemini providers**: Use simplified approach without caching
+- ✅ **Gemini with cache**: Keeps existing dual-cache logic intact
+- ✅ **Gemini without cache**: Keeps database cache logic intact
+- ✅ Dynamic cost calculation from database
+- ✅ Provider-aware token logging
+- ✅ Response includes actual provider info
 
-**Recommended Approach:**
-- **Phase 1:** Keep Gemini-only but use abstraction for new conversations
-- **Phase 2:** Add Claude/OpenAI support for simple queries (no caching initially)
-- **Phase 3:** Implement provider-specific caching strategies
-
-**Key Areas to Update:**
+**Key Updates Made:**
 ```typescript
-// Line ~748: Get user's preferred AI model
-const userModel = await getUserAIModel(supabase, userId);
-const model = userModel || await getDefaultAIModel(supabase);
+// ✅ Line 2: Imported AI provider helpers
+import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "../_shared/ai-providers.ts";
 
-// Line ~760-890: Replace Gemini cache mode with:
-if (model.supports_caching && model.provider === 'gemini') {
-  // Use Gemini caching logic
-} else {
-  // Use standard generation without caching
-  const response = await generateAIResponse({
-    model,
-    messages: [...],
-    systemPrompt: contextualSystemPrompt,
-    images: finalExamImages
-  });
+// ✅ Line 746-763: Get user's preferred AI model
+let aiModel: AIModelConfig | null = null;
+if (userId) {
+  aiModel = await getUserAIModel(supabase, userId);
+}
+if (!aiModel) {
+  aiModel = await getDefaultAIModel(supabase);
 }
 
-// Line ~950-1000: Replace Gemini API call with abstraction
+// ✅ Line 788-831: Added non-Gemini provider branch
+if (aiModel.provider !== 'gemini') {
+  const aiResponse = await generateAIResponse({
+    model: aiModel,
+    messages: [{...}],
+    systemPrompt: contextualSystemPrompt,
+    images: finalExamImages,
+    temperature: 0.7
+  });
+  // Convert to Gemini-compatible format for downstream processing
+  data = { candidates: [...], usageMetadata: {...} };
+}
+
+// ✅ Line 1046-1085: Updated token extraction and cost calculation
+// ✅ Line 1091-1106: Added ai_model_id to token logging
+// ✅ Line 1151-1175: Updated response to include actual provider
 ```
 
-#### 2. `generate-study-plan/index.ts` (Simpler)
-**Status:** ✅ Ready for implementation
+#### 2. `generate-study-plan/index.ts`
+**Status:** ✅ **COMPLETE**
 
-**Required Changes:**
+**Implementation Details:**
+- ✅ Fetches user's preferred AI model
+- ✅ Falls back to default if no preference
+- ✅ Handles PDF limitation (only Gemini supports PDFs)
+- ✅ Dynamic cost calculation from database
+- ✅ Provider-aware token logging
+
+**Key Updates Made:**
 ```typescript
-// Line ~23: Import AI provider helpers
-import { generateAIResponse, getUserAIModel, getDefaultAIModel } from '../_shared/ai-providers.ts';
+// ✅ Line 3: Imported AI provider helpers
+import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "../_shared/ai-providers.ts";
 
-// Line ~210-220: Get user's preferred model
-const userModel = await getUserAIModel(supabaseClient, user_id);
-const model = userModel || await getDefaultAIModel(supabaseClient);
-console.log(`🤖 Using AI model: ${model.display_name} (${model.provider})`);
+// ✅ Line 214-226: Get user's preferred model
+let aiModel: AIModelConfig | null = await getUserAIModel(supabaseClient, user_id);
+if (!aiModel) {
+  aiModel = await getDefaultAIModel(supabaseClient);
+}
+console.log(`✅ Using AI model: ${aiModel.display_name} (${aiModel.provider})`);
 
-// Line ~305-347: Replace Gemini API call
+// ✅ Line 316-342: Replace Gemini API call with abstraction
 const aiResponse = await generateAIResponse({
-  model,
+  model: aiModel,
   messages: [{
     role: 'user',
-    content: prompt
+    content: enhancedPrompt
   }],
-  images: syllabusPdfBase64 ? [syllabusPdfBase64] : undefined,
-  temperature: 0.7
+  images: pdfToInclude,  // Only for Gemini
+  temperature: 0.7,
+  maxTokens: 8000
 });
 
-const generatedText = aiResponse.content;
-const promptTokenCount = aiResponse.promptTokens;
-const candidatesTokenCount = aiResponse.completionTokens;
-const totalTokenCount = aiResponse.totalTokens;
-
-// Line ~510-522: Update token logging
+// ✅ Line 359-375: Dynamic cost calculation from database
 const { data: modelData } = await supabaseClient
   .from('ai_models')
-  .select('*')
-  .eq('model_name', model.model_name)
+  .select('input_token_cost_per_million, output_token_cost_per_million')
+  .eq('model_name', aiModel.model_name)
   .single();
 
+// ✅ Line 503-520: Added ai_model_id to token logging
 await supabaseClient.from('token_usage_logs').insert({
   user_id: user_id,
-  model: model.model_name,
-  provider: model.provider,
-  prompt_tokens: promptTokenCount,
-  completion_tokens: candidatesTokenCount,
-  total_tokens: totalTokenCount,
-  estimated_cost: totalCost,
-  purpose: 'study_plan_generation',
-  ai_model_id: modelData?.id,
+  model: aiModel.model_name,
+  provider: aiModel.provider,
+  ai_model_id: aiModelData?.id || null,
   //...
 });
 ```
