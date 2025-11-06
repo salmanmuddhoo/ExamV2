@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap, List } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -101,13 +101,16 @@ export function ExamPaperManager() {
   const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
   const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string } | null>(null);
 
+  // Track if we've initialized the collapsed state to ensure subjects collapse by default only once
+  const hasInitializedCollapse = useRef(false);
+
   useEffect(() => {
     fetchData();
   }, []);
 
   // Collapse all subjects by default on initial load
   useEffect(() => {
-    if (examPapers.length > 0 && collapsedSubjects.size === 0) {
+    if (examPapers.length > 0 && !hasInitializedCollapse.current) {
       const allSubjectKeys = new Set<string>();
       examPapers.forEach((paper) => {
         const gradeName = paper.grade_levels.name;
@@ -116,6 +119,7 @@ export function ExamPaperManager() {
         allSubjectKeys.add(subjectKey);
       });
       setCollapsedSubjects(allSubjectKeys);
+      hasInitializedCollapse.current = true;
     }
   }, [examPapers]);
 
