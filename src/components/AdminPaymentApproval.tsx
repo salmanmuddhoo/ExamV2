@@ -327,10 +327,7 @@ export function AdminPaymentApproval() {
                           {transaction.status === 'pending' && (
                             <>
                               <button
-                                onClick={() => {
-                                  const notes = prompt('Add approval notes (optional):');
-                                  handleApprove(transaction.id, notes || undefined);
-                                }}
+                                onClick={() => handleApprove(transaction.id)}
                                 disabled={processingId === transaction.id}
                                 className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
                                 title="Approve"
@@ -344,9 +341,11 @@ export function AdminPaymentApproval() {
 
                               <button
                                 onClick={() => {
-                                  const reason = prompt('Enter rejection reason:');
-                                  if (reason) {
-                                    handleReject(transaction.id, reason);
+                                  const reason = prompt('Enter rejection reason (required):');
+                                  if (reason && reason.trim()) {
+                                    handleReject(transaction.id, reason.trim());
+                                  } else if (reason !== null) {
+                                    alert('Rejection reason is required');
                                   }
                                 }}
                                 disabled={processingId === transaction.id}

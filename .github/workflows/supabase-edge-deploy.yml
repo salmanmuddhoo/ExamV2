@@ -1,5 +1,7 @@
-name: Supabase Edge Functions Deploy
+name: Deploy Edge Functions to Production
 
+# This workflow automatically deploys edge functions to production
+# when changes are merged to the main branch (via PR merge or direct push)
 on:
   push:
     branches:
@@ -10,6 +12,7 @@ on:
 jobs:
   deploy-edge-functions:
     runs-on: ubuntu-latest
+    environment: production # Explicitly mark as production deployment
 
     steps:
       # 1️⃣ Checkout code
@@ -29,15 +32,30 @@ jobs:
             echo "❌ Missing Supabase secrets. Ensure SUPABASE_PROJECT_ID & SUPABASE_ACCESS_TOKEN are set."
             exit 1
           fi
+          echo "✅ All required secrets are present"
 
-      # 4️⃣ Deploy Edge Functions (no link needed for functions-only deploy)
-      - name: Deploy Edge Functions
-        run: supabase functions deploy --all --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      # 4️⃣ Deploy Edge Functions to Production
+      - name: Deploy Edge Functions to Production
+        run: |
+          echo "🚀 Deploying all edge functions to production..."
+          supabase functions deploy --all --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+          echo "✅ Edge functions deployed successfully"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-      # 6️⃣ Verify deployment
+      # 5️⃣ Verify deployment
       - name: List deployed functions
-        run: supabase functions list --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          echo "📋 Listing deployed functions..."
+          supabase functions list --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # 6️⃣ Deployment notification
+      - name: Deployment complete
+        run: |
+          echo "✅ Edge functions successfully deployed to production"
+          echo "Project: ${{ secrets.SUPABASE_PROJECT_ID }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+

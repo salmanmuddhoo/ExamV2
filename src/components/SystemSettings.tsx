@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Server, Database, Zap, Save, RefreshCw, Key, Eye, EyeOff, Calendar } from 'lucide-react';
+import { Server, Database, Zap, Save, RefreshCw, Calendar } from 'lucide-react';
 
 interface CacheSetting {
   useGeminiCache: boolean;
-}
-
-interface GeminiCacheApiKeySetting {
-  apiKey: string;
 }
 
 interface StudyPlanFeatureSetting {
@@ -18,8 +14,6 @@ export function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [useGeminiCache, setUseGeminiCache] = useState(false);
-  const [geminiCacheApiKey, setGeminiCacheApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
   const [studyPlanEnabled, setStudyPlanEnabled] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -43,22 +37,6 @@ export function SystemSettings() {
       if (cacheData) {
         const cacheSetting = cacheData.setting_value as CacheSetting;
         setUseGeminiCache(cacheSetting.useGeminiCache);
-      }
-
-      // Fetch Gemini cache API key setting
-      const { data: apiKeyData, error: apiKeyError } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'gemini_cache_api_key')
-        .single();
-
-      if (apiKeyError && apiKeyError.code !== 'PGRST116') { // Ignore "not found" error
-        throw apiKeyError;
-      }
-
-      if (apiKeyData) {
-        const apiKeySetting = apiKeyData.setting_value as GeminiCacheApiKeySetting;
-        setGeminiCacheApiKey(apiKeySetting.apiKey || '');
       }
 
       // Fetch study plan feature flag
@@ -98,20 +76,6 @@ export function SystemSettings() {
         .eq('setting_key', 'ai_cache_mode');
 
       if (cacheError) throw cacheError;
-
-      // Update Gemini cache API key (upsert in case it doesn't exist)
-      const { error: apiKeyError } = await supabase
-        .from('system_settings')
-        .upsert({
-          setting_key: 'gemini_cache_api_key',
-          setting_value: { apiKey: geminiCacheApiKey },
-          description: 'Gemini API key for built-in cache mode. Leave empty to use environment variable GEMINI_CACHE_API_KEY.',
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'setting_key'
-        });
-
-      if (apiKeyError) throw apiKeyError;
 
       // Update study plan feature flag
       const { error: studyPlanError } = await supabase
@@ -239,57 +203,14 @@ export function SystemSettings() {
             The model is automatically selected based on your cache mode choice.
           </p>
         </div>
-      </div>
 
-      {/* Gemini Cache API Key Section */}
-      <div className="border border-gray-200 rounded-lg p-6 bg-white">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <Key className="w-5 h-5 text-green-700" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Gemini Cache API Key</h3>
-            <p className="text-sm text-gray-600">API key for Gemini built-in cache mode (separate billing)</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="relative">
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              value={geminiCacheApiKey}
-              onChange={(e) => setGeminiCacheApiKey(e.target.value)}
-              placeholder="AIzaSy... (leave empty to use environment variable)"
-              className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              {showApiKey ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-
-          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <p className="text-xs text-gray-700 leading-relaxed">
-              <strong>Environment Variable:</strong> GEMINI_CACHE_API_KEY<br />
-              <strong>Usage:</strong> This API key is used exclusively when "Gemini Built-in Cache" mode is enabled.<br />
-              <strong>Billing:</strong> Keep this separate from your legacy API key for better cost tracking and billing isolation.<br />
-              <strong>Fallback:</strong> If left empty, the system will use the GEMINI_CACHE_API_KEY environment variable.
-            </p>
-          </div>
-
-          <div className="flex items-start space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <Zap className="w-4 h-4 text-yellow-700 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-yellow-800">
-              <strong>Recommended:</strong> Use a separate Google Cloud project for cache mode to isolate costs and track savings separately.
-            </p>
-          </div>
+        <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-xs text-gray-700 leading-relaxed">
+            <strong>API Keys Configuration:</strong><br />
+            • Gemini Cache Mode: Set <code className="px-1 py-0.5 bg-gray-200 rounded text-xs">GEMINI_CACHE_API_KEY</code> environment variable<br />
+            • Database Cache Mode: Set <code className="px-1 py-0.5 bg-gray-200 rounded text-xs">GEMINI_ASSISTANT_API_KEY</code> or <code className="px-1 py-0.5 bg-gray-200 rounded text-xs">GEMINI_API_KEY</code><br />
+            All API keys must be configured as Supabase secrets for security.
+          </p>
         </div>
       </div>
 

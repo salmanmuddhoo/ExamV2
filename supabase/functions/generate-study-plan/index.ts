@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "./ai-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +15,7 @@ interface StudyPlanRequest {
   grade_id: string;
   chapter_ids?: string[]; // Optional: specific chapters to include
   study_duration_minutes: number;
-  sessions_per_week: number;
+  selected_days?: string[]; // Selected days of the week (e.g., ['monday', 'wednesday', 'friday'])
   preferred_times: string[];
   start_date: string;
   end_date: string;
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
       grade_id,
       chapter_ids,
       study_duration_minutes,
-      sessions_per_week,
+      selected_days = ['monday', 'wednesday', 'friday'], // Default to MWF if not provided
       preferred_times,
       start_date,
       end_date
@@ -76,7 +77,7 @@ Deno.serve(async (req) => {
     console.log("  - Grade ID:", grade_id);
     console.log("  - Chapter IDs:", chapter_ids || "All chapters");
     console.log("  - Duration:", study_duration_minutes, "minutes");
-    console.log("  - Sessions/week:", sessions_per_week);
+    console.log("  - Selected days:", selected_days.join(', '));
     console.log("  - Preferred times:", preferred_times);
     console.log("  - Date range:", start_date, "to", end_date);
 
@@ -210,14 +211,19 @@ Deno.serve(async (req) => {
       console.log("📅 No existing events found - calendar is clear");
     }
 
-    // Get Gemini API key
-    console.log("🔑 Checking for Gemini API key...");
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) {
-      console.error("❌ Gemini API key not configured");
-      throw new Error("Gemini API key not configured");
+    // Get user's preferred AI model
+    console.log("🤖 Fetching user's preferred AI model...");
+    let aiModel: AIModelConfig | null = await getUserAIModel(supabaseClient, user_id);
+
+    if (!aiModel) {
+      console.log("📋 No user preference found, using default model");
+      aiModel = await getDefaultAIModel(supabaseClient);
     }
-    console.log("✅ Gemini API key found (length:", geminiApiKey.length, ")");
+
+    console.log(`✅ Using AI model: ${aiModel.display_name} (${aiModel.provider})`);
+    console.log(`   - Model: ${aiModel.model_name}`);
+    console.log(`   - Vision: ${aiModel.supports_vision}`);
+    console.log(`   - Caching: ${aiModel.supports_caching}`);
 
     // Prepare prompt for Gemini
     const isChapterSpecific = chapter_ids && chapter_ids.length > 0;
@@ -258,7 +264,7 @@ Deno.serve(async (req) => {
 Subject: ${subjectName}
 Grade Level: ${gradeName}
 Study Duration per Session: ${study_duration_minutes} minutes
-Sessions per Week: ${sessions_per_week}
+Selected Days of Week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}
 Preferred Study Times: ${preferred_times.join(', ')}
 Start Date: ${start_date}
 End Date: ${end_date}
@@ -289,7 +295,7 @@ Please generate a JSON array of study events with the following structure:
 Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by a descriptive session title (e.g., "${subjectName} - Chapter 1: Introduction", "${subjectName} - Review Session", "${subjectName} - Practice Problems")
-3. Distribute ${sessions_per_week} sessions per week
+3. CRITICAL: Schedule sessions ONLY on these days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. Do NOT schedule sessions on other days.
 4. Each session should be ${study_duration_minutes} minutes long
 5. Schedule sessions during ${preferred_times.join(' or ')} time slots
 6. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
@@ -297,90 +303,78 @@ Requirements:
 8. Start with easier topics and progress to harder ones
 9. Add milestone checkpoints for assessments
 10. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
-11. Space out sessions appropriately (don't schedule consecutive days unless necessary)
+11. Distribute sessions evenly across the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')})
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-13. If a time slot is taken on a specific date, choose a different time or different date
+13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next occurrence of that day of the week
 ${isChapterSpecific ? '14. Do NOT include any chapters that are not in the list above' : ''}
 
 Return ONLY the JSON array, no additional text.`;
 
-    console.log("🤖 Calling Gemini API...");
+    console.log("🤖 Calling AI API...");
     console.log("📏 Prompt length:", prompt.length, "characters");
 
-    // Prepare parts for Gemini API
-    const parts: any[] = [];
-
-    // Add PDF first if available
-    if (syllabusPdfBase64) {
-      console.log("📄 Adding syllabus PDF to request");
-      parts.push({
-        inline_data: {
-          mime_type: "application/pdf",
-          data: syllabusPdfBase64
-        }
-      });
+    // Note: OpenAI and Claude don't support PDF files directly like Gemini does
+    // For non-Gemini models, we rely on the extracted chapter information in the prompt
+    let pdfToInclude: string[] = [];
+    if (syllabusPdfBase64 && aiModel.provider === 'gemini') {
+      console.log("📄 Including syllabus PDF (Gemini supports PDFs)");
+      pdfToInclude = [syllabusPdfBase64];
+    } else if (syllabusPdfBase64) {
+      console.log("⚠️ PDF available but provider doesn't support PDFs directly, using text description");
     }
 
-    // Add text prompt
-    parts.push({
-      text: prompt
+    // For providers that don't support PDFs, enhance the prompt with chapter details
+    let enhancedPrompt = prompt;
+    if (!pdfToInclude.length && syllabusPdfBase64) {
+      enhancedPrompt = `${prompt}\n\nNote: The detailed syllabus structure and chapters are listed above. Use this information to plan the study schedule.`;
+    }
+
+    // Call AI provider abstraction
+    const aiResponse = await generateAIResponse({
+      model: aiModel,
+      messages: [{
+        role: 'user',
+        content: enhancedPrompt
+      }],
+      images: pdfToInclude,
+      temperature: 0.7,
+      maxTokens: 8000
     });
 
-    // Call Gemini API
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: parts
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8000,
-          }
-        })
-      }
-    );
+    console.log("✅ AI API response received");
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('❌ Gemini API error:', errorText);
-      console.error('Status:', geminiResponse.status);
-      throw new Error(`Gemini API error: ${geminiResponse.status}`);
-    }
-
-    console.log("✅ Gemini API response received");
-    const geminiData = await geminiResponse.json();
-    console.log("📦 Gemini response structure:", JSON.stringify(geminiData, null, 2));
-
-    // Extract token usage from Gemini response
-    const usageMetadata = geminiData?.usageMetadata || {};
-    const promptTokenCount = usageMetadata.promptTokenCount || 0;
-    const candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
-    const totalTokenCount = usageMetadata.totalTokenCount || (promptTokenCount + candidatesTokenCount);
+    const promptTokenCount = aiResponse.promptTokens;
+    const candidatesTokenCount = aiResponse.completionTokens;
+    const totalTokenCount = aiResponse.totalTokens;
 
     // Log token usage for monitoring
     console.log('=== Token Usage ===');
-    console.log(`Model used: gemini-2.0-flash-exp`);
+    console.log(`Model used: ${aiModel.model_name} (${aiModel.provider})`);
     console.log(`Input tokens: ${promptTokenCount}`);
     console.log(`Output tokens: ${candidatesTokenCount}`);
     console.log(`Total tokens: ${totalTokenCount}`);
-    console.log(`PDF included: ${syllabusPdfBase64 ? 'Yes' : 'No'}`);
+    console.log(`PDF included: ${pdfToInclude.length > 0 ? 'Yes' : 'No'}`);
     console.log(`Chapters included: ${chapters.length}`);
 
-    // Calculate estimated cost (Gemini 2.0 Flash pricing)
-    // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
-    const inputCost = (promptTokenCount / 1000000) * 0.075;
-    const outputCost = (candidatesTokenCount / 1000000) * 0.30;
-    const totalCost = inputCost + outputCost;
+    // Get model pricing from database for accurate cost calculation
+    const { data: modelData, error: modelError } = await supabaseClient
+      .from('ai_models')
+      .select('input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', aiModel.model_name)
+      .single();
 
-    console.log(`Estimated cost: $${totalCost.toFixed(6)} (Input: $${inputCost.toFixed(6)}, Output: $${outputCost.toFixed(6)})`);
+    let inputCost = 0;
+    let outputCost = 0;
+    let totalCost = 0;
 
-    const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!modelError && modelData) {
+      inputCost = (promptTokenCount / 1000000) * modelData.input_token_cost_per_million;
+      outputCost = (candidatesTokenCount / 1000000) * modelData.output_token_cost_per_million;
+      totalCost = inputCost + outputCost;
+      console.log(`Estimated cost: $${totalCost.toFixed(6)} (Input: $${inputCost.toFixed(6)}, Output: $${outputCost.toFixed(6)})`);
+    }
+
+    const generatedText = aiResponse.content;
     console.log("📄 Generated text length:", generatedText.length);
     console.log("📄 Generated text preview:", generatedText.substring(0, 500));
 
@@ -443,7 +437,7 @@ Return ONLY the JSON array, no additional text.`;
 
     // Insert events in batches to avoid connection timeouts
     console.log("💾 Inserting events into database in batches...");
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 25; // Reduced batch size for better reliability
     const batches = [];
 
     for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
@@ -458,28 +452,42 @@ Return ONLY the JSON array, no additional text.`;
       const batch = batches[i];
       console.log(`💾 Inserting batch ${i + 1}/${batches.length} (${batch.length} events)...`);
 
-      try {
-        const { data: batchData, error: batchError } = await supabaseClient
-          .from('study_plan_events')
-          .insert(batch)
-          .select();
+      // Retry logic for failed batches
+      let retryCount = 0;
+      const MAX_RETRIES = 3;
+      let success = false;
 
-        if (batchError) {
-          console.error(`❌ Error inserting batch ${i + 1}:`, batchError);
-          console.error('Error details:', JSON.stringify(batchError, null, 2));
-          throw batchError;
+      while (!success && retryCount < MAX_RETRIES) {
+        try {
+          const { data: batchData, error: batchError } = await supabaseClient
+            .from('study_plan_events')
+            .insert(batch)
+            .select();
+
+          if (batchError) {
+            throw batchError;
+          }
+
+          insertedEvents = insertedEvents.concat(batchData || []);
+          console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
+          success = true;
+
+          // Longer delay between batches to avoid connection issues
+          if (i < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        } catch (error) {
+          retryCount++;
+          if (retryCount < MAX_RETRIES) {
+            console.log(`⚠️ Batch ${i + 1} failed, retrying (${retryCount}/${MAX_RETRIES})...`);
+            // Exponential backoff: wait longer after each failure
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          } else {
+            console.error(`❌ Failed to insert batch ${i + 1} after ${MAX_RETRIES} retries:`, error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            throw error;
+          }
         }
-
-        insertedEvents = insertedEvents.concat(batchData || []);
-        console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
-
-        // Small delay between batches to avoid overwhelming the connection
-        if (i < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.error(`❌ Failed to insert batch ${i + 1}:`, error);
-        throw error;
       }
     }
 
@@ -491,16 +499,25 @@ Return ONLY the JSON array, no additional text.`;
 
     // Save token usage to database for cost tracking and analytics
     console.log("💾 Logging token usage to database...");
+
+    // Get model ID for logging
+    const { data: aiModelData } = await supabaseClient
+      .from('ai_models')
+      .select('id')
+      .eq('model_name', aiModel.model_name)
+      .single();
+
     try {
       await supabaseClient.from('token_usage_logs').insert({
         user_id: user_id,
-        model: 'gemini-2.0-flash-exp',
-        provider: 'gemini',
+        model: aiModel.model_name,
+        provider: aiModel.provider,
         prompt_tokens: promptTokenCount,
         completion_tokens: candidatesTokenCount,
         total_tokens: totalTokenCount,
         estimated_cost: totalCost,
         purpose: 'study_plan_generation',
+        ai_model_id: aiModelData?.id || null,
         metadata: {
           schedule_id: schedule_id,
           subject_id: subject_id,

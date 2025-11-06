@@ -63,7 +63,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [selectedSyllabus, setSelectedSyllabus] = useState('');
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [studyDuration, setStudyDuration] = useState(60);
-  const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
+  const [selectedDays, setSelectedDays] = useState<string[]>(['monday', 'wednesday', 'friday']); // Default selection
   const [preferredTimes, setPreferredTimes] = useState<string[]>(['evening']);
   const [startDate, setStartDate] = useState(() => {
     const tomorrow = new Date();
@@ -75,6 +75,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     threeMonths.setMonth(threeMonths.getMonth() + 3);
     return threeMonths.toISOString().split('T')[0];
   });
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -183,7 +185,6 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         console.error('Error fetching chapters:', error);
         setChapters([]);
       } else {
-        console.log('Fetched chapters:', data);
         setChapters(data || []);
       }
     } catch (error) {
@@ -260,7 +261,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           subject_id: selectedSubject,
           grade_id: selectedGrade,
           study_duration_minutes: studyDuration,
-          sessions_per_week: sessionsPerWeek,
+          sessions_per_week: selectedDays.length,
           preferred_times: preferredTimes,
           start_date: startDate,
           end_date: endDate,
@@ -290,7 +291,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           syllabus_id: selectedSyllabus,
           chapter_ids: selectedChapters.length > 0 ? selectedChapters : undefined,
           study_duration_minutes: studyDuration,
-          sessions_per_week: sessionsPerWeek,
+          selected_days: selectedDays, // Selected days of the week
           preferred_times: preferredTimes,
           start_date: startDate,
           end_date: endDate
@@ -319,6 +320,76 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     }
   };
 
+  const toggleDay = (day: string) => {
+    setSelectedDays(prev => {
+      if (prev.includes(day)) {
+        return prev.filter(d => d !== day);
+      } else {
+        return [...prev, day];
+      }
+    });
+    setConflictWarning(null); // Clear warning when days change
+  };
+
+  const checkTimeConflicts = async () => {
+    if (!user || selectedDays.length === 0) return;
+
+    setCheckingConflicts(true);
+    setConflictWarning(null);
+
+    try {
+      // Fetch all existing events for the user
+      const { data: existingEvents, error } = await supabase
+        .from('study_plan_events')
+        .select('event_date, start_time, end_time, study_plan_schedules!inner(is_active)')
+        .eq('user_id', user.id)
+        .eq('study_plan_schedules.is_active', true);
+
+      if (error) throw error;
+
+      // Convert selected days to day numbers (0 = Sunday, 1 = Monday, etc.)
+      const dayMap: { [key: string]: number } = {
+        sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+        thursday: 4, friday: 5, saturday: 6
+      };
+      const selectedDayNumbers = selectedDays.map(day => dayMap[day.toLowerCase()]);
+
+      // Check if any of the selected days have conflicting events
+      const conflicts: string[] = [];
+      const eventsGroupedByDay: { [key: string]: number } = {};
+
+      existingEvents?.forEach((event: any) => {
+        const eventDate = new Date(event.event_date);
+        const dayOfWeek = eventDate.getDay();
+        const dayName = Object.keys(dayMap).find(key => dayMap[key] === dayOfWeek);
+
+        if (dayName && selectedDayNumbers.includes(dayOfWeek)) {
+          if (!eventsGroupedByDay[dayName]) {
+            eventsGroupedByDay[dayName] = 0;
+          }
+          eventsGroupedByDay[dayName]++;
+        }
+      });
+
+      // Check if any day has too many events (>3 per day considered full)
+      Object.entries(eventsGroupedByDay).forEach(([day, count]) => {
+        if (count >= 3) {
+          conflicts.push(day.charAt(0).toUpperCase() + day.slice(1));
+        }
+      });
+
+      if (conflicts.length > 0) {
+        setConflictWarning(
+          `Some days may have scheduling conflicts: ${conflicts.join(', ')}. The AI will try to find available time slots, but some sessions might be scheduled at different times than your preference.`
+        );
+      }
+    } catch (error) {
+      console.error('Error checking conflicts:', error);
+    } finally {
+      setCheckingConflicts(false);
+    }
+  };
+
   const resetForm = () => {
     setStep(1);
     setSelectedGrade('');
@@ -328,8 +399,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     setSelectedChapters([]);
     setChapters([]);
     setStudyDuration(60);
-    setSessionsPerWeek(3);
+    setSelectedDays(['monday', 'wednesday', 'friday']);
     setPreferredTimes(['evening']);
+    setConflictWarning(null);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setStartDate(tomorrow.toISOString().split('T')[0]);
@@ -343,7 +415,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       case 1:
         return selectedSubject && selectedGrade && selectedSyllabus;
       case 2:
-        return studyDuration > 0 && sessionsPerWeek > 0;
+        return studyDuration > 0 && selectedDays.length > 0;
       case 3:
         return preferredTimes.length > 0 && startDate && endDate;
       default:
@@ -376,19 +448,21 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
             </button>
           </div>
           {/* AI Tokens Display */}
-          <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
-            <Zap className="w-4 h-4 text-purple-600" />
-            <div className="text-xs flex-1">
-              <span className="text-gray-600">AI Tokens: </span>
-              <span className="font-semibold text-gray-900">
-                {tokensLimit === null
-                  ? `Unlimited`
-                  : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`
-                }
-              </span>
+          <div className="px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-purple-600 flex-shrink-0" />
+              <div className="text-xs flex-1">
+                <span className="text-gray-600">AI Tokens: </span>
+                <span className="font-semibold text-gray-900">
+                  {tokensLimit === null
+                    ? `Unlimited`
+                    : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`
+                  }
+                </span>
+              </div>
             </div>
-            <div className="text-xs text-gray-600">
-              • Tokens will be used to generate your study plan
+            <div className="text-xs text-gray-600 mt-1.5 ml-6">
+              Tokens will be used to generate your study plan
             </div>
           </div>
         </div>
@@ -617,26 +691,41 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
-                  Sessions per Week
+                  Select Study Days
                 </label>
-                <div className="grid grid-cols-7 gap-2">
-                  {[1, 2, 3, 4, 5, 6, 7].map(num => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                     <button
-                      key={num}
-                      onClick={() => setSessionsPerWeek(num)}
+                      key={day}
+                      onClick={() => toggleDay(day)}
                       className={`p-3 border-2 rounded-lg transition-all ${
-                        sessionsPerWeek === num
+                        selectedDays.includes(day)
                           ? 'border-black bg-gray-50 text-black'
                           : 'border-gray-200 hover:border-gray-300 text-gray-700'
                       }`}
                     >
                       <div className="text-center">
-                        <div className="font-bold">{num}</div>
-                        <div className="text-xs">{num === 1 ? 'day' : 'days'}</div>
+                        <div className="font-bold text-xs sm:text-sm">{day.slice(0, 3).toUpperCase()}</div>
+                        <div className="text-xs hidden sm:block">{day.charAt(0).toUpperCase() + day.slice(1)}</div>
                       </div>
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  Selected {selectedDays.length} day{selectedDays.length !== 1 ? 's' : ''} per week
+                </p>
+                <button
+                  onClick={checkTimeConflicts}
+                  disabled={checkingConflicts || selectedDays.length === 0}
+                  className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+                >
+                  {checkingConflicts ? 'Checking conflicts...' : 'Check for time conflicts'}
+                </button>
+                {conflictWarning && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-900">{conflictWarning}</p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -720,7 +809,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                     <ul className="text-sm text-gray-900 space-y-1">
                       <li>• Personalized study schedule based on your preferences</li>
                       <li>• Optimal topic distribution across sessions</li>
-                      <li>• Progress tracking and milestone reminders</li>
+                      <li>• Progress tracking for all your study sessions</li>
                       <li>• Adaptive scheduling based on your pace</li>
                     </ul>
                   </div>
@@ -731,13 +820,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div>
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-4 md:px-6 py-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="order-2 sm:order-1">
             {step > 1 && (
               <button
                 onClick={() => setStep(step - 1)}
                 disabled={generating}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center justify-center space-x-2 px-4 py-2.5 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 w-full sm:w-auto"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>Back</span>
@@ -745,11 +834,12 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
             )}
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-end gap-3 order-1 sm:order-2">
+            {/* Cancel button - hidden on mobile since there's an X button at the top */}
             <button
               onClick={onClose}
               disabled={generating}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              className="hidden md:block px-4 py-2.5 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
@@ -757,7 +847,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               <button
                 onClick={() => setStep(step + 1)}
                 disabled={!canProceed()}
-                className="flex items-center space-x-2 px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center space-x-2 px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-initial"
               >
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4" />
@@ -766,7 +856,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               <button
                 onClick={handleGenerateStudyPlan}
                 disabled={!canProceed() || generating}
-                className="flex items-center space-x-2 px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center space-x-2 px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-initial"
               >
                 {generating ? (
                   <>

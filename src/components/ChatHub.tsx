@@ -99,6 +99,7 @@ export function ChatHub({
     conversationId: null,
   });
   const [userTier, setUserTier] = useState<string>('');
+  const [canAccessStudyPlan, setCanAccessStudyPlan] = useState<boolean>(false);
   const [showBlinkAnimation, setShowBlinkAnimation] = useState(true);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [loadingTodayEvents, setLoadingTodayEvents] = useState(false);
@@ -136,7 +137,7 @@ export function ChatHub({
     try {
       const { data, error } = await supabase
         .from('user_subscriptions')
-        .select('subscription_tiers(name)')
+        .select('subscription_tiers(name, can_access_study_plan)')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .single();
@@ -152,13 +153,14 @@ export function ChatHub({
             // Retry fetching the tier
             const { data: retryData } = await supabase
               .from('user_subscriptions')
-              .select('subscription_tiers(name)')
+              .select('subscription_tiers(name, can_access_study_plan)')
               .eq('user_id', user.id)
               .eq('status', 'active')
               .single();
 
             if (retryData && retryData.subscription_tiers) {
               setUserTier((retryData.subscription_tiers as any).name);
+              setCanAccessStudyPlan((retryData.subscription_tiers as any).can_access_study_plan || false);
             }
           }
         } catch (err) {
@@ -168,6 +170,7 @@ export function ChatHub({
 
       if (data && data.subscription_tiers) {
         setUserTier((data.subscription_tiers as any).name);
+        setCanAccessStudyPlan((data.subscription_tiers as any).can_access_study_plan || false);
       }
     } catch (error) {
     }
@@ -232,10 +235,10 @@ export function ChatHub({
     }
   };
 
-  // Filter today's events based on subscription tier and accessible subjects
+  // Filter today's events based on subscription tier configuration and accessible subjects
   const getFilteredTodayEvents = () => {
-    // Free tier users should not see study plans
-    if (userTier === 'free') {
+    // Users without study plan access should not see study plans
+    if (!canAccessStudyPlan) {
       return [];
     }
 

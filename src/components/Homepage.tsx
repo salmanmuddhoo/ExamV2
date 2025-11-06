@@ -90,7 +90,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </h1>
               
               <p className="text-lg sm:text-xl text-gray-600 mb-6 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                Practice exam papers anywhere, anytime with an intelligent AI tutor. Create your own study plan, track your progress, and get detailed explanations for every question on any device.
+                Practice exam papers anywhere, anytime with an intelligent AI tutor. Get AI-generated Study Plans tailored to your goals, track your progress, and receive detailed explanations for every question on any device.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -547,6 +547,12 @@ function AppScreenshotSlider() {
       description: 'Study on-the-go with our mobile web app',
       image: '/assets/iphone.png',
       isDesktop: false,
+    },
+    {
+      title: 'AI Study Plan',
+      description: 'Personalized schedules with intelligent planning',
+      image: '/assets/study-plan.png',
+      isDesktop: true,
     },
   ];
 
