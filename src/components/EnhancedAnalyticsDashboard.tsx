@@ -109,8 +109,7 @@ export function EnhancedAnalyticsDashboard() {
             provider
           ),
           exam_papers (
-            title,
-            paper_type
+            title
           )
         `)
         .gte('created_at', dateFilter.toISOString())
@@ -129,7 +128,7 @@ export function EnhancedAnalyticsDashboard() {
         // === UPLOAD BREAKDOWN ===
         // Exam paper uploads (user_id is null and has exam_paper_id)
         const examPaperUploads = logs.filter(
-          (log) => !log.user_id && log.exam_paper_id && log.exam_papers?.paper_type !== 'syllabus'
+          (log) => !log.user_id && log.exam_paper_id
         );
         const examPaperUploadCost = examPaperUploads.reduce(
           (sum, log) => sum + parseFloat(log.estimated_cost || 0),
@@ -141,9 +140,9 @@ export function EnhancedAnalyticsDashboard() {
         );
         const examPaperUploadCount = examPaperUploads.length;
 
-        // Syllabus uploads
+        // Syllabus uploads (user_id is null, no exam_paper_id - these are other processing tasks)
         const syllabusUploads = logs.filter(
-          (log) => !log.user_id && log.exam_papers?.paper_type === 'syllabus'
+          (log) => !log.user_id && !log.exam_paper_id
         );
         const syllabusUploadCost = syllabusUploads.reduce(
           (sum, log) => sum + parseFloat(log.estimated_cost || 0),
