@@ -57,6 +57,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const [schedules, setSchedules] = useState<(StudyPlanSchedule & { subjects?: { name: string }; grade_levels?: { name: string } })[]>([]);
   const [showSchedules, setShowSchedules] = useState(false);
   const [mobileView, setMobileView] = useState<'calendar' | 'list'>('calendar');
+  const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('month');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string | null>(null);
   const [showMobileDateModal, setShowMobileDateModal] = useState(false);
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
@@ -462,6 +463,36 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     return days;
   };
 
+  const getDaysInWeek = () => {
+    const startOfWeek = new Date(selectedDate || currentDate);
+    const day = startOfWeek.getDay();
+    startOfWeek.setDate(startOfWeek.getDate() - day); // Go to Sunday
+
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      days.push(date);
+    }
+    return days;
+  };
+
+  const getSingleDay = () => {
+    return [selectedDate || currentDate];
+  };
+
+  const getDisplayDays = () => {
+    switch (calendarView) {
+      case 'day':
+        return getSingleDay();
+      case 'week':
+        return getDaysInWeek();
+      case 'month':
+      default:
+        return getDaysInMonth();
+    }
+  };
+
   const getEventsForDate = (date: Date | null) => {
     if (!date) return [];
     const dateStr = date.toISOString().split('T')[0];
@@ -680,12 +711,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     );
   }
 
-  const days = getDaysInMonth();
+  const days = getDisplayDays();
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -1030,27 +1061,93 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         )}
 
         {/* Calendar Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden max-w-full">
           <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3 md:mb-0">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3">
               <h2 className="text-lg font-semibold text-gray-900">
-                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                {calendarView === 'day'
+                  ? (selectedDate || currentDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+                  : calendarView === 'week'
+                  ? `Week of ${getDaysInWeek()[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                  : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                }
               </h2>
+
+              {/* View Toggle - Desktop */}
+              <div className="hidden md:flex items-center space-x-1 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setCalendarView('day')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    calendarView === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Day
+                </button>
+                <button
+                  onClick={() => setCalendarView('week')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    calendarView === 'week' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setCalendarView('month')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    calendarView === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
+
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
+                  onClick={() => {
+                    if (calendarView === 'day') {
+                      const newDate = new Date(selectedDate || currentDate);
+                      newDate.setDate(newDate.getDate() - 1);
+                      setSelectedDate(newDate);
+                      setCurrentDate(newDate);
+                    } else if (calendarView === 'week') {
+                      const newDate = new Date(selectedDate || currentDate);
+                      newDate.setDate(newDate.getDate() - 7);
+                      setSelectedDate(newDate);
+                      setCurrentDate(newDate);
+                    } else {
+                      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
+                    }
+                  }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5 text-gray-600" />
                 </button>
                 <button
-                  onClick={() => setCurrentDate(new Date())}
+                  onClick={() => {
+                    const today = new Date();
+                    setCurrentDate(today);
+                    setSelectedDate(today);
+                  }}
                   className="px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Today
                 </button>
                 <button
-                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                  onClick={() => {
+                    if (calendarView === 'day') {
+                      const newDate = new Date(selectedDate || currentDate);
+                      newDate.setDate(newDate.getDate() + 1);
+                      setSelectedDate(newDate);
+                      setCurrentDate(newDate);
+                    } else if (calendarView === 'week') {
+                      const newDate = new Date(selectedDate || currentDate);
+                      newDate.setDate(newDate.getDate() + 7);
+                      setSelectedDate(newDate);
+                      setCurrentDate(newDate);
+                    } else {
+                      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
+                    }
+                  }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -1058,8 +1155,36 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
               </div>
             </div>
 
-            {/* Mobile View Toggle */}
-            <div className="flex md:hidden items-center justify-center space-x-2 mt-3 bg-gray-100 p-1 rounded-lg">
+            {/* View Toggle - Mobile */}
+            <div className="flex md:hidden items-center justify-center space-x-1 mt-3 bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setCalendarView('day')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex-1 ${
+                  calendarView === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+                }`}
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setCalendarView('week')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex-1 ${
+                  calendarView === 'week' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+                }`}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setCalendarView('month')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex-1 ${
+                  calendarView === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
+                }`}
+              >
+                Month
+              </button>
+            </div>
+
+            {/* Mobile View Toggle (Calendar/List) */}
+            <div className="flex md:hidden items-center justify-center space-x-2 mt-2 bg-gray-50 p-1 rounded-lg">
               <button
                 onClick={() => setMobileView('calendar')}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all flex-1 justify-center ${
@@ -1086,17 +1211,29 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           </div>
 
           {/* Desktop Calendar Grid with Right Panel */}
-          <div className="hidden md:flex p-6 gap-6">
+          <div className="hidden md:flex p-6 gap-6 max-w-full overflow-x-hidden">
             {/* Calendar Grid */}
-            <div className="w-2/3 transition-all">
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {dayNames.map(day => (
-                  <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-2">
+            <div className="w-2/3 transition-all min-w-0">
+              {calendarView === 'month' && (
+                <div className="grid grid-cols-7 gap-2 mb-2">
+                  {dayNames.map(day => (
+                    <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {calendarView === 'week' && (
+                <div className="grid grid-cols-7 gap-2 mb-2">
+                  {getDaysInWeek().map((day, idx) => (
+                    <div key={idx} className="text-center text-sm font-semibold text-gray-600 py-2">
+                      <div>{dayNames[day.getDay()]}</div>
+                      <div className="text-xs text-gray-500">{day.getDate()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className={`grid ${calendarView === 'day' ? 'grid-cols-1' : 'grid-cols-7'} gap-2`}>
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day);
                   const isToday = day && day.toDateString() === new Date().toDateString();
@@ -1105,7 +1242,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   return (
                     <div
                       key={index}
-                      className={`min-h-[120px] p-2 border rounded-lg transition-all ${
+                      className={`${calendarView === 'month' ? 'min-h-[80px]' : calendarView === 'week' ? 'min-h-[200px]' : 'min-h-[400px]'} p-2 border rounded-lg transition-all ${
                         day
                           ? 'bg-white hover:bg-gray-50 cursor-pointer border-gray-200'
                           : 'bg-gray-50 border-gray-100'
@@ -1117,10 +1254,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                           <div className={`text-sm font-semibold mb-2 ${
                             isToday ? 'text-black font-bold' : isSelected ? 'text-gray-900 font-bold' : 'text-gray-900'
                           }`}>
-                            {day.getDate()}
+                            {calendarView === 'day' ? day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : day.getDate()}
                           </div>
-                          <div className="space-y-1">
-                            {dayEvents.slice(0, 3).map(event => (
+                          <div className="space-y-1 overflow-y-auto" style={{ maxHeight: calendarView === 'month' ? '60px' : 'calc(100% - 40px)' }}>
+                            {dayEvents.slice(0, calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20).map(event => (
                               <div
                                 key={event.id}
                                 onClick={(e) => {
@@ -1128,17 +1265,20 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   setSelectedEvent(event);
                                   setShowEventModal(true);
                                 }}
-                                className={`text-xs p-1 rounded border ${getStatusColor(event.status)} truncate cursor-pointer hover:shadow-md transition-shadow`}
+                                className={`text-xs p-1 rounded border ${getStatusColor(event.status)} ${calendarView === 'month' ? 'truncate' : ''} cursor-pointer hover:shadow-md transition-shadow`}
                               >
                                 <div className="flex items-center space-x-1">
                                   {getStatusIcon(event.status)}
-                                  <span className="truncate">{formatEventTitle(event)}</span>
+                                  <span className={calendarView === 'month' ? 'truncate' : ''}>{formatEventTitle(event)}</span>
                                 </div>
+                                {calendarView !== 'month' && event.description && (
+                                  <p className="text-[10px] text-gray-600 mt-0.5 line-clamp-2">{event.description}</p>
+                                )}
                               </div>
                             ))}
-                            {dayEvents.length > 3 && (
+                            {dayEvents.length > (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20) && (
                               <div className="text-xs text-gray-500 text-center">
-                                +{dayEvents.length - 3} more
+                                +{dayEvents.length - (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20)} more
                               </div>
                             )}
                           </div>
@@ -1264,15 +1404,27 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
           {/* Mobile Calendar Grid */}
           {mobileView === 'calendar' && (
-            <div className="md:hidden p-4">
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                  <div key={idx} className="text-center text-xs font-semibold text-gray-600 py-2">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
+            <div className="md:hidden p-4 max-w-full overflow-x-hidden">
+              {calendarView === 'month' && (
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                    <div key={idx} className="text-center text-xs font-semibold text-gray-600 py-2">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {calendarView === 'week' && (
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {getDaysInWeek().map((day, idx) => (
+                    <div key={idx} className="text-center text-xs font-semibold text-gray-600 py-2">
+                      <div>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][day.getDay()]}</div>
+                      <div className="text-[10px] text-gray-500">{day.getDate()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className={`grid ${calendarView === 'day' ? 'grid-cols-1' : 'grid-cols-7'} gap-1`}>
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day);
                   const isToday = day && day.toDateString() === new Date().toDateString();
@@ -1287,7 +1439,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                           setShowMobileDateModal(true);
                         }
                       }}
-                      className={`min-h-[60px] p-1 border rounded transition-all ${
+                      className={`${calendarView === 'month' ? 'min-h-[60px]' : calendarView === 'week' ? 'min-h-[120px]' : 'min-h-[300px]'} p-1 border rounded transition-all ${
                         day
                           ? hasEvents
                             ? 'bg-white hover:bg-gray-50 cursor-pointer border-gray-200'
@@ -1300,25 +1452,48 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                           <div className={`text-xs font-semibold mb-0.5 ${
                             isToday ? 'text-black font-bold' : 'text-gray-900'
                           }`}>
-                            {day.getDate()}
+                            {calendarView === 'day' ? day.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : day.getDate()}
                           </div>
                           {hasEvents && (
-                            <div className="space-y-0.5">
-                              {dayEvents.slice(0, 2).map((event) => (
-                                <div
-                                  key={event.id}
-                                  className={`w-full h-1.5 rounded-full ${
-                                    event.status === 'completed' ? 'bg-green-500' :
-                                    event.status === 'in_progress' ? 'bg-blue-500' :
-                                    event.status === 'skipped' ? 'bg-gray-300' :
-                                    'bg-gray-700'
-                                  }`}
-                                />
-                              ))}
-                              {dayEvents.length > 2 && (
-                                <div className="text-[10px] text-gray-500 text-center font-medium">
-                                  +{dayEvents.length - 2}
-                                </div>
+                            <div className="space-y-0.5 overflow-y-auto" style={{ maxHeight: calendarView === 'month' ? '45px' : 'calc(100% - 30px)' }}>
+                              {calendarView === 'month' ? (
+                                <>
+                                  {dayEvents.slice(0, 2).map((event) => (
+                                    <div
+                                      key={event.id}
+                                      className={`w-full h-1.5 rounded-full ${
+                                        event.status === 'completed' ? 'bg-green-500' :
+                                        event.status === 'in_progress' ? 'bg-blue-500' :
+                                        event.status === 'skipped' ? 'bg-gray-300' :
+                                        'bg-gray-700'
+                                      }`}
+                                    />
+                                  ))}
+                                  {dayEvents.length > 2 && (
+                                    <div className="text-[10px] text-gray-500 text-center font-medium">
+                                      +{dayEvents.length - 2}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {dayEvents.slice(0, calendarView === 'week' ? 5 : 15).map((event) => (
+                                    <div
+                                      key={event.id}
+                                      className={`text-[10px] p-0.5 rounded border ${getStatusColor(event.status)}`}
+                                    >
+                                      <div className="flex items-center space-x-0.5">
+                                        {getStatusIcon(event.status)}
+                                        <span className="truncate text-[9px]">{formatEventTitle(event)}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {dayEvents.length > (calendarView === 'week' ? 5 : 15) && (
+                                    <div className="text-[10px] text-gray-500 text-center font-medium">
+                                      +{dayEvents.length - (calendarView === 'week' ? 5 : 15)}
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
