@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "../_shared/ai-providers.ts";
+import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "./ai-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
