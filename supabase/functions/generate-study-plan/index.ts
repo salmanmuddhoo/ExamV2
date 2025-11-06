@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "../_shared/ai-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -210,14 +211,19 @@ Deno.serve(async (req) => {
       console.log("📅 No existing events found - calendar is clear");
     }
 
-    // Get Gemini API key
-    console.log("🔑 Checking for Gemini API key...");
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) {
-      console.error("❌ Gemini API key not configured");
-      throw new Error("Gemini API key not configured");
+    // Get user's preferred AI model
+    console.log("🤖 Fetching user's preferred AI model...");
+    let aiModel: AIModelConfig | null = await getUserAIModel(supabaseClient, user_id);
+
+    if (!aiModel) {
+      console.log("📋 No user preference found, using default model");
+      aiModel = await getDefaultAIModel(supabaseClient);
     }
-    console.log("✅ Gemini API key found (length:", geminiApiKey.length, ")");
+
+    console.log(`✅ Using AI model: ${aiModel.display_name} (${aiModel.provider})`);
+    console.log(`   - Model: ${aiModel.model_name}`);
+    console.log(`   - Vision: ${aiModel.supports_vision}`);
+    console.log(`   - Caching: ${aiModel.supports_caching}`);
 
     // Prepare prompt for Gemini
     const isChapterSpecific = chapter_ids && chapter_ids.length > 0;
@@ -304,83 +310,71 @@ ${isChapterSpecific ? '14. Do NOT include any chapters that are not in the list 
 
 Return ONLY the JSON array, no additional text.`;
 
-    console.log("🤖 Calling Gemini API...");
+    console.log("🤖 Calling AI API...");
     console.log("📏 Prompt length:", prompt.length, "characters");
 
-    // Prepare parts for Gemini API
-    const parts: any[] = [];
-
-    // Add PDF first if available
-    if (syllabusPdfBase64) {
-      console.log("📄 Adding syllabus PDF to request");
-      parts.push({
-        inline_data: {
-          mime_type: "application/pdf",
-          data: syllabusPdfBase64
-        }
-      });
+    // Note: OpenAI and Claude don't support PDF files directly like Gemini does
+    // For non-Gemini models, we rely on the extracted chapter information in the prompt
+    let pdfToInclude: string[] = [];
+    if (syllabusPdfBase64 && aiModel.provider === 'gemini') {
+      console.log("📄 Including syllabus PDF (Gemini supports PDFs)");
+      pdfToInclude = [syllabusPdfBase64];
+    } else if (syllabusPdfBase64) {
+      console.log("⚠️ PDF available but provider doesn't support PDFs directly, using text description");
     }
 
-    // Add text prompt
-    parts.push({
-      text: prompt
+    // For providers that don't support PDFs, enhance the prompt with chapter details
+    let enhancedPrompt = prompt;
+    if (!pdfToInclude.length && syllabusPdfBase64) {
+      enhancedPrompt = `${prompt}\n\nNote: The detailed syllabus structure and chapters are listed above. Use this information to plan the study schedule.`;
+    }
+
+    // Call AI provider abstraction
+    const aiResponse = await generateAIResponse({
+      model: aiModel,
+      messages: [{
+        role: 'user',
+        content: enhancedPrompt
+      }],
+      images: pdfToInclude,
+      temperature: 0.7,
+      maxTokens: 8000
     });
 
-    // Call Gemini API
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: parts
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8000,
-          }
-        })
-      }
-    );
+    console.log("✅ AI API response received");
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('❌ Gemini API error:', errorText);
-      console.error('Status:', geminiResponse.status);
-      throw new Error(`Gemini API error: ${geminiResponse.status}`);
-    }
-
-    console.log("✅ Gemini API response received");
-    const geminiData = await geminiResponse.json();
-    console.log("📦 Gemini response structure:", JSON.stringify(geminiData, null, 2));
-
-    // Extract token usage from Gemini response
-    const usageMetadata = geminiData?.usageMetadata || {};
-    const promptTokenCount = usageMetadata.promptTokenCount || 0;
-    const candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
-    const totalTokenCount = usageMetadata.totalTokenCount || (promptTokenCount + candidatesTokenCount);
+    const promptTokenCount = aiResponse.promptTokens;
+    const candidatesTokenCount = aiResponse.completionTokens;
+    const totalTokenCount = aiResponse.totalTokens;
 
     // Log token usage for monitoring
     console.log('=== Token Usage ===');
-    console.log(`Model used: gemini-2.0-flash-exp`);
+    console.log(`Model used: ${aiModel.model_name} (${aiModel.provider})`);
     console.log(`Input tokens: ${promptTokenCount}`);
     console.log(`Output tokens: ${candidatesTokenCount}`);
     console.log(`Total tokens: ${totalTokenCount}`);
-    console.log(`PDF included: ${syllabusPdfBase64 ? 'Yes' : 'No'}`);
+    console.log(`PDF included: ${pdfToInclude.length > 0 ? 'Yes' : 'No'}`);
     console.log(`Chapters included: ${chapters.length}`);
 
-    // Calculate estimated cost (Gemini 2.0 Flash pricing)
-    // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
-    const inputCost = (promptTokenCount / 1000000) * 0.075;
-    const outputCost = (candidatesTokenCount / 1000000) * 0.30;
-    const totalCost = inputCost + outputCost;
+    // Get model pricing from database for accurate cost calculation
+    const { data: modelData, error: modelError } = await supabaseClient
+      .from('ai_models')
+      .select('input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', aiModel.model_name)
+      .single();
 
-    console.log(`Estimated cost: $${totalCost.toFixed(6)} (Input: $${inputCost.toFixed(6)}, Output: $${outputCost.toFixed(6)})`);
+    let inputCost = 0;
+    let outputCost = 0;
+    let totalCost = 0;
 
-    const generatedText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!modelError && modelData) {
+      inputCost = (promptTokenCount / 1000000) * modelData.input_token_cost_per_million;
+      outputCost = (candidatesTokenCount / 1000000) * modelData.output_token_cost_per_million;
+      totalCost = inputCost + outputCost;
+      console.log(`Estimated cost: $${totalCost.toFixed(6)} (Input: $${inputCost.toFixed(6)}, Output: $${outputCost.toFixed(6)})`);
+    }
+
+    const generatedText = aiResponse.content;
     console.log("📄 Generated text length:", generatedText.length);
     console.log("📄 Generated text preview:", generatedText.substring(0, 500));
 
@@ -505,16 +499,25 @@ Return ONLY the JSON array, no additional text.`;
 
     // Save token usage to database for cost tracking and analytics
     console.log("💾 Logging token usage to database...");
+
+    // Get model ID for logging
+    const { data: aiModelData } = await supabaseClient
+      .from('ai_models')
+      .select('id')
+      .eq('model_name', aiModel.model_name)
+      .single();
+
     try {
       await supabaseClient.from('token_usage_logs').insert({
         user_id: user_id,
-        model: 'gemini-2.0-flash-exp',
-        provider: 'gemini',
+        model: aiModel.model_name,
+        provider: aiModel.provider,
         prompt_tokens: promptTokenCount,
         completion_tokens: candidatesTokenCount,
         total_tokens: totalTokenCount,
         estimated_cost: totalCost,
         purpose: 'study_plan_generation',
+        ai_model_id: aiModelData?.id || null,
         metadata: {
           schedule_id: schedule_id,
           subject_id: subject_id,

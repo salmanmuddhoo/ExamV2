@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "../_shared/ai-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -742,6 +743,25 @@ Deno.serve(async (req) => {
 
     console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
 
+    // ========== GET USER'S PREFERRED AI MODEL ==========
+
+    console.log("🤖 Fetching user's preferred AI model...");
+    let aiModel: AIModelConfig | null = null;
+
+    if (userId) {
+      aiModel = await getUserAIModel(supabase, userId);
+    }
+
+    if (!aiModel) {
+      console.log("📋 No user preference found, using default model");
+      aiModel = await getDefaultAIModel(supabase);
+    }
+
+    console.log(`✅ Using AI model: ${aiModel.display_name} (${aiModel.provider})`);
+    console.log(`   - Model: ${aiModel.model_name}`);
+    console.log(`   - Supports Vision: ${aiModel.supports_vision}`);
+    console.log(`   - Supports Caching: ${aiModel.supports_caching}`);
+
     // ========== DUAL CACHE MODE LOGIC ==========
 
     // Get cache mode and API keys from settings
@@ -758,9 +778,59 @@ Deno.serve(async (req) => {
     let data: any;
     let usedCacheName: string | null = null;
     let cacheCreated = false;
-    let modelUsed = useGeminiCache ? 'gemini-2.0-flash' : 'gemini-2.0-flash-exp';
+    let modelUsed = aiModel.model_name;
+    let promptTokenCount = 0;
+    let candidatesTokenCount = 0;
+    let totalTokenCount = 0;
 
-    if (useGeminiCache && detectedQuestionNumber) {
+    // ========== PROVIDER-SPECIFIC LOGIC ==========
+
+    if (aiModel.provider !== 'gemini') {
+      // ========== NON-GEMINI PROVIDERS (Claude, OpenAI) ==========
+      console.log(`🌐 Using ${aiModel.provider.toUpperCase()} provider (no Gemini-specific caching)`);
+
+      const questionPromptText = buildQuestionFocusPrompt(
+        normalizedQuestion,
+        detectedQuestionNumber,
+        questionText,
+        markingSchemeText,
+        false
+      );
+
+      // For non-Gemini providers, we use simple message-based approach
+      const aiResponse = await generateAIResponse({
+        model: aiModel,
+        messages: [{
+          role: 'user',
+          content: questionPromptText
+        }],
+        systemPrompt: contextualSystemPrompt,
+        images: finalExamImages,
+        temperature: 0.7
+      });
+
+      // Convert to Gemini-compatible format for downstream processing
+      data = {
+        candidates: [{
+          content: {
+            parts: [{ text: aiResponse.content }]
+          }
+        }],
+        usageMetadata: {
+          promptTokenCount: aiResponse.promptTokens,
+          candidatesTokenCount: aiResponse.completionTokens,
+          totalTokenCount: aiResponse.totalTokens
+        }
+      };
+
+      promptTokenCount = aiResponse.promptTokens;
+      candidatesTokenCount = aiResponse.completionTokens;
+      totalTokenCount = aiResponse.totalTokens;
+
+      console.log(`✅ ${aiModel.provider.toUpperCase()} response received`);
+      console.log(`📊 Tokens: ${promptTokenCount} input + ${candidatesTokenCount} output = ${totalTokenCount} total`);
+
+    } else if (useGeminiCache && detectedQuestionNumber) {
       // ========== GEMINI BUILT-IN CACHE MODE ==========
       console.log('🔥 Using GEMINI CACHE MODE');
 
@@ -973,34 +1043,58 @@ Deno.serve(async (req) => {
     }
     const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated";
 
-    // Extract token usage from Gemini response
-    const usageMetadata = data?.usageMetadata || {};
-    const promptTokenCount = usageMetadata.promptTokenCount || 0;
-    const candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
-    const totalTokenCount = usageMetadata.totalTokenCount || (promptTokenCount + candidatesTokenCount);
+    // Extract token usage if not already extracted (for Gemini paths)
+    if (promptTokenCount === 0) {
+      const usageMetadata = data?.usageMetadata || {};
+      promptTokenCount = usageMetadata.promptTokenCount || 0;
+      candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
+      totalTokenCount = usageMetadata.totalTokenCount || (promptTokenCount + candidatesTokenCount);
+    }
 
     // Log token usage for monitoring
     console.log('=== Token Usage ===');
-    console.log(`Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
+    console.log(`Provider: ${aiModel.provider}`);
     console.log(`Model used: ${modelUsed}`);
     console.log(`Input tokens: ${promptTokenCount}`);
     console.log(`Output tokens: ${candidatesTokenCount}`);
     console.log(`Total tokens: ${totalTokenCount}`);
-    if (useGeminiCache) {
-      console.log(`Cache used: ${usedCacheName || 'none'}`);
-      console.log(`Cache created: ${cacheCreated}`);
+    if (aiModel.provider === 'gemini') {
+      console.log(`Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
+      if (useGeminiCache) {
+        console.log(`Cache used: ${usedCacheName || 'none'}`);
+        console.log(`Cache created: ${cacheCreated}`);
+      }
     }
     console.log(`Images sent: ${finalExamImages.length}`);
 
-    // Calculate estimated cost (Gemini 2.0 Flash pricing as of Oct 2024)
-    // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
-    const inputCost = (promptTokenCount / 1000000) * 0.075;
-    const outputCost = (candidatesTokenCount / 1000000) * 0.30;
-    const totalCost = inputCost + outputCost;
+    // Get model pricing from database for accurate cost calculation
+    const { data: modelData, error: modelError } = await supabase
+      .from('ai_models')
+      .select('input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', aiModel.model_name)
+      .single();
+
+    let inputCost = 0;
+    let outputCost = 0;
+    let totalCost = 0;
+
+    if (!modelError && modelData) {
+      inputCost = (promptTokenCount / 1000000) * modelData.input_token_cost_per_million;
+      outputCost = (candidatesTokenCount / 1000000) * modelData.output_token_cost_per_million;
+      totalCost = inputCost + outputCost;
+    }
 
     console.log(`Estimated cost: $${totalCost.toFixed(6)}`);
 
     // Save token usage to database for cost tracking and analytics
+
+    // Get model ID for logging
+    const { data: aiModelData } = await supabase
+      .from('ai_models')
+      .select('id')
+      .eq('model_name', aiModel.model_name)
+      .single();
+
     try {
       await supabase.from('token_usage_logs').insert({
         user_id: userId || null,
@@ -1008,7 +1102,8 @@ Deno.serve(async (req) => {
         conversation_id: conversationId || null,
         question_number: detectedQuestionNumber,
         model: modelUsed,
-        provider: 'gemini',
+        provider: aiModel.provider,
+        ai_model_id: aiModelData?.id || null,
         prompt_tokens: promptTokenCount,
         completion_tokens: candidatesTokenCount,
         total_tokens: totalTokenCount,
@@ -1057,14 +1152,14 @@ Deno.serve(async (req) => {
       JSON.stringify({
         answer: aiResponse,
         model: modelUsed,
-        provider: "gemini",
+        provider: aiModel.provider,
         optimized: usedOptimizedMode,
         questionNumber: detectedQuestionNumber,
         imagesUsed: finalExamImages.length,
         isFollowUp: isFollowUp,
         usedMarkingSchemeText: !!markingSchemeText,
-        cacheMode: useGeminiCache ? 'gemini' : 'own',
-        cacheInfo: useGeminiCache ? {
+        cacheMode: aiModel.provider === 'gemini' ? (useGeminiCache ? 'gemini' : 'own') : 'none',
+        cacheInfo: (aiModel.provider === 'gemini' && useGeminiCache) ? {
           cacheName: usedCacheName,
           cacheCreated: cacheCreated,
           cacheReused: !cacheCreated && !!usedCacheName
