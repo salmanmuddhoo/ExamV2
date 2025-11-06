@@ -11,7 +11,8 @@ import {
   Save,
   Trash2,
   BookOpen,
-  Edit3
+  Edit3,
+  AlertCircle
 } from 'lucide-react';
 import { StudyPlanEvent } from '../types/studyPlan';
 import { AlertModal } from './AlertModal';
@@ -300,7 +301,28 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
     return timeStr;
   };
 
-  const getStatusConfig = (status: StudyPlanEvent['status']) => {
+  // Check if event is overdue
+  const isEventOverdue = (event: StudyPlanEvent) => {
+    if (event.status === 'completed' || event.status === 'skipped') {
+      return false; // Completed and skipped events are never overdue
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    const eventDate = new Date(event.event_date);
+    eventDate.setHours(0, 0, 0, 0);
+    return eventDate < today;
+  };
+
+  const getStatusConfig = (status: StudyPlanEvent['status'], isOverdue: boolean) => {
+    if (isOverdue) {
+      return {
+        icon: AlertCircle,
+        label: 'Overdue',
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-300'
+      };
+    }
     switch (status) {
       case 'completed':
         return {
@@ -337,7 +359,8 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
     }
   };
 
-  const statusConfig = getStatusConfig(event.status);
+  const isOverdue = isEventOverdue(event);
+  const statusConfig = getStatusConfig(event.status, isOverdue);
   const StatusIcon = statusConfig.icon;
 
   const formatDate = (dateStr: string) => {
@@ -423,6 +446,21 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
             }
             return null;
           })()}
+
+          {/* Overdue Warning Banner */}
+          {isOverdue && (
+            <div className="bg-red-50 border-2 border-red-400 rounded-lg p-3 mb-3">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-red-900">This task is overdue!</p>
+                  <p className="text-xs text-red-700 mt-0.5">
+                    This session was scheduled for {formatDate(event.event_date)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Title & Description */}
           {!isEditingDetails ? (

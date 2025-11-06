@@ -219,6 +219,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     required
+                    autoComplete="email"
                     className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
                     placeholder="you@example.com"
                   />
@@ -276,6 +277,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
+                    autoComplete="given-name"
                     className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
                     placeholder="John"
                   />
@@ -291,6 +293,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
+                    autoComplete="family-name"
                     className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
                     placeholder="Doe"
                   />
@@ -308,6 +311,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
                 placeholder="you@example.com"
               />
@@ -325,6 +329,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={isSignUp ? 8 : 6}
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
                   className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
                   placeholder="••••••••"
                 />
@@ -387,6 +392,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
+                    autoComplete="new-password"
                     className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-black transition-colors"
                     placeholder="••••••••"
                   />

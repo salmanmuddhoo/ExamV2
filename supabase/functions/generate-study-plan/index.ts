@@ -530,8 +530,27 @@ Return ONLY the JSON array, no additional text.`;
       });
       console.log('✅ Token usage logged to database');
 
-      // Update user subscription token usage
-      console.log("📊 Updating user subscription token usage...");
+      // Update user subscription token usage with cost-based adjustment
+      console.log("📊 Updating user subscription token usage with cost-based adjustment...");
+
+      // Calculate cost-adjusted token consumption using the database function
+      // This ensures that more expensive models consume proportionally more from the user's allocation
+      const { data: adjustedTokenData, error: calcError } = await supabaseClient
+        .rpc('calculate_cost_based_token_consumption', {
+          p_actual_prompt_tokens: promptTokenCount,
+          p_actual_completion_tokens: candidatesTokenCount,
+          p_actual_cost: totalCost
+        });
+
+      let tokensToDeduct = totalTokenCount; // Default to actual tokens if calculation fails
+
+      if (!calcError && adjustedTokenData) {
+        tokensToDeduct = adjustedTokenData;
+        console.log(`Cost-based token adjustment: ${totalTokenCount} actual tokens -> ${tokensToDeduct} Gemini-equivalent tokens (${(tokensToDeduct / totalTokenCount).toFixed(2)}x multiplier)`);
+      } else {
+        console.error('❌ Failed to calculate cost-based tokens, using actual token count:', calcError);
+      }
+
       const { data: currentSub, error: fetchError } = await supabaseClient
         .from('user_subscriptions')
         .select('tokens_used_current_period')
@@ -542,7 +561,7 @@ Return ONLY the JSON array, no additional text.`;
       if (fetchError) {
         console.error('❌ Failed to fetch current subscription:', fetchError);
       } else if (currentSub) {
-        const newTokenCount = currentSub.tokens_used_current_period + totalTokenCount;
+        const newTokenCount = currentSub.tokens_used_current_period + tokensToDeduct;
 
         const { error: updateError } = await supabaseClient
           .from('user_subscriptions')
@@ -555,7 +574,7 @@ Return ONLY the JSON array, no additional text.`;
         if (updateError) {
           console.error('❌ Failed to update subscription token usage:', updateError);
         } else {
-          console.log(`✅ Updated subscription token usage: ${currentSub.tokens_used_current_period} -> ${newTokenCount} (+${totalTokenCount} tokens)`);
+          console.log(`✅ Updated subscription token usage: ${currentSub.tokens_used_current_period} -> ${newTokenCount} (+${tokensToDeduct} Gemini-equivalent tokens, ${totalTokenCount} actual tokens, cost $${totalCost.toFixed(6)})`);
         }
       }
     } catch (logError) {
