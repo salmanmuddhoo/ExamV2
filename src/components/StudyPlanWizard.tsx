@@ -376,19 +376,21 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
             </button>
           </div>
           {/* AI Tokens Display */}
-          <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
-            <Zap className="w-4 h-4 text-purple-600" />
-            <div className="text-xs flex-1">
-              <span className="text-gray-600">AI Tokens: </span>
-              <span className="font-semibold text-gray-900">
-                {tokensLimit === null
-                  ? `Unlimited`
-                  : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`
-                }
-              </span>
+          <div className="px-3 py-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-purple-600 flex-shrink-0" />
+              <div className="text-xs flex-1">
+                <span className="text-gray-600">AI Tokens: </span>
+                <span className="font-semibold text-gray-900">
+                  {tokensLimit === null
+                    ? `Unlimited`
+                    : `${formatTokenCount(tokensUsed)} / ${formatTokenCount(tokensLimit)}`
+                  }
+                </span>
+              </div>
             </div>
-            <div className="text-xs text-gray-600">
-              • Tokens will be used to generate your study plan
+            <div className="text-xs text-gray-600 mt-1.5 ml-6">
+              Tokens will be used to generate your study plan
             </div>
           </div>
         </div>

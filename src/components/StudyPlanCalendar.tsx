@@ -64,7 +64,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const [mobileDateModalDate, setMobileDateModalDate] = useState<Date | null>(null);
   const [selectedScheduleFilter, setSelectedScheduleFilter] = useState<string | null>(null);
   const [accessibleSubjectIds, setAccessibleSubjectIds] = useState<string[]>([]);
-  const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
   // Progress tracking state
   const [scheduleProgress, setScheduleProgress] = useState<Record<string, { total: number; completed: number; percentage: number }>>({});
@@ -578,9 +578,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }));
   };
 
-  // Toggle subject collapse state
+  // Toggle subject expand/collapse state
   const toggleSubjectCollapse = (subject: string) => {
-    setCollapsedSubjects(prev => {
+    setExpandedSubjects(prev => {
       const newSet = new Set(prev);
       if (newSet.has(subject)) {
         newSet.delete(subject);
@@ -794,13 +794,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                       </div>
                       <ChevronDown
                         className={`w-5 h-5 text-blue-700 transition-transform ${
-                          collapsedSubjects.has(subject) ? '-rotate-90' : ''
+                          expandedSubjects.has(subject) ? '' : '-rotate-90'
                         }`}
                       />
                     </button>
 
                     {/* Study Plans Table - Scrollable with max height */}
-                    {!collapsedSubjects.has(subject) && (
+                    {expandedSubjects.has(subject) && (
                       <div className="max-h-96 overflow-y-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0 z-10">
@@ -1830,25 +1830,26 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
             </div>
 
             {/* Plan Details */}
-            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-6">
-                <div>
-                  <span className="text-gray-600">Duration: </span>
-                  <span className="font-semibold text-gray-900">{summarySchedule.study_duration_minutes} min</span>
+            <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 text-sm">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                  <div>
+                    <span className="text-gray-600">Duration: </span>
+                    <span className="font-semibold text-gray-900">{summarySchedule.study_duration_minutes} min</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Sessions/Week: </span>
+                    <span className="font-semibold text-gray-900">{summarySchedule.sessions_per_week}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Period: </span>
+                    <span className="font-semibold text-gray-900">
+                      {new Date(summarySchedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      {summarySchedule.end_date && ` - ${new Date(summarySchedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-gray-600">Sessions/Week: </span>
-                  <span className="font-semibold text-gray-900">{summarySchedule.sessions_per_week}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Period: </span>
-                  <span className="font-semibold text-gray-900">
-                    {new Date(summarySchedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    {summarySchedule.end_date && ` - ${new Date(summarySchedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
                 {summarySchedule.is_active ? (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
@@ -1860,6 +1861,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                     Inactive
                   </span>
                 )}
+                </div>
               </div>
             </div>
 
@@ -1876,22 +1878,22 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         #
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Time
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Title
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Topics
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         Status
                       </th>
                     </tr>
@@ -1899,28 +1901,41 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   <tbody className="bg-white divide-y divide-gray-200">
                     {summaryEvents.map((event, idx) => (
                       <tr key={event.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-2 md:px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                           {idx + 1}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <td className="hidden md:table-cell px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {new Date(event.event_date).toLocaleDateString(undefined, {
                             weekday: 'short',
                             month: 'short',
                             day: 'numeric'
                           })}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        <td className="hidden md:table-cell px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {formatTime(event.start_time)} - {formatTime(event.end_time)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                        <td className="px-2 md:px-4 py-3 text-sm text-gray-900">
                           <div className="max-w-xs">
                             <div className="font-medium">{event.title}</div>
                             {event.description && (
                               <div className="text-xs text-gray-500 mt-1 line-clamp-1">{event.description}</div>
                             )}
+                            {/* Mobile: Show date and time below title */}
+                            <div className="md:hidden text-xs text-gray-600 mt-1.5 space-y-0.5">
+                              <div>
+                                {new Date(event.event_date).toLocaleDateString(undefined, {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </div>
+                              <div>
+                                {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                              </div>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="hidden lg:table-cell px-4 py-3 text-sm text-gray-700">
                           {event.topics && event.topics.length > 0 ? (
                             <div className="flex flex-wrap gap-1 max-w-xs">
                               {event.topics.slice(0, 2).map((topic, tidx) => (
@@ -1941,26 +1956,26 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <span className="text-gray-400">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 md:px-4 py-3 whitespace-nowrap">
                           {event.status === 'completed' ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                               <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Completed
+                              <span className="hidden sm:inline">Completed</span>
                             </span>
                           ) : event.status === 'in_progress' ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               <PlayCircle className="w-3 h-3 mr-1" />
-                              In Progress
+                              <span className="hidden sm:inline">In Progress</span>
                             </span>
                           ) : event.status === 'skipped' ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                               <SkipForward className="w-3 h-3 mr-1" />
-                              Skipped
+                              <span className="hidden sm:inline">Skipped</span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                               <Circle className="w-3 h-3 mr-1" />
-                              Pending
+                              <span className="hidden sm:inline">Pending</span>
                             </span>
                           )}
                         </td>
