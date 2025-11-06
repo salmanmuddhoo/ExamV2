@@ -119,6 +119,7 @@ export function UnifiedPracticeViewer({
   const [showStudyPlanPopup, setShowStudyPlanPopup] = useState(false);
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [hasStudyPlanAccess, setHasStudyPlanAccess] = useState(false);
 
   // Question/Paper change animation state
   const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
@@ -153,6 +154,41 @@ export function UnifiedPracticeViewer({
   useEffect(() => {
     sessionStorage.setItem('unifiedViewerMobileView', mobileView);
   }, [mobileView]);
+
+  // Check study plan access
+  useEffect(() => {
+    const checkStudyPlanAccess = async () => {
+      if (!user) {
+        setHasStudyPlanAccess(false);
+        return;
+      }
+
+      try {
+        const { data: subscription, error } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            subscription_tiers!inner(
+              can_access_study_plan
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .single();
+
+        if (error) {
+          setHasStudyPlanAccess(false);
+          return;
+        }
+
+        const canAccess = subscription?.subscription_tiers?.can_access_study_plan || false;
+        setHasStudyPlanAccess(canAccess);
+      } catch (error) {
+        setHasStudyPlanAccess(false);
+      }
+    };
+
+    checkStudyPlanAccess();
+  }, [user]);
 
   useEffect(() => {
     scrollToBottom();
@@ -903,13 +939,15 @@ export function UnifiedPracticeViewer({
           </div>
 
           {/* Study Plan Calendar - Desktop Only */}
-          <button
-            onClick={handleOpenStudyPlan}
-            className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
-            title="Today's Study Plan"
-          >
-            <Calendar className="w-5 h-5 text-gray-700" />
-          </button>
+          {hasStudyPlanAccess && (
+            <button
+              onClick={handleOpenStudyPlan}
+              className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+              title="Today's Study Plan"
+            >
+              <Calendar className="w-5 h-5 text-gray-700" />
+            </button>
+          )}
 
           {/* Fullscreen Toggle - Desktop Only */}
           <button

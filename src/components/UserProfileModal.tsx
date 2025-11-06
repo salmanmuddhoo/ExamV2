@@ -1133,6 +1133,11 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                     )}
                                   </div>
                                   <p className="hidden md:block text-xs md:text-sm text-gray-600 mb-2">{model.description}</p>
+                                  {model.token_multiplier > 1 && (
+                                    <p className="md:hidden text-xs text-orange-600 mb-2">
+                                      Uses {model.token_multiplier}x more tokens than the default model
+                                    </p>
+                                  )}
                                   <div className="flex flex-wrap gap-2 text-xs text-gray-500">
                                     {model.supports_vision && (
                                       <span className="inline-flex items-center">
