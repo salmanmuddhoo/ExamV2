@@ -132,15 +132,15 @@ export function GradeLevelManager() {
       />
 
       <div>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center space-x-3">
           <GraduationCap className="w-6 h-6 text-black" />
-          <h2 className="text-2xl font-semibold text-gray-900">Grade Levels</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Grade Levels</h2>
         </div>
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            className="flex items-center justify-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Add Grade Level</span>
@@ -181,7 +181,7 @@ export function GradeLevelManager() {
               />
             </div>
 
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="submit"
                 className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
@@ -209,22 +209,24 @@ export function GradeLevelManager() {
           gradeLevels.map((gradeLevel) => (
             <div
               key={gradeLevel.id}
-              className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
             >
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900">{gradeLevel.name}</h3>
                 <p className="text-sm text-gray-600 mt-1">Order: {gradeLevel.display_order}</p>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 self-end sm:self-auto">
                 <button
                   onClick={() => handleEdit(gradeLevel)}
                   className="p-2 text-black hover:bg-gray-50 rounded-lg transition-colors"
+                  aria-label="Edit grade level"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(gradeLevel.id)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  aria-label="Delete grade level"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

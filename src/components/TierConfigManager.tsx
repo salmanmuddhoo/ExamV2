@@ -111,17 +111,17 @@ export function TierConfigManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <Settings className="w-6 h-6 text-gray-700" />
+          <Settings className="w-6 h-6 text-gray-700 flex-shrink-0" />
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Subscription Tier Configuration</h2>
-            <p className="text-sm text-gray-600">Configure pricing, limits, and features for each tier</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Subscription Tier Configuration</h2>
+            <p className="text-xs sm:text-sm text-gray-600">Configure pricing, limits, and features for each tier</p>
           </div>
         </div>
         <button
           onClick={fetchTiers}
-          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center space-x-2 transition-colors"
+          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center justify-center space-x-2 transition-colors w-full sm:w-auto"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Refresh</span>
