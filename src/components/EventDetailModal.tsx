@@ -170,6 +170,48 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
 
     try {
       setSaving(true);
+
+      // Check for overlapping events on the same date
+      const { data: existingEvents, error: fetchError } = await supabase
+        .from('study_plan_events')
+        .select('id, start_time, end_time, title')
+        .eq('user_id', event.user_id)
+        .eq('event_date', editDate)
+        .neq('id', event.id); // Exclude current event
+
+      if (fetchError) throw fetchError;
+
+      // Helper function to convert time string to minutes since midnight
+      const timeToMinutes = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+
+      // Check for overlaps
+      const newStartMinutes = timeToMinutes(editStartTime);
+      const newEndMinutes = timeToMinutes(editEndTime);
+
+      const hasOverlap = existingEvents?.some((existingEvent) => {
+        const existingStartMinutes = timeToMinutes(existingEvent.start_time);
+        const existingEndMinutes = timeToMinutes(existingEvent.end_time);
+
+        // Check if time ranges overlap
+        // Two ranges overlap if: start1 < end2 AND start2 < end1
+        return newStartMinutes < existingEndMinutes && existingStartMinutes < newEndMinutes;
+      });
+
+      if (hasOverlap) {
+        setAlertConfig({
+          title: 'Time Conflict',
+          message: 'There is already another study session scheduled during this time. Please choose a different time.',
+          type: 'error'
+        });
+        setShowAlert(true);
+        setSaving(false);
+        return;
+      }
+
+      // No overlap, proceed with update
       const { error } = await supabase
         .from('study_plan_events')
         .update({
@@ -183,6 +225,12 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       if (error) throw error;
 
       onUpdate();
+      setAlertConfig({
+        title: 'Success',
+        message: 'Date and time updated successfully',
+        type: 'success'
+      });
+      setShowAlert(true);
     } catch (error) {
       console.error('Error updating date/time:', error);
       setAlertConfig({

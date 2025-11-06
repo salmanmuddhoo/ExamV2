@@ -817,13 +817,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Sessions/Week
                             </th>
-                            <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Period
                             </th>
                             <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Times
                             </th>
-                            <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Status
                             </th>
                             <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -857,8 +857,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   {schedule.sessions_per_week}
                                 </span>
                               </td>
-                              <td className="hidden lg:table-cell px-4 py-3 whitespace-nowrap">
-                                <span className="text-sm text-gray-700">
+                              <td className="px-2 md:px-4 py-3 whitespace-nowrap">
+                                <span className="text-xs md:text-sm text-gray-700">
                                   {new Date(schedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
                                   {schedule.end_date && ` - ${new Date(schedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}`}
                                 </span>
@@ -879,16 +879,16 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   <span className="text-sm text-gray-400">-</span>
                                 )}
                               </td>
-                              <td className="px-2 md:px-4 py-3 whitespace-nowrap">
+                              <td className="hidden md:table-cell px-4 py-3 whitespace-nowrap">
                                 {schedule.is_active ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
-                                    <span className="hidden sm:inline">Active</span>
+                                    Active
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                                     <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5"></span>
-                                    <span className="hidden sm:inline">Inactive</span>
+                                    Inactive
                                   </span>
                                 )}
                               </td>
@@ -990,95 +990,58 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         )}
 
         {/* Filters */}
-        {(getUniqueSubjects().length > 1 || schedules.length > 1) && (
-          <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4">
-            {/* Subject Filter */}
-            {getUniqueSubjects().length > 1 && (
+        {schedules.filter(s => s.is_active).length > 0 && (
+          <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Filter by Study Plan</label>
+
+            {/* Subject Dropdown */}
+            <div className="mb-3">
+              <select
+                value={selectedSubjectFilter || ''}
+                onChange={(e) => {
+                  setSelectedSubjectFilter(e.target.value || null);
+                  setSelectedScheduleFilter(null); // Reset plan filter when subject changes
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+              >
+                <option value="">All Subjects</option>
+                {getUniqueSubjects().map(subject => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Active Plans for Selected Subject */}
+            {selectedSubjectFilter && schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).length > 1 && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Subject</label>
+                <label className="block text-xs font-medium text-gray-600 mb-2">Select Plan</label>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedSubjectFilter(null)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      !selectedSubjectFilter
+                    onClick={() => setSelectedScheduleFilter(null)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      !selectedScheduleFilter
                         ? 'bg-black text-white shadow-md'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    All Subjects
+                    All Plans
                   </button>
-                  {getUniqueSubjects().map(subject => (
+                  {schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).map((schedule, idx) => (
                     <button
-                      key={subject.id}
-                      onClick={() => setSelectedSubjectFilter(subject.id)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        selectedSubjectFilter === subject.id
+                      key={schedule.id}
+                      onClick={() => setSelectedScheduleFilter(schedule.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        selectedScheduleFilter === schedule.id
                           ? 'bg-black text-white shadow-md'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
-                      {subject.name}
+                      Plan #{idx + 1} ({schedule.grade_levels?.name})
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Study Plan Filter - Select Subject then Plan */}
-            {schedules.filter(s => s.is_active).length > 0 && (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Study Plan</label>
-
-                {/* Subject Dropdown */}
-                <div className="mb-3">
-                  <select
-                    value={selectedSubjectFilter || ''}
-                    onChange={(e) => {
-                      setSelectedSubjectFilter(e.target.value || null);
-                      setSelectedScheduleFilter(null); // Reset plan filter when subject changes
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                  >
-                    <option value="">All Subjects</option>
-                    {getUniqueSubjects().map(subject => (
-                      <option key={subject.id} value={subject.id}>
-                        {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Active Plans for Selected Subject */}
-                {selectedSubjectFilter && schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).length > 1 && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">Select Plan</label>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setSelectedScheduleFilter(null)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          !selectedScheduleFilter
-                            ? 'bg-black text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        All Plans
-                      </button>
-                      {schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).map((schedule, idx) => (
-                        <button
-                          key={schedule.id}
-                          onClick={() => setSelectedScheduleFilter(schedule.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                            selectedScheduleFilter === schedule.id
-                              ? 'bg-black text-white shadow-md'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          Plan #{idx + 1} ({schedule.grade_levels?.name})
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -1638,6 +1601,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           fetchEvents();
           fetchSchedules();  // Also fetch schedules to show the newly created plan
           setShowCreateModal(false);
+          // Show success message
+          setAlertConfig({
+            title: 'Success',
+            message: 'Study plan created successfully! Your personalized schedule is ready.',
+            type: 'success'
+          });
+          setShowAlert(true);
           // Refresh token balance after plan generation
           if (onRefreshTokens) {
             onRefreshTokens();
