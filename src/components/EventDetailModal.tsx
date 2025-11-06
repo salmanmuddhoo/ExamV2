@@ -31,6 +31,8 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
   const [editDate, setEditDate] = useState('');
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   // Alert modal state
   const [showAlert, setShowAlert] = useState(false);
@@ -54,6 +56,8 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       setEditDate(event.event_date);
       setEditStartTime(event.start_time);
       setEditEndTime(event.end_time);
+      setEditTitle(event.title);
+      setEditDescription(event.description || '');
     }
   }, [event]);
 
@@ -122,6 +126,56 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       setAlertConfig({
         title: 'Error',
         message: 'Failed to save notes',
+        type: 'error'
+      });
+      setShowAlert(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveTitleAndDescription = async () => {
+    // Only save if values have changed
+    if (editTitle === event.title && editDescription === (event.description || '')) {
+      return;
+    }
+
+    // Validate title is not empty
+    if (!editTitle.trim()) {
+      setAlertConfig({
+        title: 'Error',
+        message: 'Title cannot be empty',
+        type: 'error'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('study_plan_events')
+        .update({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', event.id);
+
+      if (error) throw error;
+
+      onUpdate();
+      setAlertConfig({
+        title: 'Success',
+        message: 'Title and description updated successfully',
+        type: 'success'
+      });
+      setShowAlert(true);
+    } catch (error) {
+      console.error('Error saving title/description:', error);
+      setAlertConfig({
+        title: 'Error',
+        message: 'Failed to save changes',
         type: 'error'
       });
       setShowAlert(true);
@@ -346,12 +400,33 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
             return null;
           })()}
 
-          {/* Title */}
+          {/* Title & Description - Editable */}
           <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">{event.title}</h3>
-            {event.description && (
-              <p className="text-sm text-gray-600">{event.description}</p>
-            )}
+            <label className="block text-xs font-semibold text-gray-900 mb-1.5">
+              Session Title
+            </label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onBlur={handleSaveTitleAndDescription}
+              className="w-full px-3 py-2 text-base font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+              placeholder="Enter session title..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-900 mb-1.5">
+              Session Description
+            </label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              onBlur={handleSaveTitleAndDescription}
+              placeholder="Add a description for this session..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+              rows={2}
+            />
           </div>
 
           {/* Status */}
