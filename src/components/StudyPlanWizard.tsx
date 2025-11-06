@@ -236,6 +236,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const handleGenerateStudyPlan = async () => {
     if (!user || !selectedSubject || !selectedGrade || !selectedSyllabus) return;
 
+    let scheduleId: string | null = null;
+
     try {
       setGenerating(true);
 
@@ -273,6 +275,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
       if (scheduleError) throw scheduleError;
 
+      // Store schedule ID for cleanup if AI generation fails
+      scheduleId = schedule.id;
+
       // Generate events using AI via Supabase Edge Function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
@@ -309,6 +314,20 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       onClose();
     } catch (error) {
       console.error('Error generating study plan:', error);
+
+      // Clean up the orphaned schedule if it was created but AI generation failed
+      if (scheduleId) {
+        try {
+          await supabase
+            .from('study_plan_schedules')
+            .delete()
+            .eq('id', scheduleId);
+          console.log('Cleaned up orphaned schedule:', scheduleId);
+        } catch (cleanupError) {
+          console.error('Failed to clean up orphaned schedule:', cleanupError);
+        }
+      }
+
       setAlertConfig({
         title: 'Error',
         message: 'Failed to generate study plan. Please try again.',

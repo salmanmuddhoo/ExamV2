@@ -282,8 +282,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
       if (error) throw error;
 
-      // Calculate progress for each schedule
+      // Calculate progress for each schedule and identify orphaned schedules
       const progressMap: Record<string, { total: number; completed: number; percentage: number }> = {};
+      const orphanedScheduleIds: string[] = [];
 
       scheduleIds.forEach(scheduleId => {
         const scheduleEvents = allEvents?.filter(e => e.schedule_id === scheduleId) || [];
@@ -292,9 +293,30 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         progressMap[scheduleId] = { total, completed, percentage };
+
+        // Track schedules with no events (orphaned from failed AI generation)
+        if (total === 0) {
+          orphanedScheduleIds.push(scheduleId);
+        }
       });
 
       setScheduleProgress(progressMap);
+
+      // Clean up orphaned schedules (schedules with no events)
+      if (orphanedScheduleIds.length > 0) {
+        console.log('Cleaning up orphaned schedules:', orphanedScheduleIds);
+        const { error: deleteError } = await supabase
+          .from('study_plan_schedules')
+          .delete()
+          .in('id', orphanedScheduleIds);
+
+        if (deleteError) {
+          console.error('Error cleaning up orphaned schedules:', deleteError);
+        } else {
+          // Refresh schedules after cleanup
+          fetchSchedules();
+        }
+      }
     } catch (error) {
       console.error('Error fetching schedule progress:', error);
     }
