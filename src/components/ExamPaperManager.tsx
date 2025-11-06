@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap, List } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -98,30 +98,12 @@ export function ExamPaperManager() {
   const [uploading, setUploading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [collapsedGrades, setCollapsedGrades] = useState<Set<string>>(new Set());
-  const [collapsedSubjects, setCollapsedSubjects] = useState<Set<string>>(new Set());
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string } | null>(null);
-
-  // Track if we've initialized the collapsed state to ensure subjects collapse by default only once
-  const hasInitializedCollapse = useRef(false);
 
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Collapse all subjects by default on initial load
-  useEffect(() => {
-    if (examPapers.length > 0 && !hasInitializedCollapse.current) {
-      const allSubjectKeys = new Set<string>();
-      examPapers.forEach((paper) => {
-        const gradeName = paper.grade_levels.name;
-        const subjectName = paper.subjects.name;
-        const subjectKey = `${gradeName}:${subjectName}`;
-        allSubjectKeys.add(subjectKey);
-      });
-      setCollapsedSubjects(allSubjectKeys);
-      hasInitializedCollapse.current = true;
-    }
-  }, [examPapers]);
 
   // Fetch syllabuses when subject and grade change
   useEffect(() => {
@@ -587,13 +569,13 @@ export function ExamPaperManager() {
   };
 
   const toggleSubject = (subjectKey: string) => {
-    const newCollapsed = new Set(collapsedSubjects);
-    if (newCollapsed.has(subjectKey)) {
-      newCollapsed.delete(subjectKey);
+    const newExpanded = new Set(expandedSubjects);
+    if (newExpanded.has(subjectKey)) {
+      newExpanded.delete(subjectKey);
     } else {
-      newCollapsed.add(subjectKey);
+      newExpanded.add(subjectKey);
     }
-    setCollapsedSubjects(newCollapsed);
+    setExpandedSubjects(newExpanded);
   };
 
   // Group exam papers by grade and subject
@@ -967,7 +949,7 @@ export function ExamPaperManager() {
                   <div className="mt-2 ml-6 pl-4 border-l-2 border-gray-300 space-y-2">
                     {Object.entries(subjects).map(([subjectName, papers]) => {
                       const subjectKey = `${gradeId}:${subjectName}`;
-                      const isSubjectCollapsed = collapsedSubjects.has(subjectKey);
+                      const isSubjectExpanded = expandedSubjects.has(subjectKey);
 
                       return (
                         <div key={subjectKey}>
@@ -983,11 +965,11 @@ export function ExamPaperManager() {
                                 <p className="text-xs text-gray-500">{papers.length} paper{papers.length !== 1 ? 's' : ''}</p>
                               </div>
                             </div>
-                            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isSubjectCollapsed ? '' : 'rotate-180'}`} />
+                            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isSubjectExpanded ? 'rotate-180' : ''}`} />
                           </button>
 
                           {/* Papers under this subject */}
-                          {!isSubjectCollapsed && (
+                          {isSubjectExpanded && (
                             <div className="mt-1 ml-4 pl-3 border-l-2 border-gray-200 space-y-2">
                               {papers.map((paper) => (
                                 <div
