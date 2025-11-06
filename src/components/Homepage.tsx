@@ -85,7 +85,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 leading-tight">
                 Master Your Exams with
                 <span className="block text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600">
-                  Smart AI Help
+                  AixamPapers
                 </span>
               </h1>
               
