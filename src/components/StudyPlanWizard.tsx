@@ -621,7 +621,20 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
                   Sessions per Week
                 </label>
-                <div className="grid grid-cols-7 gap-2">
+                {/* Mobile: Dropdown */}
+                <select
+                  value={sessionsPerWeek}
+                  onChange={(e) => setSessionsPerWeek(parseInt(e.target.value))}
+                  className="md:hidden w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7].map(num => (
+                    <option key={num} value={num}>
+                      {num} {num === 1 ? 'day' : 'days'} per week
+                    </option>
+                  ))}
+                </select>
+                {/* Desktop: Buttons */}
+                <div className="hidden md:grid grid-cols-7 gap-2">
                   {[1, 2, 3, 4, 5, 6, 7].map(num => (
                     <button
                       key={num}
@@ -722,7 +735,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                     <ul className="text-sm text-gray-900 space-y-1">
                       <li>• Personalized study schedule based on your preferences</li>
                       <li>• Optimal topic distribution across sessions</li>
-                      <li>• Progress tracking and milestone reminders</li>
+                      <li>• Progress tracking for all your study sessions</li>
                       <li>• Adaptive scheduling based on your pace</li>
                     </ul>
                   </div>

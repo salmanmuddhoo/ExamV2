@@ -443,7 +443,7 @@ Return ONLY the JSON array, no additional text.`;
 
     // Insert events in batches to avoid connection timeouts
     console.log("💾 Inserting events into database in batches...");
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 25; // Reduced batch size for better reliability
     const batches = [];
 
     for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
@@ -458,28 +458,42 @@ Return ONLY the JSON array, no additional text.`;
       const batch = batches[i];
       console.log(`💾 Inserting batch ${i + 1}/${batches.length} (${batch.length} events)...`);
 
-      try {
-        const { data: batchData, error: batchError } = await supabaseClient
-          .from('study_plan_events')
-          .insert(batch)
-          .select();
+      // Retry logic for failed batches
+      let retryCount = 0;
+      const MAX_RETRIES = 3;
+      let success = false;
 
-        if (batchError) {
-          console.error(`❌ Error inserting batch ${i + 1}:`, batchError);
-          console.error('Error details:', JSON.stringify(batchError, null, 2));
-          throw batchError;
+      while (!success && retryCount < MAX_RETRIES) {
+        try {
+          const { data: batchData, error: batchError } = await supabaseClient
+            .from('study_plan_events')
+            .insert(batch)
+            .select();
+
+          if (batchError) {
+            throw batchError;
+          }
+
+          insertedEvents = insertedEvents.concat(batchData || []);
+          console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
+          success = true;
+
+          // Longer delay between batches to avoid connection issues
+          if (i < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        } catch (error) {
+          retryCount++;
+          if (retryCount < MAX_RETRIES) {
+            console.log(`⚠️ Batch ${i + 1} failed, retrying (${retryCount}/${MAX_RETRIES})...`);
+            // Exponential backoff: wait longer after each failure
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          } else {
+            console.error(`❌ Failed to insert batch ${i + 1} after ${MAX_RETRIES} retries:`, error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            throw error;
+          }
         }
-
-        insertedEvents = insertedEvents.concat(batchData || []);
-        console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
-
-        // Small delay between batches to avoid overwhelming the connection
-        if (i < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.error(`❌ Failed to insert batch ${i + 1}:`, error);
-        throw error;
       }
     }
 
