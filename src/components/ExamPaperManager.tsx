@@ -105,6 +105,20 @@ export function ExamPaperManager() {
     fetchData();
   }, []);
 
+  // Collapse all subjects by default on initial load
+  useEffect(() => {
+    if (examPapers.length > 0 && collapsedSubjects.size === 0) {
+      const allSubjectKeys = new Set<string>();
+      examPapers.forEach((paper) => {
+        const gradeName = paper.grade_levels.name;
+        const subjectName = paper.subjects.name;
+        const subjectKey = `${gradeName}:${subjectName}`;
+        allSubjectKeys.add(subjectKey);
+      });
+      setCollapsedSubjects(allSubjectKeys);
+    }
+  }, [examPapers]);
+
   // Fetch syllabuses when subject and grade change
   useEffect(() => {
     if (formData.subject_id && formData.grade_level_id) {
