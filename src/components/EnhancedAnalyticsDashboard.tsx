@@ -156,13 +156,15 @@ export function EnhancedAnalyticsDashboard() {
         const syllabusUploadCount = syllabusUploads.length;
 
         // === CHAT STATS ===
-        const chatLogs = logs.filter((log) => log.user_id && !log.metadata?.schedule_id);
+        // Chats have user_id and exam_paper_id
+        const chatLogs = logs.filter((log) => log.user_id && log.exam_paper_id);
         const chatCost = chatLogs.reduce((sum, log) => sum + parseFloat(log.estimated_cost || 0), 0);
         const chatTokens = chatLogs.reduce((sum, log) => sum + (log.total_tokens || 0), 0);
         const chatRequests = chatLogs.length;
 
         // === STUDY PLAN STATS ===
-        const studyPlanLogs = logs.filter((log) => log.metadata?.schedule_id || log.purpose === 'study_plan_generation');
+        // Study plans have user_id but no exam_paper_id
+        const studyPlanLogs = logs.filter((log) => log.user_id && !log.exam_paper_id);
         const studyPlanCost = studyPlanLogs.reduce((sum, log) => sum + parseFloat(log.estimated_cost || 0), 0);
         const studyPlanTokens = studyPlanLogs.reduce((sum, log) => sum + (log.total_tokens || 0), 0);
         const studyPlanCount = studyPlanLogs.length;
@@ -261,55 +263,9 @@ export function EnhancedAnalyticsDashboard() {
         }
 
         // === PROMPT AVERAGES ===
-        const promptMap = new Map<string, AIPromptAverage>();
-        logs
-          .filter((log) => log.ai_prompt_id)
-          .forEach((log) => {
-            const promptKey = log.ai_prompt_id!;
-            if (!promptMap.has(promptKey)) {
-              promptMap.set(promptKey, {
-                promptId: promptKey,
-                promptName: 'Loading...', // Will be fetched separately
-                totalRequests: 0,
-                avgCost: 0,
-                avgTokens: 0,
-                avgInputTokens: 0,
-                avgOutputTokens: 0,
-              });
-            }
-            const prompt = promptMap.get(promptKey)!;
-            prompt.totalRequests += 1;
-            prompt.avgCost += parseFloat(log.estimated_cost || 0);
-            prompt.avgTokens += log.total_tokens || 0;
-            prompt.avgInputTokens += log.prompt_tokens || 0;
-            prompt.avgOutputTokens += log.completion_tokens || 0;
-          });
-
-        // Calculate averages
-        const promptAveragesArray = Array.from(promptMap.values()).map((prompt) => ({
-          ...prompt,
-          avgCost: prompt.avgCost / prompt.totalRequests,
-          avgTokens: Math.round(prompt.avgTokens / prompt.totalRequests),
-          avgInputTokens: Math.round(prompt.avgInputTokens / prompt.totalRequests),
-          avgOutputTokens: Math.round(prompt.avgOutputTokens / prompt.totalRequests),
-        })).sort((a, b) => b.totalRequests - a.totalRequests);
-
-        setPromptAverages(promptAveragesArray);
-
-        // Fetch prompt names
-        if (promptAveragesArray.length > 0) {
-          const { data: prompts } = await supabase
-            .from('ai_prompts')
-            .select('id, name')
-            .in('id', promptAveragesArray.map(p => p.promptId));
-
-          if (prompts) {
-            setPromptAverages(prev => prev.map(p => ({
-              ...p,
-              promptName: prompts.find(pr => pr.id === p.promptId)?.name || 'Unknown Prompt'
-            })));
-          }
-        }
+        // Note: ai_prompt_id is not tracked in token_usage_logs table yet
+        // This section will remain empty until we add that column
+        setPromptAverages([]);
 
       } else {
         // No data
