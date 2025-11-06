@@ -51,6 +51,11 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // AI Model state
+  const [aiModels, setAiModels] = useState<any[]>([]);
+  const [selectedAiModel, setSelectedAiModel] = useState<string | null>(null);
+  const [savingAiModel, setSavingAiModel] = useState(false);
+
   const getTierIcon = (tierName: string) => {
     switch (tierName) {
       case 'free':
@@ -67,6 +72,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   useEffect(() => {
     if (user && isOpen) {
       fetchSubscriptionTier();
+      fetchAiModels();
     }
   }, [user, isOpen]);
 
@@ -299,6 +305,61 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
       setUpdateMessage({ type: 'error', text: error.message || 'Failed to update selections' });
     } finally {
       setUpdatingSelections(false);
+    }
+  };
+
+  const fetchAiModels = async () => {
+    if (!user) return;
+
+    try {
+      // Fetch all active AI models
+      const { data: models, error: modelsError } = await supabase
+        .from('ai_models')
+        .select('*')
+        .eq('is_active', true)
+        .order('provider', { ascending: true })
+        .order('display_name', { ascending: true });
+
+      if (modelsError) throw modelsError;
+
+      setAiModels(models || []);
+
+      // Fetch user's current preference
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('preferred_ai_model_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      setSelectedAiModel(profileData?.preferred_ai_model_id || null);
+    } catch (error) {
+      console.error('Error fetching AI models:', error);
+    }
+  };
+
+  const handleAiModelChange = async (modelId: string | null) => {
+    if (!user) return;
+
+    try {
+      setSavingAiModel(true);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preferred_ai_model_id: modelId })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setSelectedAiModel(modelId);
+      setSuccessMessage('AI model preference updated successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error updating AI model:', error);
+      alert('Failed to update AI model preference');
+    } finally {
+      setSavingAiModel(false);
     }
   };
 
@@ -967,9 +1028,134 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
             {activeTab === 'settings' && (
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Settings</h3>
-                <div className="space-y-4 md:space-y-6">
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">Settings coming soon...</p>
+                <div className="space-y-6">
+                  {/* AI Model Selection */}
+                  <div className="bg-gray-50 rounded-lg p-4 md:p-6">
+                    <h4 className="text-sm md:text-base font-bold text-gray-900 mb-3">AI Model Preference</h4>
+                    <p className="text-xs md:text-sm text-gray-600 mb-4">
+                      Choose which AI model to use for chat assistance and study plan generation. Different models have different capabilities and token consumption rates.
+                    </p>
+
+                    <div className="space-y-3">
+                      {/* Default/System option */}
+                      <label
+                        className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          selectedAiModel === null
+                            ? 'border-black bg-white shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="ai-model"
+                          checked={selectedAiModel === null}
+                          onChange={() => handleAiModelChange(null)}
+                          disabled={savingAiModel}
+                          className="mt-1 mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-gray-900 text-sm md:text-base">System Default</span>
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Recommended</span>
+                          </div>
+                          <p className="text-xs md:text-sm text-gray-600">
+                            Use the system's default AI model (currently Gemini 2.0 Flash). Best balance of performance and cost.
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Group models by provider */}
+                      {['gemini', 'claude', 'openai'].map(provider => {
+                        const providerModels = aiModels.filter(m => m.provider === provider);
+                        if (providerModels.length === 0) return null;
+
+                        return (
+                          <div key={provider} className="space-y-2">
+                            <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4">
+                              {provider === 'gemini' ? 'Google Gemini' : provider === 'claude' ? 'Anthropic Claude' : 'OpenAI'}
+                            </h5>
+                            {providerModels.map(model => (
+                              <label
+                                key={model.id}
+                                className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                                  selectedAiModel === model.id
+                                    ? 'border-black bg-white shadow-sm'
+                                    : 'border-gray-200 bg-white hover:border-gray-300'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="ai-model"
+                                  checked={selectedAiModel === model.id}
+                                  onChange={() => handleAiModelChange(model.id)}
+                                  disabled={savingAiModel}
+                                  className="mt-1 mr-3"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="font-semibold text-gray-900 text-sm md:text-base">{model.display_name}</span>
+                                    {model.token_multiplier > 1 && (
+                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                        {model.token_multiplier}x tokens
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs md:text-sm text-gray-600 mb-2">{model.description}</p>
+                                  <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                                    {model.supports_vision && (
+                                      <span className="inline-flex items-center">
+                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                        </svg>
+                                        Vision
+                                      </span>
+                                    )}
+                                    {model.supports_caching && (
+                                      <span className="inline-flex items-center">
+                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                        </svg>
+                                        Caching
+                                      </span>
+                                    )}
+                                    <span className="inline-flex items-center">
+                                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                                      </svg>
+                                      ${model.input_token_cost_per_million.toFixed(2)}/1M in
+                                    </span>
+                                  </div>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {savingAiModel && (
+                      <div className="mt-4 flex items-center justify-center text-sm text-gray-600">
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving preference...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div>
+                        <h5 className="text-sm font-semibold text-blue-900 mb-1">Token Consumption</h5>
+                        <p className="text-xs md:text-sm text-blue-800">
+                          Higher token multipliers mean the model consumes more of your monthly token allowance.
+                          Claude models typically provide superior reasoning at the cost of higher token usage.
+                          Choose based on your needs and subscription tier.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
