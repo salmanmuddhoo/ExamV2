@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize, Calendar, X, Clock, CheckCircle2, Circle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
 import { ChatMessage } from './ChatMessage';
@@ -114,6 +114,11 @@ export function UnifiedPracticeViewer({
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Study Plan state
+  const [showStudyPlanPopup, setShowStudyPlanPopup] = useState(false);
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
 
   // Question/Paper change animation state
   const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
@@ -409,6 +414,60 @@ export function UnifiedPracticeViewer({
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Study Plan functions
+  const fetchTodayEvents = async () => {
+    if (!user) return;
+
+    try {
+      setLoadingEvents(true);
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('study_plan_events')
+        .select(`
+          *,
+          study_plan_schedules!inner(
+            subjects(name),
+            is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('event_date', today)
+        .eq('study_plan_schedules.is_active', true)
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+
+      setTodayEvents(data || []);
+    } catch (error) {
+      console.error('Error fetching today events:', error);
+      setTodayEvents([]);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleOpenStudyPlan = () => {
+    fetchTodayEvents();
+    setShowStudyPlanPopup(true);
+  };
+
+  const formatTime = (timeStr: string) => {
+    const timeParts = timeStr.split(':');
+    if (timeParts.length >= 2) {
+      const hours = parseInt(timeParts[0]);
+      const minutes = parseInt(timeParts[1]);
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      return date.toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: undefined
+      });
+    }
+    return timeStr;
+  };
 
   const downloadWithProgress = async (url: string): Promise<Blob> => {
     const response = await fetch(url);
@@ -845,6 +904,15 @@ export function UnifiedPracticeViewer({
             />
           </div>
 
+          {/* Study Plan Calendar - Desktop Only */}
+          <button
+            onClick={handleOpenStudyPlan}
+            className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+            title="Today's Study Plan"
+          >
+            <Calendar className="w-5 h-5 text-gray-700" />
+          </button>
+
           {/* Fullscreen Toggle - Desktop Only */}
           <button
             onClick={toggleFullscreen}
@@ -1182,6 +1250,123 @@ export function UnifiedPracticeViewer({
             )}
           </div>
       </div>
+
+      {/* Today's Study Plan Popup */}
+      {showStudyPlanPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5 text-gray-700" />
+                <h2 className="text-xl font-bold text-gray-900">Today's Study Plan</h2>
+              </div>
+              <button
+                onClick={() => setShowStudyPlanPopup(false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingEvents ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : todayEvents.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Study Sessions Today</h3>
+                  <p className="text-gray-600">
+                    You don't have any study sessions scheduled for today.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todayEvents.map((event: any) => (
+                    <div
+                      key={event.id}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        event.status === 'completed'
+                          ? 'bg-green-50 border-green-200'
+                          : event.status === 'in_progress'
+                          ? 'bg-blue-50 border-blue-200'
+                          : 'bg-white border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {/* Subject Badge */}
+                      {event.study_plan_schedules?.subjects?.name && (
+                        <div className="mb-2">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                            <BookOpen className="w-3.5 h-3.5 mr-1" />
+                            {event.study_plan_schedules.subjects.name}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Title and Status */}
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-base font-semibold text-gray-900 flex-1">{event.title}</h3>
+                        <div className="ml-2">
+                          {event.status === 'completed' ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Circle className="w-5 h-5 text-gray-300" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {event.description && (
+                        <p className="text-sm text-gray-600 mb-2">{event.description}</p>
+                      )}
+
+                      {/* Time */}
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <Clock className="w-4 h-4" />
+                        <span>
+                          {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                        </span>
+                      </div>
+
+                      {/* Topics */}
+                      {event.topics && event.topics.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {event.topics.slice(0, 3).map((topic: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                            >
+                              {topic}
+                            </span>
+                          ))}
+                          {event.topics.length > 3 && (
+                            <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                              +{event.topics.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowStudyPlanPopup(false)}
+                className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
