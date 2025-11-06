@@ -9,6 +9,7 @@ export interface AIMessage {
 export interface AIModelConfig {
   provider: 'gemini' | 'claude' | 'openai';
   model_name: string;
+  display_name: string;
   api_endpoint: string;
   temperature: number;
   max_output_tokens: number;
@@ -430,6 +431,7 @@ export async function getUserAIModel(
       return {
         provider: modelData.provider,
         model_name: modelData.model_name,
+        display_name: modelData.display_name,
         api_endpoint: modelData.api_endpoint,
         temperature: modelData.temperature_default,
         max_output_tokens: modelData.max_output_tokens,
@@ -462,6 +464,7 @@ export async function getDefaultAIModel(
     return {
       provider: data.provider,
       model_name: data.model_name,
+      display_name: data.display_name,
       api_endpoint: data.api_endpoint,
       temperature: data.temperature_default,
       max_output_tokens: data.max_output_tokens,
@@ -474,6 +477,7 @@ export async function getDefaultAIModel(
     return {
       provider: 'gemini',
       model_name: 'gemini-2.0-flash',
+      display_name: 'Gemini 2.0 Flash',
       api_endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash',
       temperature: 0.7,
       max_output_tokens: 8192,
