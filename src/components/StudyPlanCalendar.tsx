@@ -25,7 +25,8 @@ import {
   Zap,
   Power,
   PowerOff,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 import { StudyPlanEvent, StudyPlanSchedule } from '../types/studyPlan';
 import { StudyPlanWizard } from './StudyPlanWizard';
@@ -660,7 +661,22 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     return Array.from(grouped.values());
   };
 
-  const getStatusIcon = (status: StudyPlanEvent['status']) => {
+  // Check if an event is overdue
+  const isEventOverdue = (event: StudyPlanEvent) => {
+    if (event.status === 'completed' || event.status === 'skipped') {
+      return false; // Completed and skipped events are never overdue
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    const eventDate = new Date(event.event_date);
+    eventDate.setHours(0, 0, 0, 0);
+    return eventDate < today;
+  };
+
+  const getStatusIcon = (status: StudyPlanEvent['status'], isOverdue = false) => {
+    if (isOverdue) {
+      return <AlertCircle className="w-4 h-4 text-red-600" />;
+    }
     switch (status) {
       case 'completed':
         return <CheckCircle2 className="w-4 h-4 text-green-600" />;
@@ -673,7 +689,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
   };
 
-  const getStatusColor = (status: StudyPlanEvent['status']) => {
+  const getStatusColor = (status: StudyPlanEvent['status'], isOverdue = false) => {
+    if (isOverdue) {
+      return 'bg-red-100 border-red-400 text-red-900';
+    }
     switch (status) {
       case 'completed':
         return 'bg-green-100 border-green-300 text-green-800';
@@ -1279,10 +1298,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   setSelectedEvent(event);
                                   setShowEventModal(true);
                                 }}
-                                className={`text-xs p-1 rounded border ${getStatusColor(event.status)} ${calendarView === 'month' ? 'truncate' : ''} cursor-pointer hover:shadow-md transition-shadow`}
+                                className={`text-xs p-1 rounded border ${getStatusColor(event.status, isEventOverdue(event))} ${calendarView === 'month' ? 'truncate' : ''} cursor-pointer hover:shadow-md transition-shadow`}
                               >
                                 <div className="flex items-center space-x-1">
-                                  {getStatusIcon(event.status)}
+                                  {getStatusIcon(event.status, isEventOverdue(event))}
                                   <span className={calendarView === 'month' ? 'truncate' : ''}>{formatEventTitle(event)}</span>
                                 </div>
                                 {calendarView !== 'month' && event.description && (
@@ -1356,7 +1375,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                               setSelectedEvent(event);
                               setShowEventModal(true);
                             }}
-                            className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer hover:shadow-lg transition-all`}
+                            className={`p-4 rounded-lg border ${getStatusColor(event.status, isEventOverdue(event))} cursor-pointer hover:shadow-lg transition-all`}
                           >
                             {/* Subject Badge - Prominent at top */}
                             {subjectName && (
@@ -1370,7 +1389,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center space-x-2 flex-1">
-                                {getStatusIcon(event.status)}
+                                {getStatusIcon(event.status, isEventOverdue(event))}
                                 <span className="font-semibold text-sm">{formatEventTitle(event)}</span>
                               </div>
                             </div>
@@ -1492,10 +1511,10 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   {dayEvents.slice(0, calendarView === 'week' ? 5 : 15).map((event) => (
                                     <div
                                       key={event.id}
-                                      className={`text-[10px] p-0.5 rounded border ${getStatusColor(event.status)}`}
+                                      className={`text-[10px] p-0.5 rounded border ${getStatusColor(event.status, isEventOverdue(event))}`}
                                     >
                                       <div className="flex items-center space-x-0.5">
-                                        {getStatusIcon(event.status)}
+                                        {getStatusIcon(event.status, isEventOverdue(event))}
                                         <span className="truncate text-[9px]">{formatEventTitle(event)}</span>
                                       </div>
                                     </div>
@@ -1544,11 +1563,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                     setSelectedEvent(event);
                     setShowEventModal(true);
                   }}
-                  className={`p-4 rounded-lg border ${getStatusColor(event.status)} cursor-pointer hover:shadow-md transition-shadow`}
+                  className={`p-4 rounded-lg border ${getStatusColor(event.status, isEventOverdue(event))} cursor-pointer hover:shadow-md transition-shadow`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(event.status)}
+                      {getStatusIcon(event.status, isEventOverdue(event))}
                       <span className="font-semibold">{formatEventTitle(event)}</span>
                     </div>
                     <span className="text-xs text-gray-600">
@@ -1738,7 +1757,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                           setShowEventModal(true);
                           setShowMobileDateModal(false);
                         }}
-                        className={`p-3 rounded-lg border ${getStatusColor(event.status)} cursor-pointer active:scale-95 transition-all`}
+                        className={`p-3 rounded-lg border ${getStatusColor(event.status, isEventOverdue(event))} cursor-pointer active:scale-95 transition-all`}
                       >
                         {/* Subject Badge - Prominent at top */}
                         {subjectName && (
@@ -1753,7 +1772,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                         <div className="flex items-center space-x-3">
                           {/* Status Icon */}
                           <div className="flex-shrink-0">
-                            {getStatusIcon(event.status)}
+                            {getStatusIcon(event.status, isEventOverdue(event))}
                           </div>
 
                           {/* Task Info */}
