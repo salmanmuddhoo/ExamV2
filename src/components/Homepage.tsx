@@ -284,7 +284,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   formatSubjects(tiers.student_lite.max_subjects),
                   "Yearly & Chapter-wise practice",
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
-                  "Most affordable option"
+                  "Study Plan"
                 ]}
                 buttonText="Start Learning"
                 onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
