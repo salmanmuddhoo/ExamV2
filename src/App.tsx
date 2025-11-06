@@ -22,12 +22,49 @@ import { BlogPost as BlogPostType } from './data/blogPosts';
 
 type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'blog' | 'blog-post' | 'study-plan';
 
+// Helper function to map URL pathname to view
+function getViewFromPathname(pathname: string): View {
+  // Remove trailing slash
+  const path = pathname.replace(/\/$/, '') || '/';
+
+  // Map common URL patterns to views
+  if (path === '/' || path === '/home') return 'home';
+  if (path === '/blog') return 'blog';
+  if (path === '/study-plan' || path === '/my-study-plan') return 'study-plan';
+  if (path === '/login') return 'login';
+  if (path === '/payment' || path === '/pricing') return 'payment';
+
+  // Map papers-related URLs to papers-browser
+  if (path === '/papers' || path === '/papers-browser') return 'papers-browser';
+  if (path.includes('past-papers')) return 'papers-browser';
+  if (path === '/about') return 'home';
+
+  // Default to home for unknown paths
+  return 'home';
+}
+
+// Helper function to get pathname from view
+function getPathnameFromView(view: View): string {
+  switch (view) {
+    case 'blog': return '/blog';
+    case 'study-plan': return '/study-plan';
+    case 'papers-browser': return '/papers';
+    case 'chat-hub': return '/chat';
+    case 'login': return '/login';
+    case 'payment': return '/pricing';
+    default: return '/';
+  }
+}
+
 function App() {
   const { user, profile, loading } = useAuth();
   const [view, setView] = useState<View>(() => {
-    // Restore view from sessionStorage on initial load
+    // First, check if there's a saved view in sessionStorage
     const savedView = sessionStorage.getItem('currentView');
-    return (savedView as View) || 'home';
+    if (savedView) return savedView as View;
+
+    // Otherwise, derive view from current URL pathname
+    return getViewFromPathname(window.location.pathname);
   });
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(() => {
     return sessionStorage.getItem('selectedPaperId') || null;
@@ -65,27 +102,37 @@ function App() {
   const [showEmailVerifiedModal, setShowEmailVerifiedModal] = useState(false);
   const [showChatHubProfile, setShowChatHubProfile] = useState(false);
 
-  // Browser back button handler - Prevent logout on back navigation
+  // Update URL when view changes
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      // Prevent default back behavior that might log out user
-      if (user) {
-        event.preventDefault();
-        // If authenticated, navigate to chat-hub instead of going back
-        if (profile?.role !== 'admin') {
-          setView('chat-hub');
-        }
+    const newPath = getPathnameFromView(view);
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+
+    // Only update if the path actually changed (avoid unnecessary history entries)
+    if (newPath !== currentPath) {
+      window.history.pushState({ view }, '', newPath);
+    }
+
+    // Save current view to sessionStorage
+    sessionStorage.setItem('currentView', view);
+  }, [view]);
+
+  // Browser back button handler - Handle URL-based navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      // Get the view from the new pathname
+      const newView = getViewFromPathname(window.location.pathname);
+
+      // Prevent logout on back navigation if user is authenticated
+      if (user && newView !== 'login') {
+        setView(newView);
+      } else {
+        setView(newView);
       }
     };
 
-    // Add history entry for current state to enable back button handling
-    if (user && view) {
-      window.history.pushState({ view }, '', window.location.pathname);
-    }
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [user, profile, view]);
+  }, [user, profile]);
 
   // Check for password reset token or email verification in URL (must run first)
   useEffect(() => {
