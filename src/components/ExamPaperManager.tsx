@@ -642,7 +642,7 @@ export function ExamPaperManager() {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 placeholder="e.g., Mid-term Examination 2024"
               />
             </div>
@@ -657,7 +657,7 @@ export function ExamPaperManager() {
                   value={formData.subject_id}
                   onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">Select a subject</option>
                   {subjects.map((subject) => (
@@ -677,7 +677,7 @@ export function ExamPaperManager() {
                   value={formData.grade_level_id}
                   onChange={(e) => setFormData({ ...formData, grade_level_id: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">Select a grade</option>
                   {gradeLevels.map((grade) => (
@@ -696,7 +696,7 @@ export function ExamPaperManager() {
                   id="syllabus"
                   value={formData.syllabus_id}
                   onChange={(e) => setFormData({ ...formData, syllabus_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={!formData.subject_id || !formData.grade_level_id}
                 >
                   <option value="">No syllabus (skip chapter tagging)</option>
@@ -727,7 +727,7 @@ export function ExamPaperManager() {
                   id="month"
                   value={formData.month}
                   onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="">Select a month</option>
                   {MONTHS.map((month) => (
@@ -750,7 +750,7 @@ export function ExamPaperManager() {
                   min="2000"
                   max="2099"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                  className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="e.g., 2024"
                 />
               </div>
@@ -764,7 +764,7 @@ export function ExamPaperManager() {
                 id="ai_prompt"
                 value={formData.ai_prompt_id}
                 onChange={(e) => setFormData({ ...formData, ai_prompt_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="">Use default prompt</option>
                 {aiPrompts.map((prompt) => (

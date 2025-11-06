@@ -1,4 +1,4 @@
-import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight, Smartphone, Calendar, TrendingUp, Clock } from 'lucide-react';
+import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight, Smartphone, Calendar, TrendingUp, Clock, FolderTree, BarChart3, Cpu } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatTokenCount } from '../lib/formatUtils';
@@ -90,7 +90,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </h1>
               
               <p className="text-lg sm:text-xl text-gray-600 mb-6 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                Practice exam papers anywhere, anytime with an intelligent AI tutor. Get AI-generated Study Plans tailored to your goals, track your progress, and receive detailed explanations for every question on any device.
+                Practice exam papers anywhere, anytime with your choice of <span className="font-semibold text-gray-900">Gemini, Claude, or GPT-4o</span> AI tutors. Get AI-generated Study Plans, organized chapter-wise content, and track your progress with detailed explanations for every question.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -144,14 +144,105 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             />
             <FeatureCard
               icon={<Brain className="w-8 h-8" />}
-              title="AI-Powered Learning"
-              description="Get instant, intelligent responses to your questions. Our AI tutor provides step-by-step explanations and practical examples."
+              title="Multiple AI Models"
+              description="Choose from Gemini, Claude, or GPT-4o for your tutoring. Each AI provides instant, intelligent responses with step-by-step explanations tailored to your learning style."
             />
             <FeatureCard
               icon={<Zap className="w-8 h-8" />}
               title="Interactive Study Experience"
               description="View exam papers alongside AI chat. Ask questions, request clarifications, and learn at your own pace."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Advanced Features Section */}
+      <section className="border-b border-gray-200 bg-gradient-to-br from-gray-50 via-white to-gray-50">
+        <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Smart Features That Make Learning Easy
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Our platform is designed with cutting-edge technology to provide you with the best exam preparation experience
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* AI Model Selection */}
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 hover:shadow-xl transition-all">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-6">
+                <Cpu className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Choose Your AI Tutor</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Select from industry-leading AI models - <span className="font-semibold text-gray-900">Google Gemini</span>, <span className="font-semibold text-gray-900">Anthropic Claude</span>, or <span className="font-semibold text-gray-900">OpenAI GPT-4o</span>. Each model brings unique strengths to help you understand complex concepts.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                  <span className="text-gray-700">Switch models anytime</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
+                  <span className="text-gray-700">Different perspectives on same questions</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-pink-600 rounded-full"></div>
+                  <span className="text-gray-700">Find the teaching style that works for you</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Organized Exam Papers */}
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 hover:shadow-xl transition-all">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl mb-6">
+                <FolderTree className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Smart Paper Organization</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                When you chat with our AI, all exam papers are automatically organized by chapters. Simply select which chapter you're studying, and the AI focuses on that specific content.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span className="text-gray-700">Chapter-by-chapter navigation</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-emerald-600 rounded-full"></div>
+                  <span className="text-gray-700">AI understands your current topic</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-teal-600 rounded-full"></div>
+                  <span className="text-gray-700">Focus on what matters most</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Study Plan Progress Tracking */}
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 hover:shadow-xl transition-all">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl mb-6">
+                <BarChart3 className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">AI-Generated Study Plans</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Let AI create a personalized study schedule based on your syllabus. Track every session, mark tasks complete, and visualize your progress with an interactive calendar.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
+                  <span className="text-gray-700">Automatic schedule generation</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                  <span className="text-gray-700">Visual progress tracking</span>
+                </div>
+                <div className="flex items-center space-x-3 text-sm">
+                  <div className="w-2 h-2 bg-rose-600 rounded-full"></div>
+                  <span className="text-gray-700">Stay organized and on track</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -209,9 +300,9 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-600 text-white rounded-xl mb-4">
                 <Calendar className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Create Study Plans</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">AI Study Plans</h3>
               <p className="text-gray-600 leading-relaxed">
-                Organize your revision by selecting specific subjects and chapters. Build a personalized study schedule that works for you.
+                Let AI automatically generate a personalized study schedule based on your syllabus and chapters. Your smart calendar adapts to your learning goals.
               </p>
             </div>
 
@@ -219,9 +310,9 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               <div className="inline-flex items-center justify-center w-12 h-12 bg-green-600 text-white rounded-xl mb-4">
                 <TrendingUp className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Track Your Progress</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Visual Progress Tracking</h3>
               <p className="text-gray-600 leading-relaxed">
-                Monitor your conversations and questions across different topics. See how much you've covered and what's left to master.
+                Mark study sessions complete, track overdue tasks with alerts, and watch your progress grow with interactive charts and completion percentages.
               </p>
             </div>
 

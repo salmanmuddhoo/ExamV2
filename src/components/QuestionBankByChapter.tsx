@@ -235,7 +235,7 @@ export function QuestionBankByChapter() {
                 setSelectedSubject(e.target.value);
                 setSelectedChapter('');
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+              className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">Select a subject</option>
               {subjects.map((subject) => (
@@ -257,7 +257,7 @@ export function QuestionBankByChapter() {
                 setSelectedGrade(e.target.value);
                 setSelectedChapter('');
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+              className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">Select a grade</option>
               {gradeLevels.map((grade) => (
