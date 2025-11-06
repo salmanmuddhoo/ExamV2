@@ -356,23 +356,26 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
         <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
           <h2 className="text-lg font-bold text-gray-900">Study Session Details</h2>
           <div className="flex items-center space-x-2">
-            {!isEditingDetails ? (
-              <button
-                onClick={() => setIsEditingDetails(true)}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Edit details"
-              >
-                <Edit3 className="w-4 h-4 text-gray-600" />
-              </button>
-            ) : (
-              <button
-                onClick={handleSaveEditedDetails}
-                disabled={saving}
-                className="px-3 py-1.5 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            )}
+            {/* Mobile only: Edit button in header */}
+            <div className="md:hidden flex items-center space-x-2">
+              {!isEditingDetails ? (
+                <button
+                  onClick={() => setIsEditingDetails(true)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Edit details"
+                >
+                  <Edit3 className="w-4 h-4 text-gray-600" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleSaveEditedDetails}
+                  disabled={saving}
+                  className="px-3 py-1.5 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
@@ -384,16 +387,37 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
 
         {/* Content */}
         <div className="p-4 space-y-4">
-          {/* Subject Badge */}
+          {/* Subject Badge with Edit Button (Desktop) */}
           {(() => {
             const subjectName = (event as any).study_plan_schedules?.subjects?.name;
             if (subjectName) {
               return (
-                <div className="mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
                     <BookOpen className="w-4 h-4 mr-1.5" />
                     {subjectName}
                   </span>
+                  {/* Desktop only: Edit button next to subject badge */}
+                  <div className="hidden md:flex items-center space-x-2">
+                    {!isEditingDetails ? (
+                      <button
+                        onClick={() => setIsEditingDetails(true)}
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Edit details"
+                      >
+                        <Edit3 className="w-4 h-4 mr-1.5" />
+                        Edit
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSaveEditedDetails}
+                        disabled={saving}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                      >
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             }

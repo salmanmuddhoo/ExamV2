@@ -57,22 +57,44 @@ BEGIN
   v_counts := jsonb_set(v_counts, '{conversations}', to_jsonb(v_count));
   DELETE FROM conversations WHERE user_id = p_user_id;
 
-  -- 3. Delete study plan events
+  -- 3. Delete coupon usages
+  BEGIN
+    SELECT COUNT(*) INTO v_count FROM coupon_usages WHERE user_id = p_user_id;
+    v_counts := jsonb_set(v_counts, '{coupon_usages}', to_jsonb(v_count));
+    DELETE FROM coupon_usages WHERE user_id = p_user_id;
+  EXCEPTION
+    WHEN undefined_table THEN
+      -- Table doesn't exist, skip
+      v_counts := jsonb_set(v_counts, '{coupon_usages}', to_jsonb(0));
+  END;
+
+  -- 4. Delete payment transactions
+  BEGIN
+    SELECT COUNT(*) INTO v_count FROM payment_transactions WHERE user_id = p_user_id;
+    v_counts := jsonb_set(v_counts, '{payment_transactions}', to_jsonb(v_count));
+    DELETE FROM payment_transactions WHERE user_id = p_user_id;
+  EXCEPTION
+    WHEN undefined_table THEN
+      -- Table doesn't exist, skip
+      v_counts := jsonb_set(v_counts, '{payment_transactions}', to_jsonb(0));
+  END;
+
+  -- 5. Delete study plan events
   SELECT COUNT(*) INTO v_count FROM study_plan_events WHERE user_id = p_user_id;
   v_counts := jsonb_set(v_counts, '{study_plan_events}', to_jsonb(v_count));
   DELETE FROM study_plan_events WHERE user_id = p_user_id;
 
-  -- 4. Delete study plan schedules
+  -- 6. Delete study plan schedules
   SELECT COUNT(*) INTO v_count FROM study_plan_schedules WHERE user_id = p_user_id;
   v_counts := jsonb_set(v_counts, '{study_plan_schedules}', to_jsonb(v_count));
   DELETE FROM study_plan_schedules WHERE user_id = p_user_id;
 
-  -- 5. Delete user subscriptions
+  -- 7. Delete user subscriptions
   SELECT COUNT(*) INTO v_count FROM user_subscriptions WHERE user_id = p_user_id;
   v_counts := jsonb_set(v_counts, '{user_subscriptions}', to_jsonb(v_count));
   DELETE FROM user_subscriptions WHERE user_id = p_user_id;
 
-  -- 6. Delete token usage tracking (if table exists)
+  -- 8. Delete token usage tracking (if table exists)
   BEGIN
     SELECT COUNT(*) INTO v_count FROM token_usage WHERE user_id = p_user_id;
     v_counts := jsonb_set(v_counts, '{token_usage}', to_jsonb(v_count));
@@ -83,7 +105,7 @@ BEGIN
       v_counts := jsonb_set(v_counts, '{token_usage}', to_jsonb(0));
   END;
 
-  -- 7. Delete profile picture from storage (if exists)
+  -- 9. Delete profile picture from storage (if exists)
   -- Note: This marks the file for deletion, actual deletion happens via storage policies
   DECLARE
     v_profile_picture_url TEXT;
@@ -99,7 +121,7 @@ BEGIN
     END IF;
   END;
 
-  -- 8. Delete profile (this will CASCADE to auth.users)
+  -- 10. Delete profile (this will CASCADE to auth.users)
   -- Note: profiles table has ON DELETE CASCADE from auth.users
   -- So we delete from auth.users, which will delete the profile
   DELETE FROM auth.users WHERE id = p_user_id;
@@ -112,4 +134,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Comment explaining what's included
 COMMENT ON FUNCTION admin_delete_user_completely IS
-  'Completely deletes a user and all their related data from the system. Only admins can execute this. Includes: conversations, messages, study plan events, study plan schedules, subscriptions, token usage, profile picture, and auth account. This is a destructive operation that cannot be undone.';
+  'Completely deletes a user and all their related data from the system. Only admins can execute this. Includes: conversations, messages, coupon usages, payment transactions, study plan events, study plan schedules, subscriptions, token usage, profile picture, and auth account. This is a destructive operation that cannot be undone.';

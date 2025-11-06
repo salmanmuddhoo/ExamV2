@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Minimize, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, FileText, MessageSquare, Lock, Maximize, Minimize, RefreshCw, Calendar, X, Clock, CheckCircle2, Circle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
 import { convertPdfToBase64Images } from '../lib/pdfUtils';
@@ -76,6 +76,11 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Study Plan state
+  const [showStudyPlanPopup, setShowStudyPlanPopup] = useState(false);
+  const [todayEvents, setTodayEvents] = useState<any[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
 
   // Question change animation state
   const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
@@ -366,6 +371,41 @@ This helps me give you the most accurate and focused help! 😊`;
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Study Plan functions
+  const fetchTodayEvents = async () => {
+    if (!user) return;
+    try {
+      setLoadingEvents(true);
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('study_plan_events')
+        .select(`
+          *,
+          study_plan_schedules!inner(
+            subjects(name),
+            is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('event_date', today)
+        .eq('study_plan_schedules.is_active', true)
+        .order('start_time', { ascending: true });
+
+      if (error) throw error;
+      setTodayEvents(data || []);
+    } catch (error) {
+      setTodayEvents([]);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleOpenStudyPlan = () => {
+    setShowStudyPlanPopup(true);
+    fetchTodayEvents();
+  };
 
   const fetchExamPaper = async () => {
     try {
@@ -1114,6 +1154,15 @@ You can still view and download this exam paper!`
             />
           </div>
 
+          {/* Study Plan Calendar - Desktop Only */}
+          <button
+            onClick={handleOpenStudyPlan}
+            className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+            title="Today's Study Plan"
+          >
+            <Calendar className="w-5 h-5 text-gray-700" />
+          </button>
+
           {/* Fullscreen Toggle - Desktop Only */}
           <button
             onClick={toggleFullscreen}
@@ -1393,6 +1442,110 @@ You can still view and download this exam paper!`
           )}
         </div>
       </div>
+
+      {/* Today's Study Plan Popup */}
+      {showStudyPlanPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5 text-gray-700" />
+                <h2 className="text-lg font-bold text-gray-900">Today's Study Plan</h2>
+              </div>
+              <button
+                onClick={() => setShowStudyPlanPopup(false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingEvents ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  <span className="ml-2 text-sm text-gray-500">Loading events...</span>
+                </div>
+              ) : todayEvents.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No study sessions scheduled for today</p>
+                  <p className="text-gray-400 text-xs mt-1">Check your study plan for upcoming sessions</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todayEvents.map((event) => {
+                    const subjectName = event.study_plan_schedules?.subjects?.name || 'Unknown Subject';
+                    const startTime = new Date(`2000-01-01T${event.start_time}`);
+                    const endTime = new Date(`2000-01-01T${event.end_time}`);
+
+                    const statusConfig = {
+                      completed: { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
+                      in_progress: { icon: Circle, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+                      pending: { icon: Circle, color: 'text-gray-400', bg: 'bg-gray-50', border: 'border-gray-200' },
+                      skipped: { icon: Circle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+                    };
+
+                    const config = statusConfig[event.status as keyof typeof statusConfig] || statusConfig.pending;
+                    const StatusIcon = config.icon;
+
+                    return (
+                      <div
+                        key={event.id}
+                        className={`border ${config.border} ${config.bg} rounded-lg p-4 hover:shadow-md transition-shadow`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="inline-block px-2 py-0.5 bg-black text-white text-xs font-semibold rounded">
+                              {subjectName}
+                            </span>
+                            <StatusIcon className={`w-4 h-4 ${config.color}`} />
+                          </div>
+                          <div className="flex items-center space-x-1 text-xs text-gray-500">
+                            <Clock className="w-3 h-3" />
+                            <span>
+                              {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })} - {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <h3 className="font-semibold text-gray-900 mb-1">{event.title}</h3>
+
+                        {event.description && (
+                          <p className="text-sm text-gray-600 mb-2">{event.description}</p>
+                        )}
+
+                        {event.topics && event.topics.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {event.topics.map((topic: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded"
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {event.status === 'completed' && event.completion_notes && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-xs text-gray-600">
+                              <span className="font-semibold">Notes:</span> {event.completion_notes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
