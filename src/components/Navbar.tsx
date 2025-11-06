@@ -57,8 +57,14 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
   // Click outside handler for mobile menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
-        setMobileMenuOpen(false);
+      const target = event.target as HTMLElement;
+      // Check if click is outside menu and not on the hamburger button itself
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        // Don't close if clicking the hamburger button (it has its own toggle handler)
+        const isHamburgerButton = target.closest('button[aria-label="Toggle mobile menu"]');
+        if (!isHamburgerButton) {
+          setMobileMenuOpen(false);
+        }
       }
     };
 
@@ -238,6 +244,7 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 text-gray-700 hover:text-black"
+            aria-label="Toggle mobile menu"
           >
             <Menu className="w-6 h-6" />
           </button>
