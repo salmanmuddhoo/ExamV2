@@ -26,25 +26,14 @@ async function getCacheModeAndKeys(supabaseClient: any): Promise<{
     const useGeminiCache = (cacheData?.setting_value?.useGeminiCache) ?? false;
     console.log(`📦 Cache mode: ${useGeminiCache ? 'Gemini built-in cache' : 'Own database cache'}`);
 
-    // Get Gemini cache API key (for cache mode)
+    // Get Gemini cache API key from environment variable only
     let cacheApiKey: string | null = null;
     if (useGeminiCache) {
-      const { data: apiKeyData } = await supabaseClient
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'gemini_cache_api_key')
-        .single();
-
-      const dbApiKey = apiKeyData?.setting_value?.apiKey;
-      if (dbApiKey && dbApiKey.trim() !== '') {
-        cacheApiKey = dbApiKey;
-        console.log('🔑 Using Gemini cache API key from database settings');
+      cacheApiKey = Deno.env.get("GEMINI_CACHE_API_KEY") || null;
+      if (cacheApiKey) {
+        console.log('🔑 Using Gemini cache API key from environment variable');
       } else {
-        // Fallback to environment variable
-        cacheApiKey = Deno.env.get("GEMINI_CACHE_API_KEY") || null;
-        if (cacheApiKey) {
-          console.log('🔑 Using Gemini cache API key from environment variable');
-        }
+        console.log('⚠️ Gemini cache mode enabled but GEMINI_CACHE_API_KEY not set');
       }
     }
 
@@ -769,7 +758,7 @@ Deno.serve(async (req) => {
 
     // Validate API keys
     if (useGeminiCache && !cacheApiKey) {
-      throw new Error("Gemini cache mode enabled but GEMINI_CACHE_API_KEY not configured in database or environment");
+      throw new Error("Gemini cache mode enabled but GEMINI_CACHE_API_KEY environment variable not configured");
     }
     if (!legacyApiKey) {
       throw new Error("GEMINI_ASSISTANT_API_KEY or GEMINI_API_KEY not configured");
