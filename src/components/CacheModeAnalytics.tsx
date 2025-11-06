@@ -169,7 +169,7 @@ export function CacheModeAnalytics() {
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value as '7d' | '30d' | 'all')}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -180,7 +180,7 @@ export function CacheModeAnalytics() {
 
       {/* Savings Summary Card */}
       {savings && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-6">
+        <div className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-green-600 rounded-lg">
@@ -216,7 +216,7 @@ export function CacheModeAnalytics() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Legacy Mode Stats */}
         {legacyStats && (
-          <div className="border border-gray-200 rounded-lg p-6 bg-white">
+          <div className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
             <div className="flex items-center space-x-3 mb-4">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Database className="w-5 h-5 text-gray-700" />
@@ -279,7 +279,7 @@ export function CacheModeAnalytics() {
 
         {/* Gemini Cache Mode Stats */}
         {geminiCacheStats && (
-          <div className="border border-indigo-200 rounded-lg p-6 bg-indigo-50">
+          <div className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
             <div className="flex items-center space-x-3 mb-4">
               <div className="p-2 bg-indigo-600 rounded-lg">
                 <Server className="w-5 h-5 text-white" />
@@ -343,7 +343,7 @@ export function CacheModeAnalytics() {
 
       {/* Cache Efficiency Stats */}
       {cacheEfficiency && cacheEfficiency.totalCacheableRequests > 0 && (
-        <div className="border border-purple-200 rounded-lg p-6 bg-purple-50">
+        <div className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
           <div className="flex items-center space-x-3 mb-4">
             <div className="p-2 bg-purple-600 rounded-lg">
               <TrendingUp className="w-5 h-5 text-white" />

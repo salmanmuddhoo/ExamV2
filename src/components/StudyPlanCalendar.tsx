@@ -1493,6 +1493,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                     <div
                                       key={event.id}
                                       className={`w-full h-1.5 rounded-full ${
+                                        isEventOverdue(event) ? 'bg-red-500' :
                                         event.status === 'completed' ? 'bg-green-500' :
                                         event.status === 'in_progress' ? 'bg-blue-500' :
                                         event.status === 'skipped' ? 'bg-gray-300' :
