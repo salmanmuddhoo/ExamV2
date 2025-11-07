@@ -662,7 +662,7 @@ function App() {
         </div>
         <AdminDashboard
           onNavigateHome={() => setView('home')}
-          onNavigateProfile={handleNavigateProfile}
+          onNavigateProfile={handleNavigateToProfile}
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onSignOut={handleSignOut}
