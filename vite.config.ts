@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
+      includeAssets: ['logo.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Aixampapers - Smart Exam Preparation',
         short_name: 'Aixampapers',
@@ -16,19 +16,13 @@ export default defineConfig({
         theme_color: '#000000',
         icons: [
           {
-            src: '/favicon.png',
-            sizes: '306x306',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: '/icon-192.png',
+            src: '/logo.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/icon-512.png',
+            src: '/logo.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
