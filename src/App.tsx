@@ -587,6 +587,16 @@ function App() {
     setView('study-plan');
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setView('home');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setView('home');
+    }
+  };
+
   const handleSubscriptionSuccess = () => {
     setShowSubscriptionModal(false);
     // Clear subscription modal state from sessionStorage
