@@ -226,19 +226,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log(`[OAuth] Starting ${provider} OAuth in ${isPWA ? 'PWA' : 'Browser'} mode`);
 
-    // CRITICAL FIX: Completely clear all auth state before OAuth to prevent conflicts
-    // This ensures clean slate when switching between OAuth providers or contexts
+    // CRITICAL FIX: Only clear current context's session, not all storage
+    // We need to preserve storage mechanism for OAuth callback to work
     try {
-      // First, sign out from Supabase completely (both local and server)
-      await supabase.auth.signOut();
+      const currentStorageKey = isPWA ? 'supabase.auth.token.pwa' : 'supabase.auth.token.web';
 
-      // Then, aggressively clear all auth-related storage
-      clearAllAuthStorage();
+      // Only clear the current context's session
+      localStorage.removeItem(currentStorageKey);
 
-      console.log('[OAuth] Cleared all previous auth state');
+      // Clear OAuth tracking flags to start fresh
+      localStorage.removeItem('pwa_oauth_initiated');
+      localStorage.removeItem('pwa_oauth_provider');
+      localStorage.removeItem('pwa_oauth_timestamp');
+
+      console.log('[OAuth] Cleared current session for fresh OAuth');
 
       // Small delay to ensure cleanup completes
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50));
     } catch (e) {
       console.warn('[OAuth] Error during pre-OAuth cleanup:', e);
       // Continue anyway - we still want to attempt OAuth
@@ -267,8 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // In PWA mode, use localStorage instead of sessionStorage
-    // sessionStorage can be lost when PWA reopens from OAuth redirect
+    // In PWA mode, use localStorage for OAuth tracking
     if (isPWA) {
       localStorage.setItem('pwa_oauth_initiated', 'true');
       localStorage.setItem('pwa_oauth_provider', provider);

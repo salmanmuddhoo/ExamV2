@@ -55,31 +55,43 @@ export const clearAllAuthStorage = () => {
   sessionStorage.removeItem('pwa_oauth_timestamp');
 };
 
-// Utility to detect and clear cross-context sessions
+// Utility to detect and log cross-context sessions (no aggressive cleanup)
 export const validateSessionContext = async () => {
   const currentContext = isPWA ? 'pwa' : 'web';
   const otherContext = isPWA ? 'web' : 'pwa';
   const otherStorageKey = isPWA ? 'supabase.auth.token.web' : 'supabase.auth.token.pwa';
+  const currentStorageKey = isPWA ? 'supabase.auth.token.pwa' : 'supabase.auth.token.web';
 
   // Check if there's a session in the other context
   const otherSession = localStorage.getItem(otherStorageKey);
 
   if (otherSession) {
     console.log(`[Session Isolation] Found ${otherContext} session in ${currentContext} context - keeping separate`);
-    // Sessions are now isolated by storage key, so no action needed
+    // Sessions are isolated by storage key, no action needed
   }
 
-  // Validate current session
+  // Validate current session - but don't aggressively clear on errors
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
-    if (error || !session) {
-      // Clear invalid session
-      clearAllAuthStorage();
+
+    if (error) {
+      console.warn('[Session Validation] Session error:', error.message);
+      // Only clear the current context's invalid session, not everything
+      localStorage.removeItem(currentStorageKey);
       return false;
     }
+
+    if (!session) {
+      console.log('[Session Validation] No active session in current context');
+      return false;
+    }
+
+    console.log('[Session Validation] Valid session found');
     return true;
   } catch (e) {
-    clearAllAuthStorage();
+    console.error('[Session Validation] Error:', e);
+    // Only clear the current context's session on error
+    localStorage.removeItem(currentStorageKey);
     return false;
   }
 };
