@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'apple-touch-icon.png'],
+      includeAssets: ['logo.png', 'favicon.png'],
       manifest: {
         name: 'Aixampapers - Smart Exam Preparation',
         short_name: 'Aixampapers',
