@@ -167,16 +167,30 @@ function App() {
     const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
                   (window.navigator as any).standalone ||
                   document.referrer.includes('android-app://');
-    const pwaOAuthInitiated = sessionStorage.getItem('pwa_oauth_initiated') === 'true';
+    // FIXED: Use localStorage instead of sessionStorage for PWA OAuth tracking
+    // sessionStorage is lost when PWA reopens from OAuth redirect
+    const pwaOAuthInitiated = localStorage.getItem('pwa_oauth_initiated') === 'true';
 
     // If PWA OAuth was initiated, log callback status for debugging
     if (isPWA && pwaOAuthInitiated && isOAuthCallback) {
-      const provider = sessionStorage.getItem('pwa_oauth_provider');
-      const timestamp = sessionStorage.getItem('pwa_oauth_timestamp');
-      // Clear the flags
-      sessionStorage.removeItem('pwa_oauth_initiated');
-      sessionStorage.removeItem('pwa_oauth_provider');
-      sessionStorage.removeItem('pwa_oauth_timestamp');
+      const provider = localStorage.getItem('pwa_oauth_provider');
+      const timestamp = localStorage.getItem('pwa_oauth_timestamp');
+      console.log(`[PWA OAuth] Callback received - Provider: ${provider}, Timestamp: ${timestamp}`);
+      // Clear the flags after successful callback
+      localStorage.removeItem('pwa_oauth_initiated');
+      localStorage.removeItem('pwa_oauth_provider');
+      localStorage.removeItem('pwa_oauth_timestamp');
+    }
+
+    // Clean up stale PWA OAuth flags if callback failed (older than 5 minutes)
+    if (isPWA && pwaOAuthInitiated && !isOAuthCallback) {
+      const timestamp = localStorage.getItem('pwa_oauth_timestamp');
+      if (timestamp && Date.now() - parseInt(timestamp) > 5 * 60 * 1000) {
+        console.log('[PWA OAuth] Cleaning up stale OAuth flags');
+        localStorage.removeItem('pwa_oauth_initiated');
+        localStorage.removeItem('pwa_oauth_provider');
+        localStorage.removeItem('pwa_oauth_timestamp');
+      }
     }
 
     // Handle initial load or OAuth redirect

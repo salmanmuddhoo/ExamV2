@@ -213,6 +213,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   (window.navigator as any).standalone ||
                   document.referrer.includes('android-app://');
 
+    // CRITICAL FIX: Clear any existing session before OAuth to prevent conflicts
+    // This ensures clean slate when switching between OAuth providers
+    try {
+      await supabase.auth.signOut({ scope: 'local' }); // Only clear local session, not server
+    } catch (e) {
+      // Ignore errors, we just want to ensure clean state
+    }
+
     // Configure provider-specific scopes and options
     const options: any = {
       redirectTo: `${window.location.origin}`,
@@ -223,6 +231,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Microsoft Azure requires explicit email scope
     if (provider === 'azure') {
       options.scopes = 'openid profile email';
+      // Add prompt to force account selection for Microsoft
+      options.queryParams = {
+        prompt: 'select_account', // Forces account selection
+      };
     }
 
     // Google - ensure we prompt for account selection to handle multiple accounts
@@ -233,11 +245,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // In PWA mode, add a flag to help with debugging and tracking
+    // In PWA mode, use localStorage instead of sessionStorage
+    // sessionStorage can be lost when PWA reopens from OAuth redirect
     if (isPWA) {
-      sessionStorage.setItem('pwa_oauth_initiated', 'true');
-      sessionStorage.setItem('pwa_oauth_provider', provider);
-      sessionStorage.setItem('pwa_oauth_timestamp', Date.now().toString());
+      localStorage.setItem('pwa_oauth_initiated', 'true');
+      localStorage.setItem('pwa_oauth_provider', provider);
+      localStorage.setItem('pwa_oauth_timestamp', Date.now().toString());
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
