@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase, clearAllAuthStorage, validateSessionContext } from '../lib/supabase';
+import { supabase, clearAllAuthStorage } from '../lib/supabase';
 
 interface Profile {
   id: string;
@@ -36,52 +36,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }, 10000); // 10 second timeout
 
-    // CRITICAL: Validate session context on mount to prevent cross-context conflicts
-    const initAuth = async () => {
-      // First, validate the session context (browser vs PWA)
-      await validateSessionContext();
-
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
-        if (error) {
-          console.error('[Auth] Session error:', error);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          clearTimeout(loadingTimeout);
-          return;
-        }
-
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id).finally(() => {
-            clearTimeout(loadingTimeout);
-          });
-        } else {
-          setLoading(false);
-          clearTimeout(loadingTimeout);
-        }
-      }).catch((err) => {
-        console.error('[Auth] Session fetch error:', err);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('[Auth] Session error:', error);
         setUser(null);
         setProfile(null);
         setLoading(false);
         clearTimeout(loadingTimeout);
-      });
-    };
+        return;
+      }
 
-    initAuth();
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id).finally(() => {
+          clearTimeout(loadingTimeout);
+        });
+      } else {
+        setLoading(false);
+        clearTimeout(loadingTimeout);
+      }
+    }).catch((err) => {
+      console.error('[Auth] Session fetch error:', err);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      clearTimeout(loadingTimeout);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (() => {
-        console.log(`[Auth] State change: ${_event}`);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      })();
+      console.log(`[Auth] State change: ${_event}`);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -289,18 +279,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setProfile(null);
 
-      // Sign out from Supabase
+      // Sign out from Supabase (this clears the auth token)
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('[Auth] Supabase signOut error:', error);
         throw error;
       }
 
-      // Clear ALL auth-related storage (both browser and PWA keys)
-      clearAllAuthStorage();
-
-      // Also clear sessionStorage (view state, etc.)
+      // Clear session storage (view state, OAuth flags, etc.)
       sessionStorage.clear();
+
+      // Clear OAuth tracking flags from localStorage
+      localStorage.removeItem('pwa_oauth_initiated');
+      localStorage.removeItem('pwa_oauth_provider');
+      localStorage.removeItem('pwa_oauth_timestamp');
 
       console.log('[Auth] Sign out complete');
     } catch (error) {
@@ -308,7 +300,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Even if signOut fails, clear local state
       setUser(null);
       setProfile(null);
-      clearAllAuthStorage();
       sessionStorage.clear();
       throw error;
     }
