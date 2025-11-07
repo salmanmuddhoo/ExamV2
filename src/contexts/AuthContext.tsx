@@ -226,26 +226,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log(`[OAuth] Starting ${provider} OAuth in ${isPWA ? 'PWA' : 'Browser'} mode`);
 
-    // CRITICAL FIX: Only clear current context's session, not all storage
-    // We need to preserve storage mechanism for OAuth callback to work
+    // CRITICAL FIX: Don't clear storage key before OAuth!
+    // Supabase needs the storage location to save the OAuth callback session
+    // Just clear OAuth tracking flags
     try {
-      const currentStorageKey = isPWA ? 'supabase.auth.token.pwa' : 'supabase.auth.token.web';
-
-      // Only clear the current context's session
-      localStorage.removeItem(currentStorageKey);
-
       // Clear OAuth tracking flags to start fresh
       localStorage.removeItem('pwa_oauth_initiated');
       localStorage.removeItem('pwa_oauth_provider');
       localStorage.removeItem('pwa_oauth_timestamp');
 
-      console.log('[OAuth] Cleared current session for fresh OAuth');
-
-      // Small delay to ensure cleanup completes
-      await new Promise(resolve => setTimeout(resolve, 50));
+      console.log('[OAuth] Ready for OAuth - Supabase will handle session replacement');
     } catch (e) {
       console.warn('[OAuth] Error during pre-OAuth cleanup:', e);
-      // Continue anyway - we still want to attempt OAuth
     }
 
     // Configure provider-specific scopes and options
