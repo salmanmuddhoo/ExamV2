@@ -70,6 +70,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log(`[Auth] State change: ${_event}`);
+
+      // CRITICAL: Handle OAuth callback from PWA
+      // If OAuth was initiated from PWA but callback landed in browser, redirect to PWA
+      if (_event === 'SIGNED_IN' && session?.user) {
+        const oauthInitiatedFromPWA = localStorage.getItem('pwa_oauth_initiated') === 'true';
+        const currentlyInPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                               (window.navigator as any).standalone ||
+                               document.referrer.includes('android-app://');
+
+        console.log('[Auth] OAuth callback check - Initiated from PWA:', oauthInitiatedFromPWA, 'Currently in PWA:', currentlyInPWA);
+
+        if (oauthInitiatedFromPWA && !currentlyInPWA) {
+          console.log('[Auth] OAuth completed in browser but was initiated from PWA - attempting to return to PWA');
+          // Clear the flag
+          localStorage.removeItem('pwa_oauth_initiated');
+          localStorage.removeItem('pwa_oauth_provider');
+          localStorage.removeItem('pwa_oauth_timestamp');
+
+          // Try to open the PWA - this will work if PWA is installed
+          // The PWA will pick up the session from shared localStorage
+          console.log('[Auth] Attempting to reopen PWA...');
+          // Give a moment for session to be fully stored
+          setTimeout(() => {
+            window.close(); // Close the browser window
+            // If window doesn't close (blocked), show message
+            setTimeout(() => {
+              alert('Login successful! Please return to the app.');
+            }, 100);
+          }, 500);
+        } else if (oauthInitiatedFromPWA && currentlyInPWA) {
+          console.log('[Auth] OAuth completed in PWA successfully');
+          localStorage.removeItem('pwa_oauth_initiated');
+          localStorage.removeItem('pwa_oauth_provider');
+          localStorage.removeItem('pwa_oauth_timestamp');
+        }
+      }
+
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
@@ -79,11 +116,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // PWA: Listen for when app regains focus to check for new sessions
+    // This handles the case where user logs in via browser and returns to PWA
+    const handleVisibilityChange = () => {
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                    (window.navigator as any).standalone ||
+                    document.referrer.includes('android-app://');
+
+      if (isPWA && !document.hidden) {
+        console.log('[Auth] PWA regained focus - checking for session updates');
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session && !user) {
+            console.log('[Auth] Found new session after PWA regained focus');
+            setUser(session.user);
+            fetchProfile(session.user.id);
+          }
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
     return () => {
       subscription.unsubscribe();
       clearTimeout(loadingTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, []);
+  }, [user]);
 
   const fetchProfile = async (userId: string) => {
     // Create a timeout promise to prevent hanging
@@ -283,10 +344,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('[OAuth] No error - redirect URL should be:', data?.url);
 
     // CRITICAL FIX: Manually redirect to OAuth provider
-    // Supabase generates the URL but doesn't auto-redirect in some versions
+    // For PWA: Navigate in the same window to keep OAuth flow within PWA
+    // For Browser: Same behavior
     if (data?.url) {
-      console.log('[OAuth] Manually redirecting browser to:', data.url);
-      window.location.href = data.url;
+      if (isPWA) {
+        console.log('[OAuth] PWA: Navigating to OAuth in same window to preserve PWA context');
+        console.log('[OAuth] Redirecting to:', data.url);
+        // Force same-window navigation in PWA to ensure callback returns to PWA
+        window.location.assign(data.url);
+      } else {
+        console.log('[OAuth] Browser: Redirecting to:', data.url);
+        window.location.href = data.url;
+      }
     } else {
       console.error('[OAuth] No URL provided by Supabase - cannot redirect');
       throw new Error('OAuth redirect URL not provided');
