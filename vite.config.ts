@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'favicon.png'],
+      includeAssets: ['favicon.png', 'logo.png'],
       manifest: {
         name: 'Aixampapers - Smart Exam Preparation',
         short_name: 'Aixampapers',
@@ -16,13 +16,13 @@ export default defineConfig({
         theme_color: '#000000',
         icons: [
           {
-            src: '/logo.png',
+            src: '/favicon.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: '/logo.png',
+            src: '/favicon.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
