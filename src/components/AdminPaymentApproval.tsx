@@ -254,8 +254,8 @@ export function AdminPaymentApproval() {
         </div>
       ) : (
         <>
-          {/* Table */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Desktop Table - hidden on mobile */}
+          <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -363,6 +363,110 @@ export function AdminPaymentApproval() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile Cards - visible only on mobile */}
+          <div className="md:hidden space-y-4">
+            {currentTransactions.map((transaction) => (
+              <div key={transaction.id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                {/* Student Info */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {transaction.profiles?.first_name || 'Unknown'} {transaction.profiles?.last_name || ''}
+                    </p>
+                    <p className="text-sm text-blue-600">{transaction.profiles?.email}</p>
+                    {transaction.phone_number && (
+                      <p className="text-sm text-gray-500 mt-1">📱 {transaction.phone_number}</p>
+                    )}
+                  </div>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(transaction.status)}`}>
+                    {transaction.status.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-100"></div>
+
+                {/* Transaction Details */}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500 text-xs">Plan</p>
+                    <p className="font-medium text-gray-900">{transaction.subscription_tiers?.display_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Amount</p>
+                    <p className="font-semibold text-gray-900">
+                      {transaction.currency} {transaction.amount.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500">{transaction.billing_cycle}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Payment Method</p>
+                    <p className="font-medium text-gray-900">{transaction.payment_methods?.display_name}</p>
+                    {transaction.reference_number && (
+                      <p className="text-xs text-gray-500">Ref: {transaction.reference_number}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Date</p>
+                    <p className="font-medium text-gray-900">{new Date(transaction.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-500">{new Date(transaction.created_at).toLocaleTimeString()}</p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end space-x-2 pt-2 border-t border-gray-100">
+                  {transaction.payment_proof_url && (
+                    <button
+                      onClick={() => {
+                        setSelectedTransaction(transaction);
+                        setShowImageModal(true);
+                      }}
+                      className="flex-1 py-2 px-3 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    >
+                      <Eye className="w-4 h-4 inline mr-1" />
+                      View Proof
+                    </button>
+                  )}
+
+                  {transaction.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleApprove(transaction.id)}
+                        disabled={processingId === transaction.id}
+                        className="flex-1 py-2 px-3 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors disabled:opacity-50"
+                      >
+                        {processingId === transaction.id ? (
+                          <Loader2 className="w-4 h-4 inline animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 inline mr-1" />
+                            Approve
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const reason = prompt('Enter rejection reason (required):');
+                          if (reason && reason.trim()) {
+                            handleReject(transaction.id, reason.trim());
+                          } else if (reason !== null) {
+                            alert('Rejection reason is required');
+                          }
+                        }}
+                        disabled={processingId === transaction.id}
+                        className="flex-1 py-2 px-3 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors disabled:opacity-50"
+                      >
+                        <XCircle className="w-4 h-4 inline mr-1" />
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Pagination */}

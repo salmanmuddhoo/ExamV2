@@ -1,0 +1,328 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Brain, Save, RefreshCw, CheckCircle } from 'lucide-react';
+
+interface AIModel {
+  id: string;
+  provider: string;
+  model_name: string;
+  display_name: string;
+  description: string;
+  token_multiplier: number;
+  supports_vision: boolean;
+  supports_caching: boolean;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+interface AllowedModelsConfig {
+  modelIds: string[];
+}
+
+export function AIModelSettings() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [aiModels, setAiModels] = useState<AIModel[]>([]);
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch all active AI models
+      const { data: models, error: modelsError } = await supabase
+        .from('ai_models')
+        .select('*')
+        .eq('is_active', true)
+        .order('provider', { ascending: true })
+        .order('display_name', { ascending: true });
+
+      if (modelsError) throw modelsError;
+      setAiModels(models || []);
+
+      // Fetch current allowed models setting
+      const { data: settingData, error: settingError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'allowed_ai_models')
+        .maybeSingle();
+
+      if (settingError && settingError.code !== 'PGRST116') {
+        throw settingError;
+      }
+
+      if (settingData && settingData.setting_value) {
+        const config = settingData.setting_value as AllowedModelsConfig;
+        setSelectedModelIds(config.modelIds || []);
+      } else {
+        // Default: allow all models if not configured
+        setSelectedModelIds(models?.map(m => m.id) || []);
+      }
+    } catch (error) {
+      console.error('Error fetching AI model settings:', error);
+      setMessage({ type: 'error', text: 'Failed to load settings' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleModel = (modelId: string) => {
+    setSelectedModelIds(prev => {
+      if (prev.includes(modelId)) {
+        // Don't allow deselecting all models - at least one must be selected
+        if (prev.length === 1) {
+          setMessage({ type: 'error', text: 'At least one AI model must be enabled' });
+          setTimeout(() => setMessage(null), 3000);
+          return prev;
+        }
+        return prev.filter(id => id !== modelId);
+      } else {
+        return [...prev, modelId];
+      }
+    });
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setMessage(null);
+
+      if (selectedModelIds.length === 0) {
+        setMessage({ type: 'error', text: 'At least one AI model must be enabled' });
+        return;
+      }
+
+      // Update or insert the setting
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'allowed_ai_models',
+          setting_value: { modelIds: selectedModelIds },
+          description: 'List of AI model IDs that students are allowed to select from in their settings',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (error) throw error;
+
+      setMessage({ type: 'success', text: 'AI model settings saved successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Error saving AI model settings:', error);
+      setMessage({ type: 'error', text: 'Failed to save settings' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'gemini':
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0L9.798 2.202L4.596 7.404L2.394 9.606L0 12l2.394 2.394l2.202 2.202l5.202 5.202L12 24l2.202-2.202l5.202-5.202l2.202-2.202L24 12l-2.394-2.394-2.202-2.202-5.202-5.202L12 0zm0 3.515l1.768 1.768l4.95 4.95l1.768 1.768L12 20.485l-8.485-8.485L12 3.515z"/>
+          </svg>
+        );
+      case 'claude':
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.3 5.3c-1.5-1.5-3.9-1.5-5.4 0L8.7 8.5c-1.5 1.5-1.5 3.9 0 5.4l.4.4c.3.3.7.3 1 0 .3-.3.3-.7 0-1l-.4-.4c-.9-.9-.9-2.3 0-3.2l3.2-3.2c.9-.9 2.3-.9 3.2 0s.9 2.3 0 3.2l-1.3 1.3c.1.5.1 1 0 1.5l2-2c1.5-1.5 1.5-3.9 0-5.4zm-5.9 8.4c-.3-.3-.7-.3-1 0-.3.3-.3.7 0 1l.4.4c.9.9.9 2.3 0 3.2l-3.2 3.2c-.9.9-2.3.9-3.2 0s-.9-2.3 0-3.2l1.3-1.3c-.1-.5-.1-1 0-1.5l-2 2c-1.5 1.5-1.5 3.9 0 5.4 1.5 1.5 3.9 1.5 5.4 0l3.2-3.2c1.5-1.5 1.5-3.9 0-5.4l-.4-.4z"/>
+          </svg>
+        );
+      case 'openai':
+        return (
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
+          </svg>
+        );
+      default:
+        return <Brain className="w-5 h-5" />;
+    }
+  };
+
+  const getProviderLabel = (provider: string) => {
+    switch (provider) {
+      case 'gemini': return 'Google Gemini';
+      case 'claude': return 'Anthropic Claude';
+      case 'openai': return 'OpenAI';
+      default: return provider;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2" />
+          <p className="text-sm text-gray-600">Loading AI model settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Group models by provider
+  const groupedModels = aiModels.reduce((acc, model) => {
+    if (!acc[model.provider]) {
+      acc[model.provider] = [];
+    }
+    acc[model.provider].push(model);
+    return acc;
+  }, {} as Record<string, AIModel[]>);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">AI Model Selection Settings</h2>
+        <p className="text-sm text-gray-600">
+          Choose which AI models students can select from in their profile settings.
+          Students will only see and be able to choose from the models you enable here.
+        </p>
+      </div>
+
+      {/* AI Models Section */}
+      <div className="border border-gray-200 rounded-lg p-4 sm:p-6 bg-white">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Brain className="w-5 h-5 text-purple-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Available AI Models</h3>
+            <p className="text-sm text-gray-600">Enable models that students can choose from</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {Object.entries(groupedModels).map(([provider, models]) => (
+            <div key={provider} className="space-y-3">
+              <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
+                {getProviderIcon(provider)}
+                {getProviderLabel(provider)}
+              </h4>
+
+              <div className="space-y-3">
+                {models.map(model => {
+                  const isSelected = selectedModelIds.includes(model.id);
+                  const isDefault = model.is_default;
+
+                  return (
+                    <div
+                      key={model.id}
+                      className={`border-2 rounded-lg p-4 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                      onClick={() => handleToggleModel(model.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0 mt-1">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            isSelected
+                              ? 'bg-purple-600 border-purple-600'
+                              : 'bg-white border-gray-300'
+                          }`}>
+                            {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className="font-semibold text-gray-900 text-sm sm:text-base">{model.display_name}</span>
+                            {isDefault && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                Default
+                              </span>
+                            )}
+                            {model.token_multiplier > 1 && (
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                {model.token_multiplier}x tokens
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2">{model.description}</p>
+
+                          <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                            {model.supports_vision && (
+                              <span className="inline-flex items-center">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                </svg>
+                                Vision
+                              </span>
+                            )}
+                            {model.supports_caching && (
+                              <span className="inline-flex items-center">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                </svg>
+                                Caching
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>How it works:</strong> Students will only see the AI models you enable here in their profile settings.
+            If a student has already selected a model that you later disable, they will be automatically switched to the default model (Gemini 2.0 Flash).
+          </p>
+        </div>
+
+        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm text-amber-800">
+            <strong>Note:</strong> Gemini 2.0 Flash will always be used as the default model for new users and when no preference is set.
+            Make sure to keep at least one model enabled for students to use.
+          </p>
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-gray-200">
+        {message && (
+          <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            <span className="text-sm font-medium">{message.text}</span>
+          </div>
+        )}
+        {!message && <div className="hidden sm:block" />}
+
+        <button
+          onClick={handleSave}
+          disabled={saving || selectedModelIds.length === 0}
+          className="flex items-center justify-center space-x-2 px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              <span>Save Settings</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}

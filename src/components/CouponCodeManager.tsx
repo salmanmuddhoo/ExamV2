@@ -279,17 +279,17 @@ export function CouponCodeManager() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Coupon Code Management</h1>
-            <p className="text-gray-600 mt-1">Create and manage discount coupon codes for students</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Coupon Code Management</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Create and manage discount coupon codes for students</p>
           </div>
           <button
             onClick={handleNewCoupon}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus size={20} />
             New Coupon
@@ -402,7 +402,8 @@ export function CouponCodeManager() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -523,6 +524,101 @@ export function CouponCodeManager() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-4 p-4">
+              {currentCoupons.map((coupon) => (
+                <div key={coupon.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                  {/* Header */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-semibold text-indigo-600 text-sm truncate">
+                          {coupon.code}
+                        </span>
+                        <button
+                          onClick={() => handleCopyCode(coupon.code)}
+                          className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                        >
+                          {copiedCode === coupon.code ? (
+                            <Check size={16} className="text-green-600" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
+                        </button>
+                      </div>
+                      {coupon.description && (
+                        <p className="text-xs text-gray-500 mt-1 truncate">
+                          {coupon.description}
+                        </p>
+                      )}
+                    </div>
+                    {getStatusBadge(coupon.status)}
+                  </div>
+
+                  {/* Discount Badge */}
+                  <div className="flex items-center justify-center py-2 bg-green-50 rounded-lg">
+                    <span className="text-2xl font-bold text-green-600">
+                      {coupon.discount_percentage}% OFF
+                    </span>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-500">Valid From</p>
+                      <p className="font-medium text-gray-900">{formatDate(coupon.valid_from)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Valid Until</p>
+                      <p className="font-medium text-gray-900">{formatDate(coupon.valid_until)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Usage</p>
+                      <p className="font-semibold text-gray-900">{coupon.total_usages} uses</p>
+                      <p className="text-xs text-gray-500">{coupon.unique_users} unique users</p>
+                      {coupon.max_uses && (
+                        <p className="text-xs text-gray-400">Limit: {coupon.max_uses}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Discount</p>
+                      <p className="font-semibold text-gray-900">
+                        {formatCurrency(Number(coupon.total_discount_given))}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        from {formatCurrency(Number(coupon.total_original_amount))}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => handleEdit(coupon)}
+                      className="flex-1 py-2 px-3 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors"
+                    >
+                      <Edit2 size={16} className="inline mr-1" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(coupon.id)}
+                      disabled={deleting === coupon.id}
+                      className="flex-1 py-2 px-3 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors disabled:opacity-50"
+                    >
+                      {deleting === coupon.id ? (
+                        <Loader2 size={16} className="inline animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 size={16} className="inline mr-1" />
+                          Delete
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Pagination */}

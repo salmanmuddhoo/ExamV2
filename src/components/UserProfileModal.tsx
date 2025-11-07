@@ -312,6 +312,18 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     if (!user) return;
 
     try {
+      // Fetch allowed AI models from system settings
+      const { data: settingData, error: settingError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'allowed_ai_models')
+        .maybeSingle();
+
+      let allowedModelIds: string[] = [];
+      if (settingData && settingData.setting_value) {
+        allowedModelIds = (settingData.setting_value as { modelIds: string[] }).modelIds || [];
+      }
+
       // Fetch all active AI models
       const { data: models, error: modelsError } = await supabase
         .from('ai_models')
@@ -322,7 +334,13 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
 
       if (modelsError) throw modelsError;
 
-      setAiModels(models || []);
+      // Filter models based on admin's allowed list
+      let filteredModels = models || [];
+      if (allowedModelIds.length > 0) {
+        filteredModels = filteredModels.filter(m => allowedModelIds.includes(m.id));
+      }
+
+      setAiModels(filteredModels);
 
       // Fetch user's current preference
       const { data: profileData, error: profileError } = await supabase
@@ -333,7 +351,31 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
 
       if (profileError) throw profileError;
 
-      setSelectedAiModel(profileData?.preferred_ai_model_id || null);
+      // Find the default model (Gemini 2.0 Flash)
+      const defaultModel = filteredModels.find(m => m.is_default) || filteredModels[0];
+
+      const userPreferredModel = profileData?.preferred_ai_model_id;
+
+      // If user has no preference, set to default model
+      if (!userPreferredModel && defaultModel) {
+        await supabase
+          .from('profiles')
+          .update({ preferred_ai_model_id: defaultModel.id })
+          .eq('id', user.id);
+        setSelectedAiModel(defaultModel.id);
+      }
+      // If user's selected model is not in the allowed list, set it to the default model
+      else if (userPreferredModel && allowedModelIds.length > 0 && !allowedModelIds.includes(userPreferredModel)) {
+        if (defaultModel) {
+          await supabase
+            .from('profiles')
+            .update({ preferred_ai_model_id: defaultModel.id })
+            .eq('id', user.id);
+          setSelectedAiModel(defaultModel.id);
+        }
+      } else {
+        setSelectedAiModel(userPreferredModel || defaultModel?.id || null);
+      }
     } catch (error) {
       console.error('Error fetching AI models:', error);
     }
@@ -1037,33 +1079,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     </p>
 
                     <div className="space-y-3">
-                      {/* Default/System option */}
-                      <label
-                        className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          selectedAiModel === null
-                            ? 'border-black bg-white shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-gray-300'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="ai-model"
-                          checked={selectedAiModel === null}
-                          onChange={() => handleAiModelChange(null)}
-                          disabled={savingAiModel}
-                          className="mt-1 mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-gray-900 text-sm md:text-base">System Default</span>
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Recommended</span>
-                          </div>
-                          <p className="text-xs md:text-sm text-gray-600">
-                            Use the system's default AI model (currently Gemini 2.0 Flash). Best balance of performance and cost.
-                          </p>
-                        </div>
-                      </label>
-
                       {/* Group models by provider */}
                       {['gemini', 'claude', 'openai'].map(provider => {
                         const providerModels = aiModels.filter(m => m.provider === provider);
@@ -1178,11 +1193,11 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     <div className="flex items-start">
                       <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
                       <div>
-                        <h5 className="text-sm font-semibold text-blue-900 mb-1">Token Consumption</h5>
+                        <h5 className="text-sm font-semibold text-blue-900 mb-1">AI Model Selection</h5>
                         <p className="text-xs md:text-sm text-blue-800">
+                          Choose your preferred AI model for chat assistance and study plan generation.
                           Higher token multipliers mean the model consumes more of your monthly token allowance.
-                          Claude models typically provide superior reasoning at the cost of higher token usage.
-                          Choose based on your needs and subscription tier.
+                          {selectedAiModel === null && ' Gemini 2.0 Flash will be used as the default model.'}
                         </p>
                       </div>
                     </div>

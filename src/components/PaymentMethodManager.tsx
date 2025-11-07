@@ -111,8 +111,8 @@ export function PaymentMethodManager() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Payment Method Settings</h2>
-        <p className="text-sm text-gray-600">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Payment Method Settings</h2>
+        <p className="text-xs sm:text-sm text-gray-600">
           Enable or disable payment methods available to users during checkout
         </p>
       </div>
@@ -121,30 +121,30 @@ export function PaymentMethodManager() {
         {paymentMethods.map((method) => (
           <div
             key={method.id}
-            className={`border rounded-lg p-6 transition-all ${
+            className={`border rounded-lg p-4 sm:p-6 transition-all ${
               method.is_active
                 ? 'border-green-200 bg-green-50'
                 : 'border-gray-200 bg-gray-50'
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                 {/* Payment Icon */}
-                <div className="flex-shrink-0 bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-center min-w-[80px]">
+                <div className="flex-shrink-0 bg-white border border-gray-200 rounded-lg p-2 sm:p-3 flex items-center justify-center w-16 sm:min-w-[80px]">
                   {getPaymentIcon(method.name)}
                 </div>
 
                 {/* Payment Details */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                     {method.display_name}
                   </h3>
-                  <div className="flex items-center space-x-3 mt-1">
-                    <span className="text-sm text-gray-600">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-1 gap-1 sm:gap-0">
+                    <span className="text-xs sm:text-sm text-gray-600">
                       Currency: <span className="font-medium">{method.currency}</span>
                     </span>
                     {method.requires_manual_approval && (
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded inline-block w-fit">
                         Manual Approval Required
                       </span>
                     )}
@@ -153,15 +153,15 @@ export function PaymentMethodManager() {
               </div>
 
               {/* Status Toggle */}
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-between sm:justify-end gap-3">
                 <div className="flex items-center space-x-2">
                   {method.is_active ? (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-gray-400" />
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   )}
                   <span
-                    className={`text-sm font-medium ${
+                    className={`text-xs sm:text-sm font-medium ${
                       method.is_active ? 'text-green-600' : 'text-gray-500'
                     }`}
                   >
@@ -172,14 +172,14 @@ export function PaymentMethodManager() {
                 <button
                   onClick={() => togglePaymentMethod(method.id, method.is_active)}
                   disabled={updating === method.id}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     method.is_active
                       ? 'bg-red-600 text-white hover:bg-red-700'
                       : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
                 >
                   {updating === method.id ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                   ) : method.is_active ? (
                     'Deactivate'
                   ) : (

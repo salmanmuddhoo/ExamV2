@@ -15,8 +15,9 @@ import { SyllabusManager } from './SyllabusManager';
 import { QuestionBankByChapter } from './QuestionBankByChapter';
 import { SystemSettings } from './SystemSettings';
 import { CouponCodeManager } from './CouponCodeManager';
+import { AIModelSettings } from './AIModelSettings';
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'syllabus' | 'question-bank' | 'users' | 'system-settings';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-models';
 
 interface MenuItem {
   id: Tab;
@@ -79,6 +80,7 @@ export function AdminDashboard() {
       items: [
         { id: 'tier-config' as Tab, label: 'Tier Config', icon: TrendingUp },
         { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
+        { id: 'ai-models' as Tab, label: 'AI Model Settings', icon: MessageSquare },
         { id: 'system-settings' as Tab, label: 'System Settings', icon: Settings },
       ],
     },
@@ -161,7 +163,7 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 fixed top-0 left-0 right-0 z-40">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-black p-2 rounded-lg">
@@ -178,6 +180,9 @@ export function AdminDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Spacer for fixed header on mobile */}
+      <div className="lg:hidden h-[60px]"></div>
 
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
@@ -229,6 +234,7 @@ export function AdminDashboard() {
             {activeTab === 'syllabus' && <SyllabusManager />}
             {activeTab === 'question-bank' && <QuestionBankByChapter />}
             {activeTab === 'prompts' && <AIPromptManager />}
+            {activeTab === 'ai-models' && <AIModelSettings />}
             {activeTab === 'system-settings' && <SystemSettings />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
