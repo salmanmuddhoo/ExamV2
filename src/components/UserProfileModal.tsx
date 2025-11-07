@@ -312,6 +312,18 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     if (!user) return;
 
     try {
+      // Fetch allowed AI models from system settings
+      const { data: settingData, error: settingError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'allowed_ai_models')
+        .maybeSingle();
+
+      let allowedModelIds: string[] = [];
+      if (settingData && settingData.setting_value) {
+        allowedModelIds = (settingData.setting_value as { modelIds: string[] }).modelIds || [];
+      }
+
       // Fetch all active AI models
       const { data: models, error: modelsError } = await supabase
         .from('ai_models')
@@ -322,7 +334,13 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
 
       if (modelsError) throw modelsError;
 
-      setAiModels(models || []);
+      // Filter models based on admin's allowed list
+      let filteredModels = models || [];
+      if (allowedModelIds.length > 0) {
+        filteredModels = filteredModels.filter(m => allowedModelIds.includes(m.id));
+      }
+
+      setAiModels(filteredModels);
 
       // Fetch user's current preference
       const { data: profileData, error: profileError } = await supabase
@@ -333,7 +351,31 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
 
       if (profileError) throw profileError;
 
-      setSelectedAiModel(profileData?.preferred_ai_model_id || null);
+      // Find the default model (Gemini 2.0 Flash)
+      const defaultModel = filteredModels.find(m => m.is_default) || filteredModels[0];
+
+      const userPreferredModel = profileData?.preferred_ai_model_id;
+
+      // If user has no preference, set to default model
+      if (!userPreferredModel && defaultModel) {
+        await supabase
+          .from('profiles')
+          .update({ preferred_ai_model_id: defaultModel.id })
+          .eq('id', user.id);
+        setSelectedAiModel(defaultModel.id);
+      }
+      // If user's selected model is not in the allowed list, set it to the default model
+      else if (userPreferredModel && allowedModelIds.length > 0 && !allowedModelIds.includes(userPreferredModel)) {
+        if (defaultModel) {
+          await supabase
+            .from('profiles')
+            .update({ preferred_ai_model_id: defaultModel.id })
+            .eq('id', user.id);
+          setSelectedAiModel(defaultModel.id);
+        }
+      } else {
+        setSelectedAiModel(userPreferredModel || defaultModel?.id || null);
+      }
     } catch (error) {
       console.error('Error fetching AI models:', error);
     }
@@ -1037,33 +1079,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     </p>
 
                     <div className="space-y-3">
-                      {/* Default/System option */}
-                      <label
-                        className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          selectedAiModel === null
-                            ? 'border-black bg-white shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-gray-300'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="ai-model"
-                          checked={selectedAiModel === null}
-                          onChange={() => handleAiModelChange(null)}
-                          disabled={savingAiModel}
-                          className="mt-1 mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-gray-900 text-sm md:text-base">System Default</span>
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">Recommended</span>
-                          </div>
-                          <p className="text-xs md:text-sm text-gray-600">
-                            Use the system's default AI model (currently Gemini 2.0 Flash). Best balance of performance and cost.
-                          </p>
-                        </div>
-                      </label>
-
                       {/* Group models by provider */}
                       {['gemini', 'claude', 'openai'].map(provider => {
                         const providerModels = aiModels.filter(m => m.provider === provider);
@@ -1107,7 +1122,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                   className="mt-1 mr-3"
                                 />
                                 <div className="flex-1">
-                                  <div className="flex items-center justify-between mb-1">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                     <div className="flex items-center gap-2">
                                       {model.provider === 'gemini' && (
                                         <svg className="w-4 h-4 text-gray-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -1127,36 +1142,16 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                       <span className="font-semibold text-gray-900 text-sm md:text-base">{model.display_name}</span>
                                     </div>
                                     {model.token_multiplier > 1 && (
-                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                                        {model.token_multiplier}x tokens
+                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded whitespace-nowrap">
+                                        {model.token_multiplier >= 2.5
+                                          ? 'Most expensive'
+                                          : model.token_multiplier >= 2
+                                          ? 'More expensive'
+                                          : 'Consumes more tokens'}
                                       </span>
                                     )}
                                   </div>
-                                  <p className="hidden md:block text-xs md:text-sm text-gray-600 mb-2">{model.description}</p>
-                                  {model.token_multiplier > 1 && (
-                                    <p className="md:hidden text-xs text-orange-600 mb-2">
-                                      Uses {model.token_multiplier}x more tokens than the default model
-                                    </p>
-                                  )}
-                                  <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                                    {model.supports_vision && (
-                                      <span className="inline-flex items-center">
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                                        </svg>
-                                        Vision
-                                      </span>
-                                    )}
-                                    {model.supports_caching && (
-                                      <span className="inline-flex items-center">
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                        </svg>
-                                        Caching
-                                      </span>
-                                    )}
-                                  </div>
+                                  <p className="text-xs md:text-sm text-gray-600">{model.description}</p>
                                 </div>
                               </label>
                             ))}
@@ -1178,11 +1173,11 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                     <div className="flex items-start">
                       <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
                       <div>
-                        <h5 className="text-sm font-semibold text-blue-900 mb-1">Token Consumption</h5>
+                        <h5 className="text-sm font-semibold text-blue-900 mb-1">AI Model Selection</h5>
                         <p className="text-xs md:text-sm text-blue-800">
+                          Choose your preferred AI model for chat assistance and study plan generation.
                           Higher token multipliers mean the model consumes more of your monthly token allowance.
-                          Claude models typically provide superior reasoning at the cost of higher token usage.
-                          Choose based on your needs and subscription tier.
+                          {selectedAiModel === null && ' Gemini 2.0 Flash will be used as the default model.'}
                         </p>
                       </div>
                     </div>

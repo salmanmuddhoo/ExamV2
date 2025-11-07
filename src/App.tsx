@@ -57,7 +57,7 @@ function getPathnameFromView(view: View): string {
 }
 
 function App() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [view, setView] = useState<View>(() => {
     // First, check if there's a saved view in sessionStorage
     const savedView = sessionStorage.getItem('currentView');
@@ -587,6 +587,16 @@ function App() {
     setView('study-plan');
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setView('home');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setView('home');
+    }
+  };
+
   const handleSubscriptionSuccess = () => {
     setShowSubscriptionModal(false);
     // Clear subscription modal state from sessionStorage
@@ -647,17 +657,26 @@ function App() {
   if (view === 'admin' && user && profile?.role === 'admin') {
     return (
       <>
-        <Navbar
-          onNavigateHome={handleBackToHome}
-          onNavigateAdmin={handleNavigateToAdmin}
-          onNavigateLogin={handleNavigateToLogin}
+        {/* Hide Navbar on mobile, show on desktop */}
+        <div className="hidden lg:block">
+          <Navbar
+            onNavigateHome={handleBackToHome}
+            onNavigateAdmin={handleNavigateToAdmin}
+            onNavigateLogin={handleNavigateToLogin}
+            onNavigateChatHub={handleNavigateToChatHub}
+            onNavigateStudyPlan={handleNavigateToStudyPlan}
+            onNavigateBlog={handleNavigateToBlog}
+            onSelectGrade={handleSelectGrade}
+            currentView={view}
+          />
+        </div>
+        <AdminDashboard
+          onNavigateHome={() => setView('home')}
+          onNavigateProfile={handleNavigateToProfile}
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
-          onNavigateBlog={handleNavigateToBlog}
-          onSelectGrade={handleSelectGrade}
-          currentView={view}
+          onSignOut={handleSignOut}
         />
-        <AdminDashboard />
       </>
     );
   }
