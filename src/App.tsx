@@ -57,7 +57,7 @@ function getPathnameFromView(view: View): string {
 }
 
 function App() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [view, setView] = useState<View>(() => {
     // First, check if there's a saved view in sessionStorage
     const savedView = sessionStorage.getItem('currentView');
