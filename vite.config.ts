@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo.png'],
       manifest: {
-        name: 'Aixampaper - Smart Exam Preparation',
-        short_name: 'Aixampaper',
+        name: 'Aixampapers - Smart Exam Preparation',
+        short_name: 'Aixampapers',
         description: 'AI-powered exam preparation platform with smart study assistance',
         theme_color: '#000000',
         icons: [
@@ -28,6 +28,9 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // Force cache invalidation by incrementing this version
+        // Increment when you need to force all PWA users to refresh
+        cleanupOutdatedCaches: true,
         // Cache strategies for different types of requests
         runtimeCaching: [
           {
@@ -44,7 +47,7 @@ export default defineConfig({
             },
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'supabase-api-cache',
+              cacheName: 'supabase-api-cache-v2',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 5 // 5 minutes
@@ -57,7 +60,7 @@ export default defineConfig({
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'image-cache',
+              cacheName: 'image-cache-v2',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
@@ -69,7 +72,7 @@ export default defineConfig({
             urlPattern: /\.(?:woff|woff2|ttf|eot)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'font-cache',
+              cacheName: 'font-cache-v2',
               expiration: {
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
@@ -81,7 +84,7 @@ export default defineConfig({
             urlPattern: ({ url }) => url.origin === 'https://cdnjs.cloudflare.com',
             handler: 'CacheFirst',
             options: {
-              cacheName: 'cdn-cache',
+              cacheName: 'cdn-cache-v2',
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
