@@ -163,7 +163,7 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 fixed top-0 left-0 right-0 z-40">
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 fixed top-0 left-0 right-0 z-[60]">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-black p-2 rounded-lg">
@@ -187,7 +187,7 @@ export function AdminDashboard() {
       {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[55] lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -196,7 +196,7 @@ export function AdminDashboard() {
         {/* Sidebar */}
         <div className={`
           w-64 min-h-screen bg-white border-r border-gray-200 flex-shrink-0
-          fixed lg:static inset-y-0 left-0 z-50
+          fixed lg:static inset-y-0 left-0 z-[65]
           transform transition-transform duration-300 ease-in-out
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>

@@ -1122,7 +1122,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                   className="mt-1 mr-3"
                                 />
                                 <div className="flex-1">
-                                  <div className="flex items-center justify-between mb-1">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                     <div className="flex items-center gap-2">
                                       {model.provider === 'gemini' && (
                                         <svg className="w-4 h-4 text-gray-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -1142,36 +1142,16 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                       <span className="font-semibold text-gray-900 text-sm md:text-base">{model.display_name}</span>
                                     </div>
                                     {model.token_multiplier > 1 && (
-                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                                        {model.token_multiplier}x tokens
+                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded whitespace-nowrap">
+                                        {model.token_multiplier >= 2.5
+                                          ? 'Most expensive'
+                                          : model.token_multiplier >= 2
+                                          ? 'More expensive'
+                                          : 'Consumes more tokens'}
                                       </span>
                                     )}
                                   </div>
-                                  <p className="hidden md:block text-xs md:text-sm text-gray-600 mb-2">{model.description}</p>
-                                  {model.token_multiplier > 1 && (
-                                    <p className="md:hidden text-xs text-orange-600 mb-2">
-                                      Uses {model.token_multiplier}x more tokens than the default model
-                                    </p>
-                                  )}
-                                  <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                                    {model.supports_vision && (
-                                      <span className="inline-flex items-center">
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                                        </svg>
-                                        Vision
-                                      </span>
-                                    )}
-                                    {model.supports_caching && (
-                                      <span className="inline-flex items-center">
-                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                        </svg>
-                                        Caching
-                                      </span>
-                                    )}
-                                  </div>
+                                  <p className="text-xs md:text-sm text-gray-600">{model.description}</p>
                                 </div>
                               </label>
                             ))}

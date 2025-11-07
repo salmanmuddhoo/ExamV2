@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  ChevronDown
 } from 'lucide-react';
 import type { PaymentTransaction } from '../types/payment';
 
@@ -194,8 +195,8 @@ export function AdminPaymentApproval() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Payment Approvals</h2>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        {/* Filter Tabs - Desktop */}
+        <div className="hidden md:flex flex-wrap items-center justify-between gap-4 mb-4">
           <div className="flex space-x-2 border-b border-gray-200">
             {[
               { value: 'all', label: 'All' },
@@ -232,6 +233,39 @@ export function AdminPaymentApproval() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent w-64"
+            />
+          </div>
+        </div>
+
+        {/* Mobile Filter & Search */}
+        <div className="md:hidden space-y-3 mb-4">
+          {/* Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as any)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent appearance-none bg-white pr-10"
+            >
+              <option value="all">All Transactions</option>
+              <option value="pending">
+                Pending ({transactions.filter(t => t.status === 'pending').length})
+              </option>
+              <option value="approved">Approved</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             />
           </div>
         </div>
