@@ -265,15 +265,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('pwa_oauth_timestamp', Date.now().toString());
     }
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    console.log('[OAuth] Calling Supabase signInWithOAuth with options:', options);
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options,
     });
+
+    console.log('[OAuth] Supabase response - data:', data);
+    console.log('[OAuth] Supabase response - error:', error);
 
     if (error) {
       console.error('[OAuth] Error:', error);
       throw error;
     }
+
+    console.log('[OAuth] No error - redirect URL should be:', data?.url);
   };
 
   const signOut = async () => {
