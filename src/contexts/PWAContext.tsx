@@ -11,6 +11,8 @@ interface PWAContextType {
   showPrompt: boolean;
   installApp: () => Promise<void>;
   dismissPrompt: () => void;
+  updateAvailable: boolean;
+  updatePWA: () => void;
 }
 
 const PWAContext = createContext<PWAContextType | undefined>(undefined);
@@ -24,6 +26,8 @@ export function PWAProvider({ children }: { children: ReactNode }) {
   const [canInstall, setCanInstall] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
     // Check if app is already installed
@@ -35,6 +39,38 @@ export function PWAProvider({ children }: { children: ReactNode }) {
     };
 
     checkInstallation();
+
+    // CRITICAL: Handle service worker updates for PWA
+    // This ensures users get the latest code when it's available
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        // Check for updates every 60 seconds when app is active
+        setInterval(() => {
+          registration.update();
+        }, 60000);
+
+        // Listen for new service worker waiting to activate
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New service worker is installed and ready
+                console.log('[PWA] Update available');
+                setUpdateAvailable(true);
+                setWaitingWorker(newWorker);
+              }
+            });
+          }
+        });
+      });
+
+      // Listen for controller change (service worker updated)
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('[PWA] Controller changed - reloading');
+        window.location.reload();
+      });
+    }
 
     // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -119,8 +155,25 @@ export function PWAProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(PROMPT_DISMISS_KEY, String(Date.now()));
   };
 
+  const updatePWA = () => {
+    console.log('[PWA] Activating update...');
+    if (waitingWorker) {
+      // Tell the waiting service worker to skip waiting and become active
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+      setUpdateAvailable(false);
+    }
+  };
+
   return (
-    <PWAContext.Provider value={{ canInstall, isInstalled, showPrompt, installApp, dismissPrompt }}>
+    <PWAContext.Provider value={{
+      canInstall,
+      isInstalled,
+      showPrompt,
+      installApp,
+      dismissPrompt,
+      updateAvailable,
+      updatePWA
+    }}>
       {children}
     </PWAContext.Provider>
   );

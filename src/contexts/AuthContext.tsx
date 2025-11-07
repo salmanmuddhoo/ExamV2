@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, clearAllAuthStorage, validateSessionContext } from '../lib/supabase';
 
 interface Profile {
   id: string;
@@ -36,33 +36,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }, 10000); // 10 second timeout
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
+    // CRITICAL: Validate session context on mount to prevent cross-context conflicts
+    const initAuth = async () => {
+      // First, validate the session context (browser vs PWA)
+      await validateSessionContext();
+
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('[Auth] Session error:', error);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          clearTimeout(loadingTimeout);
+          return;
+        }
+
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id).finally(() => {
+            clearTimeout(loadingTimeout);
+          });
+        } else {
+          setLoading(false);
+          clearTimeout(loadingTimeout);
+        }
+      }).catch((err) => {
+        console.error('[Auth] Session fetch error:', err);
         setUser(null);
         setProfile(null);
         setLoading(false);
         clearTimeout(loadingTimeout);
-        return;
-      }
+      });
+    };
 
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => {
-          clearTimeout(loadingTimeout);
-        });
-      } else {
-        setLoading(false);
-        clearTimeout(loadingTimeout);
-      }
-    }).catch((err) => {
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
-      clearTimeout(loadingTimeout);
-    });
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       (() => {
+        console.log(`[Auth] State change: ${_event}`);
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchProfile(session.user.id);
@@ -213,18 +224,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   (window.navigator as any).standalone ||
                   document.referrer.includes('android-app://');
 
-    // CRITICAL FIX: Clear any existing session before OAuth to prevent conflicts
-    // This ensures clean slate when switching between OAuth providers
+    console.log(`[OAuth] Starting ${provider} OAuth in ${isPWA ? 'PWA' : 'Browser'} mode`);
+
+    // CRITICAL FIX: Completely clear all auth state before OAuth to prevent conflicts
+    // This ensures clean slate when switching between OAuth providers or contexts
     try {
-      await supabase.auth.signOut({ scope: 'local' }); // Only clear local session, not server
+      // First, sign out from Supabase completely (both local and server)
+      await supabase.auth.signOut();
+
+      // Then, aggressively clear all auth-related storage
+      clearAllAuthStorage();
+
+      console.log('[OAuth] Cleared all previous auth state');
+
+      // Small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (e) {
-      // Ignore errors, we just want to ensure clean state
+      console.warn('[OAuth] Error during pre-OAuth cleanup:', e);
+      // Continue anyway - we still want to attempt OAuth
     }
 
     // Configure provider-specific scopes and options
     const options: any = {
       redirectTo: `${window.location.origin}`,
-      // Skip browser flow in PWA to avoid session issues
       skipBrowserRedirect: false,
     };
 
@@ -258,21 +280,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[OAuth] Error:', error);
+      throw error;
+    }
   };
 
   const signOut = async () => {
     try {
-      // Clear session storage on logout (including welcome modal flag)
+      console.log('[Auth] Signing out...');
+
+      // Clear UI state first
+      setUser(null);
+      setProfile(null);
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('[Auth] Supabase signOut error:', error);
+        throw error;
+      }
+
+      // Clear ALL auth-related storage (both browser and PWA keys)
+      clearAllAuthStorage();
+
+      // Also clear sessionStorage (view state, etc.)
       sessionStorage.clear();
 
-      setUser(null);
-      setProfile(null);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      console.log('[Auth] Sign out complete');
     } catch (error) {
+      console.error('[Auth] Error during sign out:', error);
+      // Even if signOut fails, clear local state
       setUser(null);
       setProfile(null);
+      clearAllAuthStorage();
+      sessionStorage.clear();
       throw error;
     }
   };
