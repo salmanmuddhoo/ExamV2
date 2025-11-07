@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, clearAllAuthStorage, validateSessionContext } from '../lib/supabase';
 
 interface Profile {
   id: string;
@@ -36,33 +36,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }, 10000); // 10 second timeout
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
+    // CRITICAL: Validate session context on mount to prevent cross-context conflicts
+    const initAuth = async () => {
+      // First, validate the session context (browser vs PWA)
+      await validateSessionContext();
+
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('[Auth] Session error:', error);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          clearTimeout(loadingTimeout);
+          return;
+        }
+
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id).finally(() => {
+            clearTimeout(loadingTimeout);
+          });
+        } else {
+          setLoading(false);
+          clearTimeout(loadingTimeout);
+        }
+      }).catch((err) => {
+        console.error('[Auth] Session fetch error:', err);
         setUser(null);
         setProfile(null);
         setLoading(false);
         clearTimeout(loadingTimeout);
-        return;
-      }
+      });
+    };
 
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => {
-          clearTimeout(loadingTimeout);
-        });
-      } else {
-        setLoading(false);
-        clearTimeout(loadingTimeout);
-      }
-    }).catch((err) => {
-      setUser(null);
-      setProfile(null);
-      setLoading(false);
-      clearTimeout(loadingTimeout);
-    });
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       (() => {
+        console.log(`[Auth] State change: ${_event}`);
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchProfile(session.user.id);
@@ -213,18 +224,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   (window.navigator as any).standalone ||
                   document.referrer.includes('android-app://');
 
-    // CRITICAL FIX: Clear any existing session before OAuth to prevent conflicts
-    // This ensures clean slate when switching between OAuth providers
+    console.log(`[OAuth] Starting ${provider} OAuth in ${isPWA ? 'PWA' : 'Browser'} mode`);
+
+    // CRITICAL FIX: Only clear current context's session, not all storage
+    // We need to preserve storage mechanism for OAuth callback to work
     try {
-      await supabase.auth.signOut({ scope: 'local' }); // Only clear local session, not server
+      const currentStorageKey = isPWA ? 'supabase.auth.token.pwa' : 'supabase.auth.token.web';
+
+      // Only clear the current context's session
+      localStorage.removeItem(currentStorageKey);
+
+      // Clear OAuth tracking flags to start fresh
+      localStorage.removeItem('pwa_oauth_initiated');
+      localStorage.removeItem('pwa_oauth_provider');
+      localStorage.removeItem('pwa_oauth_timestamp');
+
+      console.log('[OAuth] Cleared current session for fresh OAuth');
+
+      // Small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 50));
     } catch (e) {
-      // Ignore errors, we just want to ensure clean state
+      console.warn('[OAuth] Error during pre-OAuth cleanup:', e);
+      // Continue anyway - we still want to attempt OAuth
     }
 
     // Configure provider-specific scopes and options
     const options: any = {
       redirectTo: `${window.location.origin}`,
-      // Skip browser flow in PWA to avoid session issues
       skipBrowserRedirect: false,
     };
 
@@ -245,8 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // In PWA mode, use localStorage instead of sessionStorage
-    // sessionStorage can be lost when PWA reopens from OAuth redirect
+    // In PWA mode, use localStorage for OAuth tracking
     if (isPWA) {
       localStorage.setItem('pwa_oauth_initiated', 'true');
       localStorage.setItem('pwa_oauth_provider', provider);
@@ -258,21 +283,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[OAuth] Error:', error);
+      throw error;
+    }
   };
 
   const signOut = async () => {
     try {
-      // Clear session storage on logout (including welcome modal flag)
+      console.log('[Auth] Signing out...');
+
+      // Clear UI state first
+      setUser(null);
+      setProfile(null);
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('[Auth] Supabase signOut error:', error);
+        throw error;
+      }
+
+      // Clear ALL auth-related storage (both browser and PWA keys)
+      clearAllAuthStorage();
+
+      // Also clear sessionStorage (view state, etc.)
       sessionStorage.clear();
 
-      setUser(null);
-      setProfile(null);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      console.log('[Auth] Sign out complete');
     } catch (error) {
+      console.error('[Auth] Error during sign out:', error);
+      // Even if signOut fails, clear local state
       setUser(null);
       setProfile(null);
+      clearAllAuthStorage();
+      sessionStorage.clear();
       throw error;
     }
   };
