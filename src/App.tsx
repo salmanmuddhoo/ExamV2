@@ -647,17 +647,26 @@ function App() {
   if (view === 'admin' && user && profile?.role === 'admin') {
     return (
       <>
-        <Navbar
-          onNavigateHome={handleBackToHome}
-          onNavigateAdmin={handleNavigateToAdmin}
-          onNavigateLogin={handleNavigateToLogin}
+        {/* Hide Navbar on mobile, show on desktop */}
+        <div className="hidden lg:block">
+          <Navbar
+            onNavigateHome={handleBackToHome}
+            onNavigateAdmin={handleNavigateToAdmin}
+            onNavigateLogin={handleNavigateToLogin}
+            onNavigateChatHub={handleNavigateToChatHub}
+            onNavigateStudyPlan={handleNavigateToStudyPlan}
+            onNavigateBlog={handleNavigateToBlog}
+            onSelectGrade={handleSelectGrade}
+            currentView={view}
+          />
+        </div>
+        <AdminDashboard
+          onNavigateHome={() => setView('home')}
+          onNavigateProfile={handleNavigateProfile}
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
-          onNavigateBlog={handleNavigateToBlog}
-          onSelectGrade={handleSelectGrade}
-          currentView={view}
+          onSignOut={handleSignOut}
         />
-        <AdminDashboard />
       </>
     );
   }

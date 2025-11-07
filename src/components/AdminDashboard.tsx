@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -16,6 +16,14 @@ import { QuestionBankByChapter } from './QuestionBankByChapter';
 import { SystemSettings } from './SystemSettings';
 import { CouponCodeManager } from './CouponCodeManager';
 import { AIModelSettings } from './AIModelSettings';
+
+interface AdminDashboardProps {
+  onNavigateHome?: () => void;
+  onNavigateProfile?: () => void;
+  onNavigateChatHub?: () => void;
+  onNavigateStudyPlan?: () => void;
+  onSignOut?: () => void;
+}
 
 type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-models';
 
@@ -34,7 +42,13 @@ interface MenuGroup {
 
 type MenuConfig = (MenuGroup | MenuItem)[];
 
-export function AdminDashboard() {
+export function AdminDashboard({
+  onNavigateHome,
+  onNavigateProfile,
+  onNavigateChatHub,
+  onNavigateStudyPlan,
+  onSignOut
+}: AdminDashboardProps = {}) {
   const [activeTab, setActiveTab] = useState<Tab>('exams');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['exam-setup']));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -218,7 +232,77 @@ export function AdminDashboard() {
             <p className="text-xs text-gray-600">{profile?.email}</p>
           </div>
 
+          {/* Mobile User Navigation - Only show on mobile */}
+          <div className="lg:hidden border-b border-gray-200">
+            <nav className="p-2 space-y-1">
+              {onNavigateHome && (
+                <button
+                  onClick={() => {
+                    onNavigateHome();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Home className="w-4 h-4 flex-shrink-0" />
+                  <span>Home</span>
+                </button>
+              )}
+              {onNavigateProfile && (
+                <button
+                  onClick={() => {
+                    onNavigateProfile();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <User className="w-4 h-4 flex-shrink-0" />
+                  <span>My Profile</span>
+                </button>
+              )}
+              {onNavigateChatHub && (
+                <button
+                  onClick={() => {
+                    onNavigateChatHub();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                  <span>My Conversations</span>
+                </button>
+              )}
+              {onNavigateStudyPlan && (
+                <button
+                  onClick={() => {
+                    onNavigateStudyPlan();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <span>My Study Plan</span>
+                </button>
+              )}
+              {onSignOut && (
+                <button
+                  onClick={() => {
+                    onSignOut();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-4 h-4 flex-shrink-0" />
+                  <span>Sign Out</span>
+                </button>
+              )}
+            </nav>
+          </div>
+
+          {/* Admin Navigation */}
           <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+            <div className="lg:hidden mb-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-4 py-2">Admin Menu</h3>
+            </div>
             {menuConfig.map(item =>
               isGroup(item) ? renderMenuGroup(item) : renderMenuItem(item)
             )}

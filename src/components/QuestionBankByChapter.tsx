@@ -97,9 +97,16 @@ export function QuestionBankByChapter() {
         .eq('subject_id', selectedSubject)
         .eq('grade_id', selectedGrade)
         .eq('processing_status', 'completed')
-        .single();
+        .maybeSingle();
 
-      if (syllabusError || !syllabus) {
+      if (syllabusError) {
+        console.error('Error fetching syllabus:', syllabusError);
+        setChapters([]);
+        return;
+      }
+
+      if (!syllabus) {
+        console.log('No completed syllabus found for this subject and grade');
         setChapters([]);
         return;
       }
