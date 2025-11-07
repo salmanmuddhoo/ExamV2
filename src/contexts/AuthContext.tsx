@@ -116,14 +116,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // PWA: Listen for when app regains focus to check for new sessions
-    // This handles the case where user logs in via browser and returns to PWA
-    const handleVisibilityChange = () => {
-      const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                    (window.navigator as any).standalone ||
-                    document.referrer.includes('android-app://');
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(loadingTimeout);
+    };
+  }, []); // CRITICAL: Empty dependency array to prevent re-running on user changes
 
-      if (isPWA && !document.hidden) {
+  // Separate effect for PWA focus detection to avoid recreating auth listeners
+  useEffect(() => {
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  (window.navigator as any).standalone ||
+                  document.referrer.includes('android-app://');
+
+    if (!isPWA) return; // Only set up for PWA
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
         console.log('[Auth] PWA regained focus - checking for session updates');
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session && !user) {
@@ -139,17 +147,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
-      subscription.unsubscribe();
-      clearTimeout(loadingTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [user]);
+  }, [user]); // Only user dependency for visibility checks
 
   const fetchProfile = async (userId: string) => {
+    console.log('[Auth] Fetching profile for user:', userId);
     // Create a timeout promise to prevent hanging
+    // Increased to 15 seconds for new OAuth users where profile creation might be slow
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Profile fetch timeout')), 8000); // 8 second timeout
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 15000);
     });
 
     try {
@@ -162,8 +170,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (error) {
+          console.error('[Auth] Error fetching profile:', error);
           // Check if it's an auth error (expired session)
           if (error.message?.includes('JWT') || error.message?.includes('expired') || error.code === 'PGRST301') {
+            console.error('[Auth] Auth error detected - signing out');
             await supabase.auth.signOut();
             setUser(null);
             setProfile(null);
@@ -174,9 +184,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // If profile doesn't exist (e.g., OAuth user), create it
         if (!data) {
+          console.log('[Auth] Profile not found - creating new profile for OAuth user');
           const { data: { user }, error: userError } = await supabase.auth.getUser();
 
           if (userError) {
+            console.error('[Auth] Error getting user for profile creation:', userError);
             // Session is invalid
             await supabase.auth.signOut();
             setUser(null);
@@ -185,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (user) {
+            console.log('[Auth] Creating profile for user:', user.email);
             const { data: newProfile, error: insertError } = await supabase
               .from('profiles')
               .insert({
@@ -199,22 +212,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .select()
               .single();
 
-            if (insertError) throw insertError;
+            if (insertError) {
+              console.error('[Auth] Error inserting profile:', insertError);
+              throw insertError;
+            }
+            console.log('[Auth] Profile created successfully');
             data = newProfile;
           }
         }
 
+        console.log('[Auth] Profile fetch complete:', data?.email);
         setProfile(data);
       })();
 
       await Promise.race([fetchPromise, timeoutPromise]);
     } catch (error: any) {
       if (error.message === 'Profile fetch timeout') {
-        // Clear the session on timeout as it's likely invalid
-        await supabase.auth.signOut().catch(() => {});
-        setUser(null);
+        // CHANGED: Don't sign out on timeout - just log error
+        // The session might be valid, just the profile fetch is slow
+        console.error('[Auth] Profile fetch timed out - continuing with null profile');
+        console.error('[Auth] User can still use the app, profile will be null');
         setProfile(null);
       } else {
+        console.error('[Auth] Profile fetch error:', error);
       }
     } finally {
       setLoading(false);
