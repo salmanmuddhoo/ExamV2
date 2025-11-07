@@ -281,6 +281,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log('[OAuth] No error - redirect URL should be:', data?.url);
+
+    // CRITICAL FIX: Manually redirect to OAuth provider
+    // Supabase generates the URL but doesn't auto-redirect in some versions
+    if (data?.url) {
+      console.log('[OAuth] Manually redirecting browser to:', data.url);
+      window.location.href = data.url;
+    } else {
+      console.error('[OAuth] No URL provided by Supabase - cannot redirect');
+      throw new Error('OAuth redirect URL not provided');
+    }
   };
 
   const signOut = async () => {
