@@ -1489,25 +1489,18 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <div className="space-y-0.5 overflow-y-auto" style={{ maxHeight: calendarView === 'month' ? '45px' : 'calc(100% - 30px)' }}>
                               {calendarView === 'month' ? (
                                 <>
-                                  {dayEvents.slice(0, 2).map((event) => {
-                                    const overdue = isEventOverdue(event);
-                                    return (
-                                      <div
-                                        key={event.id}
-                                        className={`w-full h-2 rounded-full relative ${
-                                          overdue ? 'bg-red-500 ring-1 ring-red-600' :
-                                          event.status === 'completed' ? 'bg-green-500' :
-                                          event.status === 'in_progress' ? 'bg-blue-500' :
-                                          event.status === 'skipped' ? 'bg-gray-300' :
-                                          'bg-gray-700'
-                                        } ${overdue ? 'animate-pulse' : ''}`}
-                                      >
-                                        {overdue && (
-                                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-700 rounded-full"></div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
+                                  {dayEvents.slice(0, 2).map((event) => (
+                                    <div
+                                      key={event.id}
+                                      className={`w-full h-1.5 rounded-full ${
+                                        isEventOverdue(event) ? 'bg-red-500' :
+                                        event.status === 'completed' ? 'bg-green-500' :
+                                        event.status === 'in_progress' ? 'bg-blue-500' :
+                                        event.status === 'skipped' ? 'bg-gray-300' :
+                                        'bg-gray-700'
+                                      }`}
+                                    />
+                                  ))}
                                   {dayEvents.length > 2 && (
                                     <div className="text-[10px] text-gray-500 text-center font-medium">
                                       +{dayEvents.length - 2}
@@ -1516,20 +1509,17 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                 </>
                               ) : (
                                 <>
-                                  {dayEvents.slice(0, calendarView === 'week' ? 5 : 15).map((event) => {
-                                    const overdue = isEventOverdue(event);
-                                    return (
-                                      <div
-                                        key={event.id}
-                                        className={`text-[10px] p-0.5 rounded border ${getStatusColor(event.status, overdue)} ${overdue ? 'ring-1 ring-red-500' : ''}`}
-                                      >
-                                        <div className="flex items-center space-x-0.5">
-                                          {getStatusIcon(event.status, overdue)}
-                                          <span className="truncate text-[9px] font-medium">{formatEventTitle(event)}</span>
-                                        </div>
+                                  {dayEvents.slice(0, calendarView === 'week' ? 5 : 15).map((event) => (
+                                    <div
+                                      key={event.id}
+                                      className={`text-[10px] p-0.5 rounded border ${getStatusColor(event.status, isEventOverdue(event))}`}
+                                    >
+                                      <div className="flex items-center space-x-0.5">
+                                        {getStatusIcon(event.status, isEventOverdue(event))}
+                                        <span className="truncate text-[9px]">{formatEventTitle(event)}</span>
                                       </div>
-                                    );
-                                  })}
+                                    </div>
+                                  ))}
                                   {dayEvents.length > (calendarView === 'week' ? 5 : 15) && (
                                     <div className="text-[10px] text-gray-500 text-center font-medium">
                                       +{dayEvents.length - (calendarView === 'week' ? 5 : 15)}
@@ -1567,32 +1557,24 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                 </button>
               </div>
             ) : (
-              getFilteredEvents().map(event => {
-                const overdue = isEventOverdue(event);
-                return (
-                  <div
-                    key={event.id}
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      setShowEventModal(true);
-                    }}
-                    className={`p-4 rounded-lg border-2 ${getStatusColor(event.status, overdue)} cursor-pointer hover:shadow-md transition-shadow ${overdue ? 'ring-2 ring-red-400' : ''}`}
-                  >
-                    {overdue && (
-                      <div className="flex items-center space-x-1 mb-2 px-2 py-1 bg-red-600 text-white rounded-md text-xs font-bold">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>OVERDUE</span>
-                      </div>
-                    )}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(event.status, overdue)}
-                        <span className="font-semibold">{formatEventTitle(event)}</span>
-                      </div>
-                      <span className="text-xs text-gray-600">
-                        {new Date(event.event_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
+              getFilteredEvents().map(event => (
+                <div
+                  key={event.id}
+                  onClick={() => {
+                    setSelectedEvent(event);
+                    setShowEventModal(true);
+                  }}
+                  className={`p-4 rounded-lg border ${getStatusColor(event.status, isEventOverdue(event))} cursor-pointer hover:shadow-md transition-shadow`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(event.status, isEventOverdue(event))}
+                      <span className="font-semibold">{formatEventTitle(event)}</span>
                     </div>
+                    <span className="text-xs text-gray-600">
+                      {new Date(event.event_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
                   {event.description && (
                     <p className="text-sm text-gray-700 mb-2 line-clamp-2">{event.description}</p>
                   )}
@@ -1768,7 +1750,6 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                 <div className="space-y-2">
                   {getEventsForDate(mobileDateModalDate).map(event => {
                     const subjectName = (event as any).study_plan_schedules?.subjects?.name;
-                    const overdue = isEventOverdue(event);
                     return (
                       <div
                         key={event.id}
@@ -1777,16 +1758,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                           setShowEventModal(true);
                           setShowMobileDateModal(false);
                         }}
-                        className={`p-3 rounded-lg border-2 ${getStatusColor(event.status, overdue)} cursor-pointer active:scale-95 transition-all ${overdue ? 'ring-2 ring-red-400' : ''}`}
+                        className={`p-3 rounded-lg border ${getStatusColor(event.status, isEventOverdue(event))} cursor-pointer active:scale-95 transition-all`}
                       >
-                        {/* Overdue Badge - Most Prominent */}
-                        {overdue && (
-                          <div className="flex items-center space-x-1 mb-2 px-2 py-1 bg-red-600 text-white rounded-md text-xs font-bold">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            <span>OVERDUE</span>
-                          </div>
-                        )}
-
                         {/* Subject Badge - Prominent at top */}
                         {subjectName && (
                           <div className="mb-2">
@@ -1800,7 +1773,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                         <div className="flex items-center space-x-3">
                           {/* Status Icon */}
                           <div className="flex-shrink-0">
-                            {getStatusIcon(event.status, overdue)}
+                            {getStatusIcon(event.status, isEventOverdue(event))}
                           </div>
 
                           {/* Task Info */}
