@@ -46,6 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log('[Auth] Initial session:', session ? 'Found' : 'None');
+      if (session) {
+        console.log('[Auth] User:', session.user.email);
+      }
+
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id).finally(() => {
