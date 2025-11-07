@@ -272,7 +272,7 @@ export function SystemSettings() {
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
               <strong>Access Control:</strong> Even when enabled globally, users must have a paid subscription tier with
-              "Study Plan Access" enabled (configured in Tier Config). Free tier users will see a message prompting them to upgrade.
+              "Study Plan Access" enabled (configured in Tier Configuration). Free tier users will see a message prompting them to upgrade.
             </p>
           </div>
         </div>
