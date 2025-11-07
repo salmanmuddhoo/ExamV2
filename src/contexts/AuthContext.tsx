@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []); // CRITICAL: Empty dependency array to prevent re-running on user changes
 
-  // Separate effect for PWA focus detection to avoid recreating auth listeners
+  // Separate effect for PWA session detection to avoid recreating auth listeners
   useEffect(() => {
     const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
                   (window.navigator as any).standalone ||
@@ -130,12 +130,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!isPWA) return; // Only set up for PWA
 
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('[Auth] PWA regained focus - checking for session updates');
+    console.log('[Auth] Setting up PWA session detection - user state:', user?.email || 'none');
+
+    // Listen for localStorage changes (when browser completes OAuth, PWA will detect it)
+    const handleStorageChange = (e: StorageEvent) => {
+      console.log('[Auth] Storage event detected:', e.key, 'has new value:', !!e.newValue);
+
+      // Check if auth token was added/changed
+      if (e.key === 'supabase.auth.token' && e.newValue && !user) {
+        console.log('[Auth] Auth token changed in localStorage - checking for new session');
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session && !user) {
-            console.log('[Auth] Found new session after PWA regained focus');
+            console.log('[Auth] Found new session from storage event:', session.user.email);
             setUser(session.user);
             fetchProfile(session.user.id);
           }
@@ -143,12 +149,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Listen for visibility changes (when user switches back to PWA)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[Auth] PWA regained focus - current user:', user?.email || 'none');
+        // Force fresh session check
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          console.log('[Auth] Session check result:', session?.user?.email || 'none');
+          if (session && !user) {
+            console.log('[Auth] Found new session after PWA regained focus');
+            setUser(session.user);
+            fetchProfile(session.user.id);
+          } else if (!session && user) {
+            console.log('[Auth] Session removed - logging out');
+            setUser(null);
+            setProfile(null);
+          }
+        });
+      }
+    };
+
+    // Poll for session changes every 2 seconds when PWA is visible
+    // This catches cases where storage events don't fire (same-window changes)
+    const pollInterval = setInterval(() => {
+      if (!document.hidden) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session && !user) {
+            console.log('[Auth] Poll detected new session:', session.user.email);
+            setUser(session.user);
+            fetchProfile(session.user.id);
+          } else if (!session && user) {
+            console.log('[Auth] Poll detected session removal');
+            setUser(null);
+            setProfile(null);
+          }
+        });
+      }
+    }, 2000);
+
+    window.addEventListener('storage', handleStorageChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
+      window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
+      clearInterval(pollInterval);
     };
   }, [user]); // Only user dependency for visibility checks
 
