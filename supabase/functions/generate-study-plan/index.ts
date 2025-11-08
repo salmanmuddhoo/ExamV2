@@ -385,7 +385,7 @@ Return ONLY the JSON array, no additional text.`;
       }],
       images: pdfToInclude,
       temperature: 0.7,
-      maxTokens: 8000
+      maxTokens: 16000  // Increased to handle comprehensive study plans
     });
 
     console.log("✅ AI API response received");
@@ -445,6 +445,35 @@ Return ONLY the JSON array, no additional text.`;
         console.log("✅ JSON pattern found, attempting to parse...");
         let jsonText = jsonMatch[0];
 
+        // Check if JSON is complete by counting brackets
+        const openBrackets = (jsonText.match(/\[/g) || []).length;
+        const closeBrackets = (jsonText.match(/\]/g) || []).length;
+        const openBraces = (jsonText.match(/\{/g) || []).length;
+        const closeBraces = (jsonText.match(/\}/g) || []).length;
+
+        console.log(`📊 Bracket counts: [ ${openBrackets}/${closeBrackets} ] { ${openBraces}/${closeBraces} }`);
+
+        // If JSON is incomplete (truncated), try to fix it
+        let wasTruncated = false;
+        if (openBraces > closeBraces || openBrackets > closeBrackets) {
+          console.warn("⚠️ Detected incomplete JSON (likely truncated by token limit), attempting to fix...");
+          wasTruncated = true;
+
+          // Remove any incomplete last object (everything after the last complete object)
+          const lastCompleteObject = jsonText.lastIndexOf('},');
+          if (lastCompleteObject > 0) {
+            jsonText = jsonText.substring(0, lastCompleteObject + 1); // Keep the comma after }
+          }
+
+          // Close the array
+          jsonText = jsonText.trim();
+          if (!jsonText.endsWith(']')) {
+            jsonText += '\n]';
+          }
+
+          console.log("🔧 Fixed JSON by removing incomplete trailing object");
+        }
+
         // Additional cleanup for common AI formatting issues
         // Remove trailing commas before closing brackets/braces
         jsonText = jsonText.replace(/,(\s*[\]}])/g, '$1');
@@ -452,6 +481,9 @@ Return ONLY the JSON array, no additional text.`;
         try {
           studyEvents = JSON.parse(jsonText);
           console.log(`✅ Parsed ${studyEvents.length} study events successfully`);
+          if (wasTruncated) {
+            console.warn(`⚠️ Note: JSON was truncated. Recovered ${studyEvents.length} complete events, but some events may have been lost.`);
+          }
         } catch (parseError) {
           console.error("❌ Initial parse failed, trying with more aggressive cleanup...");
 
@@ -462,6 +494,9 @@ Return ONLY the JSON array, no additional text.`;
           // Try parsing again
           studyEvents = JSON.parse(jsonText);
           console.log(`✅ Parsed ${studyEvents.length} study events after cleanup`);
+          if (wasTruncated) {
+            console.warn(`⚠️ Note: JSON was truncated. Recovered ${studyEvents.length} complete events, but some events may have been lost.`);
+          }
         }
 
         // Validate event count
