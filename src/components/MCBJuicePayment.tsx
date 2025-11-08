@@ -262,7 +262,7 @@ export function MCBJuicePayment({
           <span className="text-gray-700 font-medium">Total Amount:</span>
           <div className="text-right">
             <p className="text-3xl font-bold text-gray-900">Rs {murAmount.toLocaleString()}</p>
-            <p className="text-sm text-gray-500">Approx. ${paymentData.amount} USD</p>
+            <p className="text-sm text-gray-500">Approx. ${finalUsdAmount} USD</p>
           </div>
         </div>
       </div>

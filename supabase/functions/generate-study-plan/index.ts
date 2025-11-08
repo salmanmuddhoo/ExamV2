@@ -341,14 +341,14 @@ Return ONLY the JSON array, no additional text.`;
     console.log("🤖 Calling AI API...");
     console.log("📏 Prompt length:", prompt.length, "characters");
 
-    // Note: OpenAI and Claude don't support PDF files directly like Gemini does
-    // For non-Gemini models, we rely on the extracted chapter information in the prompt
+    // Gemini natively supports PDFs with application/pdf mime type
+    // Claude and OpenAI only support images, so we use extracted chapter text for those
     let pdfToInclude: string[] = [];
     if (syllabusPdfBase64 && aiModel.provider === 'gemini') {
-      console.log("📄 Including syllabus PDF (Gemini supports PDFs)");
+      console.log("📄 Including syllabus PDF (Gemini has native PDF support)");
       pdfToInclude = [syllabusPdfBase64];
     } else if (syllabusPdfBase64) {
-      console.log("⚠️ PDF available but provider doesn't support PDFs directly, using text description");
+      console.log(`⚠️ PDF available but ${aiModel.provider} doesn't support PDFs natively, using extracted chapter text`);
     }
 
     // For providers that don't support PDFs, enhance the prompt with chapter details
