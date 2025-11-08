@@ -1,5 +1,7 @@
 // Currency utility functions
 
+import { supabase } from '../lib/supabase';
+
 export interface Currency {
   code: string;
   symbol: string;
@@ -40,4 +42,48 @@ export function formatPrice(price: number, currencyCode: string = 'USD'): string
   }
 
   return `${symbol}${formattedAmount}`;
+}
+
+/**
+ * Convert price from USD to target currency using database exchange rates
+ * @param priceUSD - Price in USD
+ * @param targetCurrency - Target currency code
+ * @returns Converted price in target currency
+ */
+export async function convertPrice(priceUSD: number, targetCurrency: string): Promise<number> {
+  try {
+    // If already USD, no conversion needed
+    if (targetCurrency === 'USD') {
+      return priceUSD;
+    }
+
+    // Fetch exchange rate from database
+    const { data, error } = await supabase
+      .from('currency_exchange_rates')
+      .select('rate_to_usd')
+      .eq('currency_code', targetCurrency)
+      .single();
+
+    if (error || !data) {
+      console.error('Failed to fetch exchange rate, returning USD price:', error);
+      return priceUSD;
+    }
+
+    // Convert: price_in_currency = price_in_usd * rate_to_usd
+    return Math.round(priceUSD * data.rate_to_usd * 100) / 100; // Round to 2 decimals
+  } catch (error) {
+    console.error('Error converting price:', error);
+    return priceUSD;
+  }
+}
+
+/**
+ * Format and convert price from USD to target currency
+ * @param priceUSD - Price in USD
+ * @param targetCurrency - Target currency code
+ * @returns Formatted price string with currency symbol
+ */
+export async function formatConvertedPrice(priceUSD: number, targetCurrency: string): Promise<string> {
+  const convertedPrice = await convertPrice(priceUSD, targetCurrency);
+  return formatPrice(convertedPrice, targetCurrency);
 }

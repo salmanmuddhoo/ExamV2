@@ -206,7 +206,7 @@ export function SubscriptionManager() {
       tierId: tier.id,
       tierName: tier.display_name,
       amount: price,
-      currency: 'USD',
+      currency: tier.currency,
       billingCycle: selectedBillingCycle,
       selectedGradeId: gradeId || undefined,
       selectedSubjectIds: subjectIds || undefined

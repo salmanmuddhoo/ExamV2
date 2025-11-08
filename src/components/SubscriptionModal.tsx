@@ -193,6 +193,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
       tierId: tier.id,
       tierName: tier.display_name,
       amount: price,
+      currency: tier.currency,
       billingCycle: selectedBillingCycle,
       selectedGradeId: gradeId,
       selectedSubjectIds: subjectIds

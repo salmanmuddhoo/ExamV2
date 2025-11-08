@@ -80,7 +80,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setSelectedSubject(null);
       setSelectedMode(null);
       setSelectedYear(null);
-      setSelectedSyllabus(null);
       setSelectedChapter(null);
     }
   }, [isOpen]);
@@ -456,7 +455,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     setSelectedGrade(null);
     setSelectedSubject(null);
     setSelectedMode(null);
-    setSelectedSyllabus(null);
     setSelectedChapter(null);
     setCurrentStep('grade');
     onClose();

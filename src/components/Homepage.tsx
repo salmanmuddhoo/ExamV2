@@ -349,8 +349,6 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.free && (
               <PricingCard
                 name={tiers.free.display_name}
-                price={formatPrice(0, tiers.free.currency)}
-                period="forever"
                 description="Perfect for trying out the platform"
                 icon={<BookOpen className="w-6 h-6" />}
                 features={[
@@ -550,13 +548,13 @@ function Benefit({ text }: { text: string }) {
 
 interface PricingCardProps {
   name: string;
-  price: string;
-  period: string;
+  price?: string; // Optional - for free tier
+  period?: string; // Optional - for free tier
   description: string;
   icon: React.ReactNode;
   features: string[];
   buttonText: string;
-  onButtonClick: () => void;
+  onButtonClick?: () => void; // Optional - for coming soon tiers
   popular?: boolean;
 }
 
@@ -593,10 +591,12 @@ function PricingCard({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2">{name}</h3>
         <p className="text-sm text-gray-600 mb-4">{description}</p>
-        <div className="flex items-baseline justify-center">
-          <span className="text-5xl font-bold text-gray-900">{price}</span>
-          <span className="text-gray-600 ml-2">/ {period}</span>
-        </div>
+        {price && (
+          <div className="flex items-baseline justify-center">
+            <span className="text-5xl font-bold text-gray-900">{price}</span>
+            {period && <span className="text-gray-600 ml-2">/ {period}</span>}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3 mb-6 flex-grow">
