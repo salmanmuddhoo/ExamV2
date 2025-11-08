@@ -18,16 +18,6 @@ try {
   console.error('[Supabase] localStorage is NOT accessible - auth will fail!', e);
 }
 
-// DEBUG: Log current URL to check for OAuth callback tokens
-console.log('[Supabase] Current URL:', window.location.href);
-console.log('[Supabase] URL Hash:', window.location.hash);
-console.log('[Supabase] URL Search:', window.location.search);
-if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
-  console.log('[Supabase] ✅ OAuth tokens detected in URL - Supabase should process them');
-} else {
-  console.log('[Supabase] ❌ No OAuth tokens in URL');
-}
-
 // Detect if running as PWA (installed on device)
 const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
               (window.navigator as any).standalone ||

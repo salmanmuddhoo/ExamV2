@@ -32,8 +32,6 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   const [resetSuccess, setResetSuccess] = useState(false);
   const { signIn, signUp, signInWithOAuth } = useAuth();
 
-  console.log('[LoginForm] Component rendered, loading state:', loading);
-
   const calculatePasswordStrength = (pwd: string): PasswordStrength => {
     let score = 0;
 
@@ -138,22 +136,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   };
 
   const handleOAuthSignIn = async (provider: OAuthProvider) => {
-    console.log('[LoginForm] handleOAuthSignIn called with provider:', provider);
-    console.log('[LoginForm] Current loading state:', loading);
-    console.log('[LoginForm] signInWithOAuth function available:', typeof signInWithOAuth);
-
     setError('');
     setLoading(true);
 
-    console.log('[LoginForm] Loading state set to true');
-
     try {
-      console.log('[LoginForm] About to call signInWithOAuth');
       await signInWithOAuth(provider);
-      console.log('[LoginForm] signInWithOAuth completed - redirect should happen');
       // OAuth redirect will happen automatically
     } catch (err: any) {
-      console.error('[LoginForm] OAuth error caught:', err);
+      console.error('[Auth] OAuth error:', err);
       setError(err.message || `Failed to sign in with ${provider}`);
       setLoading(false);
     }
@@ -460,10 +450,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
           {/* Social Login Buttons */}
           <div className="space-y-3">
             <button
-              onClick={() => {
-                console.log('[LoginForm] Google button clicked');
-                handleOAuthSignIn('google');
-              }}
+              onClick={() => handleOAuthSignIn('google')}
               disabled={loading}
               className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -477,10 +464,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
             </button>
 
             <button
-              onClick={() => {
-                console.log('[LoginForm] Microsoft button clicked');
-                handleOAuthSignIn('azure');
-              }}
+              onClick={() => handleOAuthSignIn('azure')}
               disabled={loading}
               className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 rounded font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
