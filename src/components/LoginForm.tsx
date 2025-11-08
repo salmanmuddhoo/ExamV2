@@ -143,7 +143,6 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
       await signInWithOAuth(provider);
       // OAuth redirect will happen automatically
     } catch (err: any) {
-      console.error('[Auth] OAuth error:', err);
       setError(err.message || `Failed to sign in with ${provider}`);
       setLoading(false);
     }

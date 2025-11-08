@@ -13,9 +13,7 @@ try {
   const testKey = '__storage_test__';
   localStorage.setItem(testKey, 'test');
   localStorage.removeItem(testKey);
-  console.log('[Supabase] localStorage is accessible');
 } catch (e) {
-  console.error('[Supabase] localStorage is NOT accessible - auth will fail!', e);
 }
 
 // Detect if running as PWA (installed on device)

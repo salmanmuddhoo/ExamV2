@@ -7,6 +7,7 @@ import { StudentPackageSelector } from './StudentPackageSelector';
 import { PaymentOrchestrator } from './PaymentOrchestrator';
 import type { PaymentSelectionData } from '../types/payment';
 import { formatTokenCount } from '../lib/formatUtils';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -192,6 +193,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
       tierId: tier.id,
       tierName: tier.display_name,
       amount: price,
+      currency: tier.currency,
       billingCycle: selectedBillingCycle,
       selectedGradeId: gradeId,
       selectedSubjectIds: subjectIds
@@ -469,7 +471,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                     <h3 className="text-lg font-bold text-gray-900 mb-0.5">{tier.display_name}</h3>
                     <p className="text-[10px] text-gray-600 mb-2">{tier.description}</p>
                     <div className="flex items-baseline justify-center">
-                      <span className="text-2xl font-bold text-gray-900">${price}</span>
+                      <span className="text-2xl font-bold text-gray-900">{getCurrencySymbol(tier.currency)}{price}</span>
                       <span className="text-gray-600 ml-1 text-xs">/{selectedBillingCycle === 'monthly' ? 'mo' : 'yr'}</span>
                     </div>
                   </div>

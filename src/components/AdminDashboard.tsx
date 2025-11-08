@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -15,7 +15,7 @@ import { SyllabusManager } from './SyllabusManager';
 import { QuestionBankByChapter } from './QuestionBankByChapter';
 import { SystemSettings } from './SystemSettings';
 import { CouponCodeManager } from './CouponCodeManager';
-import { AIModelSettings } from './AIModelSettings';
+import { CurrencyExchangeManager } from './CurrencyExchangeManager';
 
 interface AdminDashboardProps {
   onNavigateHome?: () => void;
@@ -25,7 +25,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-models';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'syllabus' | 'question-bank' | 'users' | 'system-settings';
 
 interface MenuItem {
   id: Tab;
@@ -49,8 +49,8 @@ export function AdminDashboard({
   onNavigateStudyPlan,
   onSignOut
 }: AdminDashboardProps = {}) {
-  const [activeTab, setActiveTab] = useState<Tab>('exams');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['exam-setup']));
+  const [activeTab, setActiveTab] = useState<Tab>('payments');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['payment-mgmt']));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { profile } = useAuth();
 
@@ -85,6 +85,7 @@ export function AdminDashboard({
         { id: 'payments' as Tab, label: 'Payment Approvals', icon: CreditCard },
         { id: 'payment-methods' as Tab, label: 'Payment Methods', icon: Wallet },
         { id: 'coupons' as Tab, label: 'Coupon Codes', icon: Tag },
+        { id: 'currency-rates' as Tab, label: 'Currency Rates', icon: DollarSign },
       ],
     },
     {
@@ -94,7 +95,6 @@ export function AdminDashboard({
       items: [
         { id: 'tier-config' as Tab, label: 'Tier Config', icon: TrendingUp },
         { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
-        { id: 'ai-models' as Tab, label: 'AI Model Settings', icon: MessageSquare },
         { id: 'system-settings' as Tab, label: 'System Settings', icon: Settings },
       ],
     },
@@ -318,13 +318,13 @@ export function AdminDashboard({
             {activeTab === 'syllabus' && <SyllabusManager />}
             {activeTab === 'question-bank' && <QuestionBankByChapter />}
             {activeTab === 'prompts' && <AIPromptManager />}
-            {activeTab === 'ai-models' && <AIModelSettings />}
             {activeTab === 'system-settings' && <SystemSettings />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
             {activeTab === 'payments' && <AdminPaymentApproval />}
             {activeTab === 'payment-methods' && <PaymentMethodManager />}
             {activeTab === 'coupons' && <CouponCodeManager />}
+            {activeTab === 'currency-rates' && <CurrencyExchangeManager />}
             {activeTab === 'tier-config' && <TierConfigManager />}
             {activeTab === 'analytics' && <AnalyticsDashboard />}
           </div>

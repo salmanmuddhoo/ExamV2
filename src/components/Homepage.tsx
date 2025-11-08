@@ -2,6 +2,7 @@ import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, R
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatTokenCount } from '../lib/formatUtils';
+import { formatPrice } from '../utils/currency';
 
 interface Props {
   onGetStarted: () => void;
@@ -13,10 +14,12 @@ interface TierConfig {
   name: string;
   display_name: string;
   price_monthly: number;
+  currency: string;
   token_limit: number | null;
   papers_limit: number | null;
   chapter_wise_access: boolean;
   max_subjects: number | null;
+  coming_soon: boolean;
 }
 
 export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false }: Props) {
@@ -36,7 +39,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     try {
       const { data, error } = await supabase
         .from('subscription_tiers')
-        .select('name, display_name, price_monthly, token_limit, papers_limit, chapter_wise_access, max_subjects')
+        .select('name, display_name, price_monthly, currency, token_limit, papers_limit, chapter_wise_access, max_subjects, coming_soon')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -346,8 +349,6 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.free && (
               <PricingCard
                 name={tiers.free.display_name}
-                price="$0"
-                period="forever"
                 description="Perfect for trying out the platform"
                 icon={<BookOpen className="w-6 h-6" />}
                 features={[
@@ -356,8 +357,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   "Yearly practice",
                   "No credit card required"
                 ]}
-                buttonText="Get Started Free"
-                onButtonClick={onGetStarted}
+                buttonText={tiers.free.coming_soon ? "Coming Soon" : "Get Started Free"}
+                onButtonClick={tiers.free.coming_soon ? undefined : onGetStarted}
                 popular={false}
               />
             )}
@@ -366,7 +367,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.student_lite && (
               <PricingCard
                 name={tiers.student_lite.display_name}
-                price={`$${tiers.student_lite.price_monthly.toFixed(2)}`}
+                price={formatPrice(tiers.student_lite.price_monthly, tiers.student_lite.currency)}
                 period="per month"
                 description="Affordable yearly exam focus"
                 icon={<Rocket className="w-6 h-6" />}
@@ -377,8 +378,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
                   "Study Plan"
                 ]}
-                buttonText="Start Learning"
-                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                buttonText={tiers.student_lite.coming_soon ? "Coming Soon" : "Start Learning"}
+                onButtonClick={tiers.student_lite.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={true}
               />
             )}
@@ -387,7 +388,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.student && (
               <PricingCard
                 name={tiers.student.display_name}
-                price={`$${tiers.student.price_monthly.toFixed(2)}`}
+                price={formatPrice(tiers.student.price_monthly, tiers.student.currency)}
                 period="per month"
                 description="Best for comprehensive learning"
                 icon={<Star className="w-6 h-6" />}
@@ -398,8 +399,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
                   "Study Plan"
                 ]}
-                buttonText="Get Full Access"
-                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                buttonText={tiers.student.coming_soon ? "Coming Soon" : "Get Full Access"}
+                onButtonClick={tiers.student.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
               />
             )}
@@ -408,7 +409,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.pro && (
               <PricingCard
                 name={tiers.pro.display_name}
-                price={`$${tiers.pro.price_monthly.toFixed(2)}`}
+                price={formatPrice(tiers.pro.price_monthly, tiers.pro.currency)}
                 period="per month"
                 description="Everything you need to excel"
                 icon={<Crown className="w-6 h-6" />}
@@ -418,8 +419,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `${formatTokenCount(tiers.pro.token_limit)} AI tokens`,
                   "Study Plan"
                 ]}
-                buttonText="Go Premium"
-                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                buttonText={tiers.pro.coming_soon ? "Coming Soon" : "Go Premium"}
+                onButtonClick={tiers.pro.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
               />
             )}
@@ -547,13 +548,13 @@ function Benefit({ text }: { text: string }) {
 
 interface PricingCardProps {
   name: string;
-  price: string;
-  period: string;
+  price?: string; // Optional - for free tier
+  period?: string; // Optional - for free tier
   description: string;
   icon: React.ReactNode;
   features: string[];
   buttonText: string;
-  onButtonClick: () => void;
+  onButtonClick?: () => void; // Optional - for coming soon tiers
   popular?: boolean;
 }
 
@@ -590,10 +591,12 @@ function PricingCard({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2">{name}</h3>
         <p className="text-sm text-gray-600 mb-4">{description}</p>
-        <div className="flex items-baseline justify-center">
-          <span className="text-5xl font-bold text-gray-900">{price}</span>
-          <span className="text-gray-600 ml-2">/ {period}</span>
-        </div>
+        {price && (
+          <div className="flex items-baseline justify-center">
+            <span className="text-5xl font-bold text-gray-900">{price}</span>
+            {period && <span className="text-gray-600 ml-2">/ {period}</span>}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3 mb-6 flex-grow">

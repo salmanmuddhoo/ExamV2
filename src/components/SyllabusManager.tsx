@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Edit2, Save, X, Plus, Trash2, Folder, ChevronDown, ChevronRight } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Edit2, Save, X, Plus, Trash2, Folder, ChevronDown, ChevronRight, Power } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,6 +25,7 @@ interface Syllabus {
   academic_year?: string;
   region?: string;
   error_message?: string;
+  is_active: boolean;
   created_at: string;
   subject?: Subject;
   grade?: GradeLevel;
@@ -294,6 +295,22 @@ export function SyllabusManager() {
       }
     } catch (error) {
       alert('Failed to delete chapter');
+    }
+  };
+
+  const toggleActive = async (syllabusId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('syllabus')
+        .update({ is_active: !currentStatus, updated_at: new Date().toISOString() })
+        .eq('id', syllabusId);
+
+      if (error) throw error;
+
+      // Refresh data to show updated status
+      await fetchData();
+    } catch (error) {
+      alert('Failed to update syllabus status');
     }
   };
 
@@ -754,6 +771,24 @@ export function SyllabusManager() {
                                       <AlertCircle className="w-4 h-4 mr-1" />
                                       <span className="hidden sm:inline">Failed</span>
                                     </div>
+                                  )}
+
+                                  {/* Active/Inactive Toggle */}
+                                  {syllabus.processing_status === 'completed' && (
+                                    <button
+                                      onClick={() => toggleActive(syllabus.id, syllabus.is_active)}
+                                      className={`flex items-center space-x-1 px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
+                                        syllabus.is_active
+                                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      }`}
+                                      title={syllabus.is_active ? 'Deactivate syllabus' : 'Activate syllabus'}
+                                    >
+                                      <Power className={`w-4 h-4 ${syllabus.is_active ? 'text-green-600' : 'text-gray-500'}`} />
+                                      <span className="hidden lg:inline">
+                                        {syllabus.is_active ? 'Active' : 'Inactive'}
+                                      </span>
+                                    </button>
                                   )}
 
                                   {/* Action Buttons */}

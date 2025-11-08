@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { sendReceiptEmailWithRetry } from '../lib/receiptUtils';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface CouponData {
   code: string;
@@ -30,6 +31,7 @@ export function PeachPayment({
   couponData
 }: PeachPaymentProps) {
   const { user } = useAuth();
+  const currencySymbol = getCurrencySymbol(paymentData.currency);
 
   const [processing, setProcessing] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
@@ -107,7 +109,7 @@ export function PeachPayment({
           tier_id: paymentData.tierId,
           payment_method_id: paymentMethod.id,
           amount: finalAmount,
-          currency: 'USD',
+          currency: paymentData.currency,
           billing_cycle: paymentData.billingCycle,
           status: 'pending',
           selected_grade_id: paymentData.selectedGradeId,
@@ -262,11 +264,11 @@ export function PeachPayment({
           <div className="text-right">
             {couponData ? (
               <>
-                <span className="text-sm line-through text-orange-200 block">${paymentData.amount}</span>
-                <span className="text-2xl font-bold">${couponData.finalAmount}</span>
+                <span className="text-sm line-through text-orange-200 block">{currencySymbol}{paymentData.amount}</span>
+                <span className="text-2xl font-bold">{currencySymbol}{couponData.finalAmount}</span>
               </>
             ) : (
-              <span className="text-2xl font-bold">${paymentData.amount}</span>
+              <span className="text-2xl font-bold">{currencySymbol}{paymentData.amount}</span>
             )}
           </div>
         </div>
@@ -286,20 +288,20 @@ export function PeachPayment({
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-3 border-b border-gray-300">
               <span className="text-gray-700">Original Amount:</span>
-              <span className="text-lg text-gray-500 line-through">${paymentData.amount}</span>
+              <span className="text-lg text-gray-500 line-through">{currencySymbol}{paymentData.amount}</span>
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-gray-700 font-medium">Discount ({couponData.discountPercentage}%):</span>
                 <div className="text-xs text-green-600 font-mono">Code: {couponData.code}</div>
               </div>
-              <span className="text-lg text-green-600 font-semibold">-${couponData.discountAmount}</span>
+              <span className="text-lg text-green-600 font-semibold">-{currencySymbol}{couponData.discountAmount}</span>
             </div>
             <div className="flex items-center justify-between pt-3 border-t-2 border-gray-300">
               <span className="text-gray-900 font-bold">Total Amount:</span>
               <div className="text-right">
-                <p className="text-3xl font-bold text-gray-900">${couponData.finalAmount}</p>
-                <p className="text-sm text-gray-500">USD</p>
+                <p className="text-3xl font-bold text-gray-900">{currencySymbol}{couponData.finalAmount}</p>
+                <p className="text-sm text-gray-500">{paymentData.currency}</p>
               </div>
             </div>
           </div>
@@ -307,8 +309,8 @@ export function PeachPayment({
           <div className="flex items-center justify-between">
             <span className="text-gray-700 font-medium">Total Amount:</span>
             <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900">${paymentData.amount}</p>
-              <p className="text-sm text-gray-500">USD</p>
+              <p className="text-3xl font-bold text-gray-900">{currencySymbol}{paymentData.amount}</p>
+              <p className="text-sm text-gray-500">{paymentData.currency}</p>
             </div>
           </div>
         )}

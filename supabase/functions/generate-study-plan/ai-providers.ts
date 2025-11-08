@@ -473,16 +473,6 @@ export async function getDefaultAIModel(
     };
   } catch (error) {
     console.error('Error fetching default AI model:', error);
-    // Fallback to Gemini
-    return {
-      provider: 'gemini',
-      model_name: 'gemini-2.0-flash',
-      display_name: 'Gemini 2.0 Flash',
-      api_endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash',
-      temperature: 0.7,
-      max_output_tokens: 8192,
-      supports_vision: true,
-      supports_caching: true
-    };
+    throw new Error('No default AI model configured in the system. Please contact support.');
   }
 }
