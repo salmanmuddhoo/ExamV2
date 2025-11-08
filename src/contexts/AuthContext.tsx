@@ -51,21 +51,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (authCode) {
         console.log('[Auth] OAuth code detected in URL, attempting to exchange for session');
         try {
+          console.log('[Auth] Calling supabase.auth.exchangeCodeForSession...');
           const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+          console.log('[Auth] exchangeCodeForSession response - data:', data);
+          console.log('[Auth] exchangeCodeForSession response - error:', error);
+          console.log('[Auth] Has session?', !!data?.session);
+          console.log('[Auth] Has user?', !!data?.session?.user);
+
           if (error) {
             console.error('[Auth] Failed to exchange code for session:', error);
-          } else if (data.session) {
-            console.log('[Auth] Successfully exchanged code for session:', data.session.user.email);
-            setUser(data.session.user);
-            fetchProfile(data.session.user.id).finally(() => {
-              clearTimeout(loadingTimeout);
+            console.error('[Auth] Error details:', {
+              message: error.message,
+              status: error.status,
+              name: error.name
             });
+            // Continue to regular session check
+          } else if (data?.session) {
+            console.log('[Auth] ✅ Successfully exchanged code for session:', data.session.user.email);
+            setUser(data.session.user);
+            await fetchProfile(data.session.user.id);
+            clearTimeout(loadingTimeout);
             // Clean up URL to remove the code parameter
             window.history.replaceState({}, document.title, window.location.pathname);
             return;
+          } else {
+            console.warn('[Auth] ⚠️ Code exchange returned no error but also no session');
+            console.warn('[Auth] This might indicate a PKCE verification failure');
+            // Continue to regular session check
           }
-        } catch (err) {
-          console.error('[Auth] Error during code exchange:', err);
+        } catch (err: any) {
+          console.error('[Auth] ❌ Exception during code exchange:', err);
+          console.error('[Auth] Exception details:', {
+            message: err?.message,
+            stack: err?.stack,
+            name: err?.name
+          });
+          // Continue to regular session check
         }
       }
 
