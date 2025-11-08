@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
 
     const chapterScope = isChapterSpecific
       ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s)). Do NOT include any other chapters from the syllabus.`
-      : 'Cover all available chapters systematically from the syllabus.';
+      : `IMPORTANT: Cover ALL ${chapters.length} chapters systematically from the syllabus. The study plan must include sessions for EVERY chapter from start to finish. Distribute the chapters across the entire date range (${start_date} to ${end_date}) to ensure comprehensive coverage.`;
 
     console.log("📝 Preparing AI prompt...");
     console.log("📚 Chapters info length:", chaptersInfo.length);
@@ -305,7 +305,17 @@ Deno.serve(async (req) => {
       ? 'I have provided the chapter details below.'
       : 'No specific syllabus is available. Use your knowledge of the subject curriculum.';
 
-    const prompt = `You are an expert education planner. ${syllabusContext} Generate a detailed study plan for a student with the following requirements:
+    // Calculate study planning metrics
+    const startDateObj = new Date(start_date);
+    const endDateObj = new Date(end_date);
+    const totalDays = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksAvailable = Math.floor(totalDays / 7);
+    const chaptersTocover = isChapterSpecific ? chapters.length : chapters.length;
+    const planningContext = !isChapterSpecific && chapters.length > 0
+      ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.`
+      : '';
+
+    const prompt = `You are an expert education planner. ${syllabusContext} Generate a detailed study plan for a student with the following requirements:${planningContext}
 
 Subject: ${subjectName}
 Grade Level: ${gradeName}
@@ -345,15 +355,15 @@ Requirements:
 4. CRITICAL: Generate sessions for ALL occurrences of the selected days between ${start_date} and ${end_date}. For example, if the user selected Monday, Wednesday, and Friday, create sessions for EVERY Monday, Wednesday, and Friday within the date range. Do not skip weeks unless there are conflicts. Create a comprehensive study schedule that uses all available days.
 5. Each session should be ${study_duration_minutes} minutes long
 6. Schedule sessions during ${preferred_times.join(' or ')} time slots
-7. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
+7. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
 8. Include review sessions every few weeks
 9. Start with easier topics and progress to harder ones
 10. Add milestone checkpoints for assessments
 11. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
 13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next occurrence of that day of the week
-14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : 'Cover all topics from the PDF syllabus systematically.'}
-${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : ''}
+14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end. Use the PDF content to understand the full scope and depth of each chapter.`}
+${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : '15. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once. Plan the distribution of chapters to fit within the available time between start and end dates.'}
 
 Return ONLY the JSON array, no additional text.`;
 
