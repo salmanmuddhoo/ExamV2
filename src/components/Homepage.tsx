@@ -19,6 +19,7 @@ interface TierConfig {
   papers_limit: number | null;
   chapter_wise_access: boolean;
   max_subjects: number | null;
+  coming_soon: boolean;
 }
 
 export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false }: Props) {
@@ -38,7 +39,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     try {
       const { data, error } = await supabase
         .from('subscription_tiers')
-        .select('name, display_name, price_monthly, currency, token_limit, papers_limit, chapter_wise_access, max_subjects')
+        .select('name, display_name, price_monthly, currency, token_limit, papers_limit, chapter_wise_access, max_subjects, coming_soon')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -358,8 +359,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   "Yearly practice",
                   "No credit card required"
                 ]}
-                buttonText="Get Started Free"
-                onButtonClick={onGetStarted}
+                buttonText={tiers.free.coming_soon ? "Coming Soon" : "Get Started Free"}
+                onButtonClick={tiers.free.coming_soon ? undefined : onGetStarted}
                 popular={false}
               />
             )}
@@ -379,8 +380,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
                   "Study Plan"
                 ]}
-                buttonText="Start Learning"
-                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                buttonText={tiers.student_lite.coming_soon ? "Coming Soon" : "Start Learning"}
+                onButtonClick={tiers.student_lite.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={true}
               />
             )}
@@ -400,8 +401,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
                   "Study Plan"
                 ]}
-                buttonText="Get Full Access"
-                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                buttonText={tiers.student.coming_soon ? "Coming Soon" : "Get Full Access"}
+                onButtonClick={tiers.student.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
               />
             )}
@@ -420,8 +421,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   `${formatTokenCount(tiers.pro.token_limit)} AI tokens`,
                   "Study Plan"
                 ]}
-                buttonText="Go Premium"
-                onButtonClick={isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted}
+                buttonText={tiers.pro.coming_soon ? "Coming Soon" : "Go Premium"}
+                onButtonClick={tiers.pro.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
               />
             )}
