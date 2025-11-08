@@ -36,11 +36,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }, 10000); // 10 second timeout
 
-    // CRITICAL PWA FIX: Check for OAuth callback code in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const authCode = urlParams.get('code');
-
     const initAuth = async () => {
+      // CRITICAL PWA FIX: Check for OAuth callback code in URL
+      // Read URL parameters inside initAuth to ensure we have current URL
+      const currentUrl = window.location.href;
+      const urlParams = new URLSearchParams(window.location.search);
+      const authCode = urlParams.get('code');
+
+      console.log('[Auth] Checking for OAuth code - URL:', currentUrl);
+      console.log('[Auth] URL search params:', window.location.search);
+      console.log('[Auth] Extracted code:', authCode);
+
       // If we have an OAuth code in URL, try to exchange it for a session
       if (authCode) {
         console.log('[Auth] OAuth code detected in URL, attempting to exchange for session');
