@@ -280,7 +280,13 @@ Deno.serve(async (req) => {
     console.log("🎯 Chapter scope:", chapterScope);
     console.log("📄 Has PDF:", syllabusPdfBase64 ? 'Yes' : 'No');
 
-    const prompt = `You are an expert education planner. I have attached the complete syllabus document for reference. Generate a detailed study plan for a student with the following requirements:
+    const syllabusContext = syllabusPdfBase64
+      ? 'I have attached the complete syllabus document for reference.'
+      : chapters.length > 0
+      ? 'I have provided the chapter details below.'
+      : 'No specific syllabus is available. Use your knowledge of the subject curriculum.';
+
+    const prompt = `You are an expert education planner. ${syllabusContext} Generate a detailed study plan for a student with the following requirements:
 
 Subject: ${subjectName}
 Grade Level: ${gradeName}
@@ -317,17 +323,18 @@ Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
 3. CRITICAL: Schedule sessions ONLY on these days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. Do NOT schedule sessions on other days.
-4. Each session should be ${study_duration_minutes} minutes long
-5. Schedule sessions during ${preferred_times.join(' or ')} time slots
-6. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
-7. Include review sessions every few weeks
-8. Start with easier topics and progress to harder ones
-9. Add milestone checkpoints for assessments
-10. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
-11. Distribute sessions evenly across the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')})
+4. CRITICAL: Generate sessions for ALL occurrences of the selected days between ${start_date} and ${end_date}. For example, if the user selected Monday, Wednesday, and Friday, create sessions for EVERY Monday, Wednesday, and Friday within the date range. Do not skip weeks unless there are conflicts. Create a comprehensive study schedule that uses all available days.
+5. Each session should be ${study_duration_minutes} minutes long
+6. Schedule sessions during ${preferred_times.join(' or ')} time slots
+7. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
+8. Include review sessions every few weeks
+9. Start with easier topics and progress to harder ones
+10. Add milestone checkpoints for assessments
+11. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
 13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next occurrence of that day of the week
-${isChapterSpecific ? '14. Do NOT include any chapters that are not in the list above' : ''}
+14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : 'Cover all topics from the PDF syllabus systematically.'}
+${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : ''}
 
 Return ONLY the JSON array, no additional text.`;
 

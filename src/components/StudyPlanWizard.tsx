@@ -236,7 +236,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   }, [selectedSyllabus]);
 
   const handleGenerateStudyPlan = async () => {
-    if (!user || !selectedSubject || !selectedGrade || !selectedSyllabus) return;
+    if (!user || !selectedSubject || !selectedGrade) return;
 
     let scheduleId: string | null = null;
 
@@ -295,7 +295,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           user_id: user.id,
           subject_id: selectedSubject,
           grade_id: selectedGrade,
-          syllabus_id: selectedSyllabus,
+          syllabus_id: selectedSyllabus || undefined, // Optional syllabus
           chapter_ids: selectedChapters.length > 0 ? selectedChapters : undefined,
           study_duration_minutes: studyDuration,
           selected_days: selectedDays, // Selected days of the week
@@ -434,7 +434,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const canProceed = () => {
     switch (step) {
       case 1:
-        return selectedSubject && selectedGrade && selectedSyllabus;
+        // Syllabus is optional - can proceed with just subject and grade
+        return selectedSubject && selectedGrade;
       case 2:
         return studyDuration > 0 && selectedDays.length > 0;
       case 3:
@@ -579,9 +580,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               )}
 
               {selectedSubject && selectedGrade && !loading && syllabi.length === 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-900">
-                    No chapters detected for the subject. Please contact support to add a syllabus, or select a different combination.
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-900">
+                    <strong>ℹ️ No syllabus found:</strong> You can still create a study plan. The AI will generate a plan based on the subject curriculum without specific chapters.
                   </p>
                 </div>
               )}
