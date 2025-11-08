@@ -478,25 +478,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('[Auth] Supabase signOut error:', error);
-        throw error;
       }
 
-      // Clear session storage (view state, OAuth flags, etc.)
+      // CRITICAL: Clear ALL auth-related storage including PKCE verifiers
+      // This prevents leftover storage from blocking subsequent logins
+      clearAllAuthStorage();
+
+      // Additional cleanup: Clear any Supabase PKCE code verifiers
+      // These are stored with pattern like 'sb-xxx-auth-token-code-verifier'
+      const storageKeys = Object.keys(localStorage);
+      storageKeys.forEach(key => {
+        if (key.includes('supabase') || key.includes('sb-') || key.includes('auth-token') || key.includes('code-verifier')) {
+          console.log('[Auth] Clearing storage key:', key);
+          localStorage.removeItem(key);
+        }
+      });
+
+      // Clear all sessionStorage
       sessionStorage.clear();
 
-      // Clear OAuth tracking flags from localStorage
-      localStorage.removeItem('pwa_oauth_initiated');
-      localStorage.removeItem('pwa_oauth_provider');
-      localStorage.removeItem('pwa_oauth_timestamp');
-
-      console.log('[Auth] Sign out complete');
+      console.log('[Auth] Sign out complete - all storage cleared');
     } catch (error) {
       console.error('[Auth] Error during sign out:', error);
-      // Even if signOut fails, clear local state
+      // Even if signOut fails, clear local state and storage
       setUser(null);
       setProfile(null);
+      clearAllAuthStorage();
       sessionStorage.clear();
-      throw error;
     }
   };
 
