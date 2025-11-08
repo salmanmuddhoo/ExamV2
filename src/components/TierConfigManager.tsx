@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Settings, Save, RefreshCw, AlertCircle, CheckCircle, DollarSign, Hash, FileText } from 'lucide-react';
+import { Settings, Save, RefreshCw, AlertCircle, CheckCircle, DollarSign, Hash, FileText, Brain, Globe } from 'lucide-react';
 
 interface TierConfig {
   id: string;
@@ -19,16 +19,36 @@ interface TierConfig {
   is_active: boolean;
   coming_soon: boolean;
   display_order: number;
+  ai_model_id: string | null;
+  currency: string;
+}
+
+interface AIModel {
+  id: string;
+  provider: string;
+  display_name: string;
+  model_name: string;
+  is_active: boolean;
 }
 
 export function TierConfigManager() {
   const [tiers, setTiers] = useState<TierConfig[]>([]);
+  const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const currencies = [
+    { code: 'USD', symbol: '$', name: 'US Dollar' },
+    { code: 'EUR', symbol: '€', name: 'Euro' },
+    { code: 'GBP', symbol: '£', name: 'British Pound' },
+    { code: 'MUR', symbol: 'Rs', name: 'Mauritian Rupee' },
+    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  ];
+
   useEffect(() => {
     fetchTiers();
+    fetchAIModels();
   }, []);
 
   const fetchTiers = async () => {
@@ -45,6 +65,22 @@ export function TierConfigManager() {
       showMessage('error', 'Failed to load tier configurations');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAIModels = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_models')
+        .select('id, provider, display_name, model_name, is_active')
+        .eq('is_active', true)
+        .order('provider', { ascending: true })
+        .order('display_name', { ascending: true });
+
+      if (error) throw error;
+      setAiModels(data || []);
+    } catch (error) {
+      showMessage('error', 'Failed to load AI models');
     }
   };
 
@@ -205,6 +241,51 @@ export function TierConfigManager() {
                     min="0"
                   />
                 </div>
+              </div>
+
+              {/* Currency Selection */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2 flex items-center">
+                  <Globe className="w-3 h-3 mr-1" />
+                  Display Currency
+                </label>
+                <select
+                  value={tier.currency || 'USD'}
+                  onChange={(e) => handleFieldChange(tier.id, 'currency', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  {currencies.map((currency) => (
+                    <option key={currency.code} value={currency.code}>
+                      {currency.symbol} - {currency.name} ({currency.code})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Currency displayed to users for this tier
+                </p>
+              </div>
+
+              {/* AI Model Selection */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2 flex items-center">
+                  <Brain className="w-3 h-3 mr-1" />
+                  AI Model
+                </label>
+                <select
+                  value={tier.ai_model_id || ''}
+                  onChange={(e) => handleFieldChange(tier.id, 'ai_model_id', e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                >
+                  <option value="">Select AI Model</option>
+                  {aiModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.display_name} ({model.provider})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  AI model assigned to users on this tier
+                </p>
               </div>
 
               {/* Token Limit */}

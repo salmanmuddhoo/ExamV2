@@ -15,7 +15,6 @@ import { SyllabusManager } from './SyllabusManager';
 import { QuestionBankByChapter } from './QuestionBankByChapter';
 import { SystemSettings } from './SystemSettings';
 import { CouponCodeManager } from './CouponCodeManager';
-import { AIModelSettings } from './AIModelSettings';
 
 interface AdminDashboardProps {
   onNavigateHome?: () => void;
@@ -25,7 +24,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-models';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'syllabus' | 'question-bank' | 'users' | 'system-settings';
 
 interface MenuItem {
   id: Tab;
@@ -94,7 +93,6 @@ export function AdminDashboard({
       items: [
         { id: 'tier-config' as Tab, label: 'Tier Config', icon: TrendingUp },
         { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
-        { id: 'ai-models' as Tab, label: 'AI Model Settings', icon: MessageSquare },
         { id: 'system-settings' as Tab, label: 'System Settings', icon: Settings },
       ],
     },
@@ -318,7 +316,6 @@ export function AdminDashboard({
             {activeTab === 'syllabus' && <SyllabusManager />}
             {activeTab === 'question-bank' && <QuestionBankByChapter />}
             {activeTab === 'prompts' && <AIPromptManager />}
-            {activeTab === 'ai-models' && <AIModelSettings />}
             {activeTab === 'system-settings' && <SystemSettings />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
