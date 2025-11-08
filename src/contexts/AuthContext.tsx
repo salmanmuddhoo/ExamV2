@@ -37,61 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 10000); // 10 second timeout
 
     const initAuth = async () => {
-      // CRITICAL PWA FIX: Check for OAuth callback code in URL
-      // Read URL parameters inside initAuth to ensure we have current URL
-      const currentUrl = window.location.href;
-      const urlParams = new URLSearchParams(window.location.search);
-      const authCode = urlParams.get('code');
-
-      console.log('[Auth] Checking for OAuth code - URL:', currentUrl);
-      console.log('[Auth] URL search params:', window.location.search);
-      console.log('[Auth] Extracted code:', authCode);
-
-      // If we have an OAuth code in URL, try to exchange it for a session
-      if (authCode) {
-        console.log('[Auth] OAuth code detected in URL, attempting to exchange for session');
-        try {
-          console.log('[Auth] Calling supabase.auth.exchangeCodeForSession...');
-          const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
-
-          console.log('[Auth] exchangeCodeForSession response - data:', data);
-          console.log('[Auth] exchangeCodeForSession response - error:', error);
-          console.log('[Auth] Has session?', !!data?.session);
-          console.log('[Auth] Has user?', !!data?.session?.user);
-
-          if (error) {
-            console.error('[Auth] Failed to exchange code for session:', error);
-            console.error('[Auth] Error details:', {
-              message: error.message,
-              status: error.status,
-              name: error.name
-            });
-            // Continue to regular session check
-          } else if (data?.session) {
-            console.log('[Auth] ✅ Successfully exchanged code for session:', data.session.user.email);
-            setUser(data.session.user);
-            await fetchProfile(data.session.user.id);
-            clearTimeout(loadingTimeout);
-            // Clean up URL to remove the code parameter
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return;
-          } else {
-            console.warn('[Auth] ⚠️ Code exchange returned no error but also no session');
-            console.warn('[Auth] This might indicate a PKCE verification failure');
-            // Continue to regular session check
-          }
-        } catch (err: any) {
-          console.error('[Auth] ❌ Exception during code exchange:', err);
-          console.error('[Auth] Exception details:', {
-            message: err?.message,
-            stack: err?.stack,
-            name: err?.name
-          });
-          // Continue to regular session check
-        }
-      }
-
-      // If no code or exchange failed, check for existing session
+      // Supabase automatically detects and processes OAuth codes via detectSessionInUrl: true
+      // No manual exchange needed - just check for existing session
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
