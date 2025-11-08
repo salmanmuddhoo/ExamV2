@@ -111,13 +111,38 @@ export function PaymentMethodSelector({
     return Math.round(usdAmount * exchangeRate);
   };
 
+  const convertToUSD = (murAmount: number) => {
+    // Exchange rate MUR to USD (approximate, should be updated from API)
+    const exchangeRate = 45.5;
+    return Number((murAmount / exchangeRate).toFixed(2));
+  };
+
   const getDisplayAmount = (method: PaymentMethod) => {
     const amount = appliedCoupon ? appliedCoupon.finalAmount : paymentData.amount;
-    if (method.currency === 'MUR') {
+    const sourceCurrency = paymentData.currency;
+
+    // If payment method currency matches source currency, no conversion needed
+    if (method.currency === sourceCurrency) {
+      if (method.currency === 'MUR') {
+        return `Rs ${amount.toLocaleString()}`;
+      }
+      return `$${amount.toLocaleString()}`;
+    }
+
+    // If source is USD and method needs MUR, convert to MUR
+    if (sourceCurrency === 'USD' && method.currency === 'MUR') {
       const murAmount = convertToMUR(amount);
       return `Rs ${murAmount.toLocaleString()}`;
     }
-    return `$${amount}`;
+
+    // If source is MUR and method needs USD, convert to USD
+    if (sourceCurrency === 'MUR' && method.currency === 'USD') {
+      const usdAmount = convertToUSD(amount);
+      return `$${usdAmount.toLocaleString()}`;
+    }
+
+    // Default fallback
+    return method.currency === 'MUR' ? `Rs ${amount}` : `$${amount}`;
   };
 
   const handleCouponApplied = (code: string, discountPercentage: number, discountAmount: number, finalAmount: number) => {

@@ -42,6 +42,19 @@ export function PayPalPayment({
   const [succeeded, setSucceeded] = useState(false);
   const [error, setError] = useState<string>('');
 
+  // Convert amount to USD if needed (PayPal only supports USD)
+  const convertToUSD = (amount: number, currency: string) => {
+    if (currency === 'USD') return amount;
+    if (currency === 'MUR') {
+      // Exchange rate: 45.5 MUR = 1 USD
+      return Number((amount / 45.5).toFixed(2));
+    }
+    return amount; // Default fallback
+  };
+
+  const displayAmountUSD = convertToUSD(paymentData.amount, paymentData.currency);
+  const displayFinalUSD = couponData ? couponData.finalAmount : displayAmountUSD;
+
   // PayPal client ID from environment variables
   const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || 'YOUR_PAYPAL_CLIENT_ID';
 
@@ -62,14 +75,14 @@ export function PayPalPayment({
       window.paypal
         .Buttons({
           createOrder: async (data: any, actions: any) => {
-            const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
+            const finalAmountUSD = displayFinalUSD;
             return actions.order.create({
               purchase_units: [
                 {
                   description: `${paymentData.tierName} - ${paymentData.billingCycle}${couponData ? ` (Coupon: ${couponData.code})` : ''}`,
                   amount: {
                     currency_code: 'USD',
-                    value: finalAmount.toFixed(2),
+                    value: finalAmountUSD.toFixed(2),
                   },
                 },
               ],
@@ -84,8 +97,8 @@ export function PayPalPayment({
 
               if (!user) throw new Error('User not authenticated');
 
-              const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
-              const originalAmount = paymentData.amount;
+              const finalAmount = displayFinalUSD;
+              const originalAmount = displayAmountUSD;
 
               // Create payment transaction in database
               const { data: transaction, error: transactionError } = await supabase
@@ -206,7 +219,7 @@ export function PayPalPayment({
           <span className="text-blue-100">
             {paymentData.tierName} - {paymentData.billingCycle}
           </span>
-          <span className="text-2xl font-bold">${paymentData.amount}</span>
+          <span className="text-2xl font-bold">${displayAmountUSD}</span>
         </div>
       </div>
 
@@ -223,7 +236,7 @@ export function PayPalPayment({
         <div className="flex items-center justify-between">
           <span className="text-gray-700 font-medium">Total Amount:</span>
           <div className="text-right">
-            <p className="text-3xl font-bold text-gray-900">${paymentData.amount}</p>
+            <p className="text-3xl font-bold text-gray-900">${displayAmountUSD}</p>
             <p className="text-sm text-gray-500">USD</p>
           </div>
         </div>

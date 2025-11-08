@@ -42,6 +42,19 @@ function StripeCheckoutForm({
   const [succeeded, setSucceeded] = useState(false);
   const [error, setError] = useState<string>('');
 
+  // Convert amount to USD if needed (Stripe only supports USD)
+  const convertToUSD = (amount: number, currency: string) => {
+    if (currency === 'USD') return amount;
+    if (currency === 'MUR') {
+      // Exchange rate: 45.5 MUR = 1 USD
+      return Number((amount / 45.5).toFixed(2));
+    }
+    return amount; // Default fallback
+  };
+
+  const displayAmountUSD = convertToUSD(paymentData.amount, paymentData.currency);
+  const displayFinalUSD = couponData ? couponData.finalAmount : displayAmountUSD;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -75,9 +88,22 @@ function StripeCheckoutForm({
 
       // Debug logging for payment data
 
+      // Convert amount to USD if needed (Stripe only supports USD)
+      const convertToUSD = (amount: number, currency: string) => {
+        if (currency === 'USD') return amount;
+        if (currency === 'MUR') {
+          // Exchange rate: 45.5 MUR = 1 USD
+          return Number((amount / 45.5).toFixed(2));
+        }
+        return amount; // Default fallback
+      };
+
       // Calculate final amount (use coupon final amount if present, otherwise original amount)
-      const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
-      const originalAmount = paymentData.amount;
+      const baseAmount = paymentData.amount;
+      const baseCurrency = paymentData.currency;
+      const originalAmountUSD = convertToUSD(baseAmount, baseCurrency);
+      const finalAmount = couponData ? couponData.finalAmount : originalAmountUSD;
+      const originalAmount = originalAmountUSD;
 
       // Only create transaction AFTER Stripe payment method is successful
       const { data: transaction, error: transactionError } = await supabase
@@ -235,11 +261,11 @@ function StripeCheckoutForm({
           <div className="text-right">
             {couponData ? (
               <>
-                <span className="text-sm line-through text-indigo-200 block">${paymentData.amount}</span>
-                <span className="text-2xl font-bold">${couponData.finalAmount}</span>
+                <span className="text-sm line-through text-indigo-200 block">${displayAmountUSD}</span>
+                <span className="text-2xl font-bold">${displayFinalUSD}</span>
               </>
             ) : (
-              <span className="text-2xl font-bold">${paymentData.amount}</span>
+              <span className="text-2xl font-bold">${displayAmountUSD}</span>
             )}
           </div>
         </div>
@@ -259,7 +285,7 @@ function StripeCheckoutForm({
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-3 border-b border-gray-300">
               <span className="text-gray-700">Original Amount:</span>
-              <span className="text-lg text-gray-500 line-through">${paymentData.amount}</span>
+              <span className="text-lg text-gray-500 line-through">${displayAmountUSD}</span>
             </div>
             <div className="flex items-center justify-between">
               <div>
@@ -271,7 +297,7 @@ function StripeCheckoutForm({
             <div className="flex items-center justify-between pt-3 border-t-2 border-gray-300">
               <span className="text-gray-900 font-bold">Total Amount:</span>
               <div className="text-right">
-                <p className="text-3xl font-bold text-gray-900">${couponData.finalAmount}</p>
+                <p className="text-3xl font-bold text-gray-900">${displayFinalUSD}</p>
                 <p className="text-sm text-gray-500">USD</p>
               </div>
             </div>
@@ -280,7 +306,7 @@ function StripeCheckoutForm({
           <div className="flex items-center justify-between">
             <span className="text-gray-700 font-medium">Total Amount:</span>
             <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900">${paymentData.amount}</p>
+              <p className="text-3xl font-bold text-gray-900">${displayAmountUSD}</p>
               <p className="text-sm text-gray-500">USD</p>
             </div>
           </div>
@@ -335,7 +361,7 @@ function StripeCheckoutForm({
           ) : (
             <>
               <CreditCard className="w-5 h-5" />
-              <span>Pay ${couponData ? couponData.finalAmount : paymentData.amount}</span>
+              <span>Pay ${displayFinalUSD}</span>
             </>
           )}
         </button>

@@ -34,11 +34,11 @@ SET ai_model_id = (
 )
 WHERE st.name = 'student';
 
--- Gemini 2.0 Flash for Pro tier (can be changed to Claude by admin)
+-- Claude 3.5 Sonnet for Pro tier (premium AI model for Pro users)
 UPDATE subscription_tiers st
 SET ai_model_id = (
   SELECT id FROM ai_models
-  WHERE model_name = 'gemini-2.0-flash-exp'
+  WHERE model_name = 'claude-3.5-sonnet'
   AND is_active = true
   LIMIT 1
 )
