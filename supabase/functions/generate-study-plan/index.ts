@@ -410,8 +410,13 @@ Return ONLY the JSON array, no additional text.`;
     let studyEvents: any[] = [];
     try {
       console.log("🔍 Attempting to extract JSON from response...");
+
+      // Strip markdown code blocks if present (e.g., ```json\n[...]\n```)
+      let cleanedText = generatedText.replace(/```json\s*\n?/g, '').replace(/```\s*$/g, '').trim();
+      console.log("📄 Cleaned text preview:", cleanedText.substring(0, 500));
+
       // Try to find JSON in the response
-      const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
+      const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         console.log("✅ JSON pattern found");
         studyEvents = JSON.parse(jsonMatch[0]);

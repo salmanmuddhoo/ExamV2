@@ -434,8 +434,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const canProceed = () => {
     switch (step) {
       case 1:
-        // Syllabus is optional - can proceed with just subject and grade
-        return selectedSubject && selectedGrade;
+        // Syllabus is required to create a study plan
+        return selectedSubject && selectedGrade && selectedSyllabus;
       case 2:
         return studyDuration > 0 && selectedDays.length > 0;
       case 3:
@@ -580,9 +580,9 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               )}
 
               {selectedSubject && selectedGrade && !loading && syllabi.length === 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-900">
-                    <strong>ℹ️ No syllabus found:</strong> You can still create a study plan. The AI will generate a plan based on the subject curriculum without specific chapters.
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm text-amber-900">
+                    <strong>⚠️ No syllabus available:</strong> A syllabus is required to create a study plan. Please contact your administrator to add a syllabus for this subject.
                   </p>
                 </div>
               )}
