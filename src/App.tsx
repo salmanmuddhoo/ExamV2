@@ -107,6 +107,18 @@ function App() {
     const newPath = getPathnameFromView(view);
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
 
+    // CRITICAL: Preserve OAuth callback codes in URL
+    // Don't change URL if there's an OAuth code parameter - let AuthContext process it first
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasOAuthCode = urlParams.has('code');
+
+    if (hasOAuthCode) {
+      console.log('[App] OAuth code detected in URL - preserving query parameters');
+      // Don't update URL yet, let auth processing complete first
+      sessionStorage.setItem('currentView', view);
+      return;
+    }
+
     // Only update if the path actually changed (avoid unnecessary history entries)
     if (newPath !== currentPath) {
       window.history.pushState({ view }, '', newPath);
