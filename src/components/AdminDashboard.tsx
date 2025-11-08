@@ -48,8 +48,8 @@ export function AdminDashboard({
   onNavigateStudyPlan,
   onSignOut
 }: AdminDashboardProps = {}) {
-  const [activeTab, setActiveTab] = useState<Tab>('exams');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['exam-setup']));
+  const [activeTab, setActiveTab] = useState<Tab>('payments');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['payment-mgmt']));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { profile } = useAuth();
 
