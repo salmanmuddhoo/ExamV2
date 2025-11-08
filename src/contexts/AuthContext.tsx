@@ -42,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.error('[Auth] Session error:', error);
         setUser(null);
         setProfile(null);
         setLoading(false);
@@ -50,9 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.log('[Auth] Initial session:', session ? 'Found' : 'None');
       if (session) {
-        console.log('[Auth] User:', session.user.email);
       }
 
       setUser(session?.user ?? null);
@@ -67,7 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initAuth().catch((err) => {
-      console.error('[Auth] Auth initialization error:', err);
       setUser(null);
       setProfile(null);
       setLoading(false);
@@ -75,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log(`[Auth] State change: ${_event}`);
 
       // CRITICAL: Handle OAuth callback from PWA
       // If OAuth was initiated from PWA but callback landed in browser, redirect to PWA
@@ -85,10 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                (window.navigator as any).standalone ||
                                document.referrer.includes('android-app://');
 
-        console.log('[Auth] OAuth callback check - Initiated from PWA:', oauthInitiatedFromPWA, 'Currently in PWA:', currentlyInPWA);
 
         if (oauthInitiatedFromPWA && !currentlyInPWA) {
-          console.log('[Auth] OAuth completed in browser but was initiated from PWA - attempting to return to PWA');
           // Clear the flag
           localStorage.removeItem('pwa_oauth_initiated');
           localStorage.removeItem('pwa_oauth_provider');
@@ -96,7 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           // Try to open the PWA - this will work if PWA is installed
           // The PWA will pick up the session from shared localStorage
-          console.log('[Auth] Attempting to reopen PWA...');
           // Give a moment for session to be fully stored
           setTimeout(() => {
             window.close(); // Close the browser window
@@ -106,7 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }, 100);
           }, 500);
         } else if (oauthInitiatedFromPWA && currentlyInPWA) {
-          console.log('[Auth] OAuth completed in PWA successfully');
           localStorage.removeItem('pwa_oauth_initiated');
           localStorage.removeItem('pwa_oauth_provider');
           localStorage.removeItem('pwa_oauth_timestamp');
@@ -136,18 +127,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!isPWA) return; // Only set up for PWA
 
-    console.log('[Auth] Setting up PWA session detection - user state:', user?.email || 'none');
 
     // Listen for localStorage changes (when browser completes OAuth, PWA will detect it)
     const handleStorageChange = (e: StorageEvent) => {
-      console.log('[Auth] Storage event detected:', e.key, 'has new value:', !!e.newValue);
 
       // Check if auth token was added/changed
       if (e.key === 'supabase.auth.token' && e.newValue && !user) {
-        console.log('[Auth] Auth token changed in localStorage - checking for new session');
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session && !user) {
-            console.log('[Auth] Found new session from storage event:', session.user.email);
             setUser(session.user);
             fetchProfile(session.user.id);
           }
@@ -158,16 +145,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for visibility changes (when user switches back to PWA)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('[Auth] PWA regained focus - current user:', user?.email || 'none');
         // Force fresh session check
         supabase.auth.getSession().then(({ data: { session } }) => {
-          console.log('[Auth] Session check result:', session?.user?.email || 'none');
           if (session && !user) {
-            console.log('[Auth] Found new session after PWA regained focus');
             setUser(session.user);
             fetchProfile(session.user.id);
           } else if (!session && user) {
-            console.log('[Auth] Session removed - logging out');
             setUser(null);
             setProfile(null);
           }
@@ -181,11 +164,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!document.hidden) {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session && !user) {
-            console.log('[Auth] Poll detected new session:', session.user.email);
             setUser(session.user);
             fetchProfile(session.user.id);
           } else if (!session && user) {
-            console.log('[Auth] Poll detected session removal');
             setUser(null);
             setProfile(null);
           }
@@ -206,7 +187,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]); // Only user dependency for visibility checks
 
   const fetchProfile = async (userId: string) => {
-    console.log('[Auth] Fetching profile for user:', userId);
     // Create a timeout promise to prevent hanging
     // Increased to 15 seconds for new OAuth users where profile creation might be slow
     const timeoutPromise = new Promise((_, reject) => {
@@ -223,10 +203,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .maybeSingle();
 
         if (error) {
-          console.error('[Auth] Error fetching profile:', error);
           // Check if it's an auth error (expired session)
           if (error.message?.includes('JWT') || error.message?.includes('expired') || error.code === 'PGRST301') {
-            console.error('[Auth] Auth error detected - signing out');
             await supabase.auth.signOut();
             setUser(null);
             setProfile(null);
@@ -237,11 +215,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // If profile doesn't exist (e.g., OAuth user), create it
         if (!data) {
-          console.log('[Auth] Profile not found - creating new profile for OAuth user');
           const { data: { user }, error: userError } = await supabase.auth.getUser();
 
           if (userError) {
-            console.error('[Auth] Error getting user for profile creation:', userError);
             // Session is invalid
             await supabase.auth.signOut();
             setUser(null);
@@ -250,7 +226,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (user) {
-            console.log('[Auth] Creating profile for user:', user.email);
             const { data: newProfile, error: insertError } = await supabase
               .from('profiles')
               .insert({
@@ -266,15 +241,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .single();
 
             if (insertError) {
-              console.error('[Auth] Error inserting profile:', insertError);
               throw insertError;
             }
-            console.log('[Auth] Profile created successfully');
             data = newProfile;
           }
         }
 
-        console.log('[Auth] Profile fetch complete:', data?.email);
         setProfile(data);
       })();
 
@@ -283,11 +255,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.message === 'Profile fetch timeout') {
         // CHANGED: Don't sign out on timeout - just log error
         // The session might be valid, just the profile fetch is slow
-        console.error('[Auth] Profile fetch timed out - continuing with null profile');
-        console.error('[Auth] User can still use the app, profile will be null');
         setProfile(null);
       } else {
-        console.error('[Auth] Profile fetch error:', error);
       }
     } finally {
       setLoading(false);
@@ -353,7 +322,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   (window.navigator as any).standalone ||
                   document.referrer.includes('android-app://');
 
-    console.log(`[OAuth] Starting ${provider} OAuth in ${isPWA ? 'PWA' : 'Browser'} mode`);
 
     // CRITICAL FIX: Don't clear storage key before OAuth!
     // Supabase needs the storage location to save the OAuth callback session
@@ -364,9 +332,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('pwa_oauth_provider');
       localStorage.removeItem('pwa_oauth_timestamp');
 
-      console.log('[OAuth] Ready for OAuth - Supabase will handle session replacement');
     } catch (e) {
-      console.warn('[OAuth] Error during pre-OAuth cleanup:', e);
     }
 
     // Configure provider-specific scopes and options
@@ -399,45 +365,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('pwa_oauth_timestamp', Date.now().toString());
     }
 
-    console.log('[OAuth] Calling Supabase signInWithOAuth with options:', options);
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options,
     });
 
-    console.log('[OAuth] Supabase response - data:', data);
-    console.log('[OAuth] Supabase response - error:', error);
 
     if (error) {
-      console.error('[OAuth] Error:', error);
       throw error;
     }
 
-    console.log('[OAuth] No error - redirect URL should be:', data?.url);
 
     // CRITICAL FIX: Manually redirect to OAuth provider
     // For PWA: Navigate in the same window to keep OAuth flow within PWA
     // For Browser: Same behavior
     if (data?.url) {
       if (isPWA) {
-        console.log('[OAuth] PWA: Navigating to OAuth in same window to preserve PWA context');
-        console.log('[OAuth] Redirecting to:', data.url);
         // Force same-window navigation in PWA to ensure callback returns to PWA
         window.location.assign(data.url);
       } else {
-        console.log('[OAuth] Browser: Redirecting to:', data.url);
         window.location.href = data.url;
       }
     } else {
-      console.error('[OAuth] No URL provided by Supabase - cannot redirect');
       throw new Error('OAuth redirect URL not provided');
     }
   };
 
   const signOut = async () => {
     try {
-      console.log('[Auth] Signing out...');
 
       // Clear UI state first
       setUser(null);
@@ -446,7 +402,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Sign out from Supabase (this clears the auth token)
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('[Auth] Supabase signOut error:', error);
       }
 
       // CRITICAL: Clear ALL auth-related storage including PKCE verifiers
@@ -458,7 +413,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storageKeys = Object.keys(localStorage);
       storageKeys.forEach(key => {
         if (key.includes('supabase') || key.includes('sb-') || key.includes('auth-token') || key.includes('code-verifier')) {
-          console.log('[Auth] Clearing storage key:', key);
           localStorage.removeItem(key);
         }
       });
@@ -466,9 +420,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear all sessionStorage
       sessionStorage.clear();
 
-      console.log('[Auth] Sign out complete - all storage cleared');
     } catch (error) {
-      console.error('[Auth] Error during sign out:', error);
       // Even if signOut fails, clear local state and storage
       setUser(null);
       setProfile(null);
