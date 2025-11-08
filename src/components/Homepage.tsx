@@ -2,6 +2,7 @@ import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, R
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatTokenCount } from '../lib/formatUtils';
+import { formatPrice } from '../utils/currency';
 
 interface Props {
   onGetStarted: () => void;
@@ -13,6 +14,7 @@ interface TierConfig {
   name: string;
   display_name: string;
   price_monthly: number;
+  currency: string;
   token_limit: number | null;
   papers_limit: number | null;
   chapter_wise_access: boolean;
@@ -36,7 +38,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
     try {
       const { data, error } = await supabase
         .from('subscription_tiers')
-        .select('name, display_name, price_monthly, token_limit, papers_limit, chapter_wise_access, max_subjects')
+        .select('name, display_name, price_monthly, currency, token_limit, papers_limit, chapter_wise_access, max_subjects')
         .eq('is_active', true)
         .order('display_order', { ascending: true });
 
@@ -346,7 +348,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.free && (
               <PricingCard
                 name={tiers.free.display_name}
-                price="$0"
+                price={formatPrice(0, tiers.free.currency)}
                 period="forever"
                 description="Perfect for trying out the platform"
                 icon={<BookOpen className="w-6 h-6" />}
@@ -366,7 +368,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.student_lite && (
               <PricingCard
                 name={tiers.student_lite.display_name}
-                price={`$${tiers.student_lite.price_monthly.toFixed(2)}`}
+                price={formatPrice(tiers.student_lite.price_monthly, tiers.student_lite.currency)}
                 period="per month"
                 description="Affordable yearly exam focus"
                 icon={<Rocket className="w-6 h-6" />}
@@ -387,7 +389,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.student && (
               <PricingCard
                 name={tiers.student.display_name}
-                price={`$${tiers.student.price_monthly.toFixed(2)}`}
+                price={formatPrice(tiers.student.price_monthly, tiers.student.currency)}
                 period="per month"
                 description="Best for comprehensive learning"
                 icon={<Star className="w-6 h-6" />}
@@ -408,7 +410,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             {!loading && tiers.pro && (
               <PricingCard
                 name={tiers.pro.display_name}
-                price={`$${tiers.pro.price_monthly.toFixed(2)}`}
+                price={formatPrice(tiers.pro.price_monthly, tiers.pro.currency)}
                 period="per month"
                 description="Everything you need to excel"
                 icon={<Crown className="w-6 h-6" />}

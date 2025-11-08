@@ -5,6 +5,7 @@ export interface SubscriptionTier {
   description: string | null;
   price_monthly: number;
   price_yearly: number;
+  currency: string; // e.g., 'USD', 'EUR', 'MUR'
   token_limit: number | null; // null = unlimited
   papers_limit: number | null; // null = unlimited
   can_select_grade: boolean;

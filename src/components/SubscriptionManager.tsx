@@ -7,6 +7,7 @@ import { StudentPackageSelector } from './StudentPackageSelector';
 import { PaymentOrchestrator } from './PaymentOrchestrator';
 import type { PaymentSelectionData } from '../types/payment';
 import { formatTokenCount } from '../lib/formatUtils';
+import { getCurrencySymbol } from '../utils/currency';
 
 export function SubscriptionManager() {
   const { user, profile } = useAuth();
@@ -558,7 +559,7 @@ export function SubscriptionManager() {
                 <h3 className="text-xl font-bold text-gray-900 mb-1">{tier.display_name}</h3>
                 <p className="text-xs text-gray-600 mb-3">{tier.description}</p>
                 <div className="flex items-baseline justify-center">
-                  <span className="text-3xl font-bold text-gray-900">${price}</span>
+                  <span className="text-3xl font-bold text-gray-900">{getCurrencySymbol(tier.currency)}{price}</span>
                   <span className="text-gray-600 ml-1 text-sm">/{selectedBillingCycle === 'monthly' ? 'mo' : 'yr'}</span>
                 </div>
               </div>
