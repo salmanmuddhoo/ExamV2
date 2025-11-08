@@ -51,11 +51,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // AI Model state
-  const [aiModels, setAiModels] = useState<any[]>([]);
-  const [selectedAiModel, setSelectedAiModel] = useState<string | null>(null);
-  const [savingAiModel, setSavingAiModel] = useState(false);
-
   const getTierIcon = (tierName: string) => {
     switch (tierName) {
       case 'free':
@@ -72,7 +67,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   useEffect(() => {
     if (user && isOpen) {
       fetchSubscriptionTier();
-      fetchAiModels();
     }
   }, [user, isOpen]);
 
@@ -308,102 +302,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     }
   };
 
-  const fetchAiModels = async () => {
-    if (!user) return;
-
-    try {
-      // Fetch allowed AI models from system settings
-      const { data: settingData, error: settingError } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'allowed_ai_models')
-        .maybeSingle();
-
-      let allowedModelIds: string[] = [];
-      if (settingData && settingData.setting_value) {
-        allowedModelIds = (settingData.setting_value as { modelIds: string[] }).modelIds || [];
-      }
-
-      // Fetch all active AI models
-      const { data: models, error: modelsError } = await supabase
-        .from('ai_models')
-        .select('*')
-        .eq('is_active', true)
-        .order('provider', { ascending: true })
-        .order('display_name', { ascending: true });
-
-      if (modelsError) throw modelsError;
-
-      // Filter models based on admin's allowed list
-      let filteredModels = models || [];
-      if (allowedModelIds.length > 0) {
-        filteredModels = filteredModels.filter(m => allowedModelIds.includes(m.id));
-      }
-
-      setAiModels(filteredModels);
-
-      // Fetch user's current preference
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('preferred_ai_model_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-
-      // Find the default model (Gemini 2.0 Flash)
-      const defaultModel = filteredModels.find(m => m.is_default) || filteredModels[0];
-
-      const userPreferredModel = profileData?.preferred_ai_model_id;
-
-      // If user has no preference, set to default model
-      if (!userPreferredModel && defaultModel) {
-        await supabase
-          .from('profiles')
-          .update({ preferred_ai_model_id: defaultModel.id })
-          .eq('id', user.id);
-        setSelectedAiModel(defaultModel.id);
-      }
-      // If user's selected model is not in the allowed list, set it to the default model
-      else if (userPreferredModel && allowedModelIds.length > 0 && !allowedModelIds.includes(userPreferredModel)) {
-        if (defaultModel) {
-          await supabase
-            .from('profiles')
-            .update({ preferred_ai_model_id: defaultModel.id })
-            .eq('id', user.id);
-          setSelectedAiModel(defaultModel.id);
-        }
-      } else {
-        setSelectedAiModel(userPreferredModel || defaultModel?.id || null);
-      }
-    } catch (error) {
-      console.error('Error fetching AI models:', error);
-    }
-  };
-
-  const handleAiModelChange = async (modelId: string | null) => {
-    if (!user) return;
-
-    try {
-      setSavingAiModel(true);
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ preferred_ai_model_id: modelId })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setSelectedAiModel(modelId);
-      setSuccessMessage('AI model preference updated successfully');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Error updating AI model:', error);
-      alert('Failed to update AI model preference');
-    } finally {
-      setSavingAiModel(false);
-    }
-  };
 
   if (!isOpen || !user || !profile) return null;
 
@@ -1071,117 +969,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Settings</h3>
                 <div className="space-y-6">
-                  {/* AI Model Selection */}
-                  <div className="bg-gray-50 rounded-lg p-4 md:p-6">
-                    <h4 className="text-sm md:text-base font-bold text-gray-900 mb-3">AI Model Preference</h4>
-                    <p className="text-xs md:text-sm text-gray-600 mb-4">
-                      Choose which AI model to use for chat assistance and study plan generation. Different models have different capabilities and token consumption rates.
-                    </p>
-
-                    <div className="space-y-3">
-                      {/* Group models by provider */}
-                      {['gemini', 'claude', 'openai'].map(provider => {
-                        const providerModels = aiModels.filter(m => m.provider === provider);
-                        if (providerModels.length === 0) return null;
-
-                        return (
-                          <div key={provider} className="space-y-2">
-                            <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 flex items-center gap-2">
-                              {provider === 'gemini' && (
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M12 0L9.798 2.202L4.596 7.404L2.394 9.606L0 12l2.394 2.394l2.202 2.202l5.202 5.202L12 24l2.202-2.202l5.202-5.202l2.202-2.202L24 12l-2.394-2.394-2.202-2.202-5.202-5.202L12 0zm0 3.515l1.768 1.768l4.95 4.95l1.768 1.768L12 20.485l-8.485-8.485L12 3.515z"/>
-                                </svg>
-                              )}
-                              {provider === 'claude' && (
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M17.3 5.3c-1.5-1.5-3.9-1.5-5.4 0L8.7 8.5c-1.5 1.5-1.5 3.9 0 5.4l.4.4c.3.3.7.3 1 0 .3-.3.3-.7 0-1l-.4-.4c-.9-.9-.9-2.3 0-3.2l3.2-3.2c.9-.9 2.3-.9 3.2 0s.9 2.3 0 3.2l-1.3 1.3c.1.5.1 1 0 1.5l2-2c1.5-1.5 1.5-3.9 0-5.4zm-5.9 8.4c-.3-.3-.7-.3-1 0-.3.3-.3.7 0 1l.4.4c.9.9.9 2.3 0 3.2l-3.2 3.2c-.9.9-2.3.9-3.2 0s-.9-2.3 0-3.2l1.3-1.3c-.1-.5-.1-1 0-1.5l-2 2c-1.5 1.5-1.5 3.9 0 5.4 1.5 1.5 3.9 1.5 5.4 0l3.2-3.2c1.5-1.5 1.5-3.9 0-5.4l-.4-.4z"/>
-                                </svg>
-                              )}
-                              {provider === 'openai' && (
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-                                </svg>
-                              )}
-                              {provider === 'gemini' ? 'Google Gemini' : provider === 'claude' ? 'Anthropic Claude' : 'OpenAI'}
-                            </h5>
-                            {providerModels.map(model => (
-                              <label
-                                key={model.id}
-                                className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                                  selectedAiModel === model.id
-                                    ? 'border-black bg-white shadow-sm'
-                                    : 'border-gray-200 bg-white hover:border-gray-300'
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="ai-model"
-                                  checked={selectedAiModel === model.id}
-                                  onChange={() => handleAiModelChange(model.id)}
-                                  disabled={savingAiModel}
-                                  className="mt-1 mr-3"
-                                />
-                                <div className="flex-1">
-                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                                    <div className="flex items-center gap-2">
-                                      {model.provider === 'gemini' && (
-                                        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                          <path d="M12 0L9.798 2.202L4.596 7.404L2.394 9.606L0 12l2.394 2.394l2.202 2.202l5.202 5.202L12 24l2.202-2.202l5.202-5.202l2.202-2.202L24 12l-2.394-2.394-2.202-2.202-5.202-5.202L12 0zm0 3.515l1.768 1.768l4.95 4.95l1.768 1.768L12 20.485l-8.485-8.485L12 3.515z"/>
-                                        </svg>
-                                      )}
-                                      {model.provider === 'claude' && (
-                                        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                          <path d="M17.3 5.3c-1.5-1.5-3.9-1.5-5.4 0L8.7 8.5c-1.5 1.5-1.5 3.9 0 5.4l.4.4c.3.3.7.3 1 0 .3-.3.3-.7 0-1l-.4-.4c-.9-.9-.9-2.3 0-3.2l3.2-3.2c.9-.9 2.3-.9 3.2 0s.9 2.3 0 3.2l-1.3 1.3c.1.5.1 1 0 1.5l2-2c1.5-1.5 1.5-3.9 0-5.4zm-5.9 8.4c-.3-.3-.7-.3-1 0-.3.3-.3.7 0 1l.4.4c.9.9.9 2.3 0 3.2l-3.2 3.2c-.9.9-2.3.9-3.2 0s-.9-2.3 0-3.2l1.3-1.3c-.1-.5-.1-1 0-1.5l-2 2c-1.5 1.5-1.5 3.9 0 5.4 1.5 1.5 3.9 1.5 5.4 0l3.2-3.2c1.5-1.5 1.5-3.9 0-5.4l-.4-.4z"/>
-                                        </svg>
-                                      )}
-                                      {model.provider === 'openai' && (
-                                        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                          <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-                                        </svg>
-                                      )}
-                                      <span className="font-semibold text-gray-900 text-sm md:text-base">{model.display_name}</span>
-                                    </div>
-                                    {model.token_multiplier > 1 && (
-                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded whitespace-nowrap">
-                                        {model.token_multiplier >= 2.5
-                                          ? 'Most expensive'
-                                          : model.token_multiplier >= 2
-                                          ? 'More expensive'
-                                          : 'Consumes more tokens'}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs md:text-sm text-gray-600">{model.description}</p>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {savingAiModel && (
-                      <div className="mt-4 flex items-center justify-center text-sm text-gray-600">
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving preference...
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info Box */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start">
-                      <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-                      <div>
-                        <h5 className="text-sm font-semibold text-blue-900 mb-1">AI Model Selection</h5>
-                        <p className="text-xs md:text-sm text-blue-800">
-                          Choose your preferred AI model for chat assistance and study plan generation.
-                          Higher token multipliers mean the model consumes more of your monthly token allowance.
-                          {selectedAiModel === null && ' Gemini 2.0 Flash will be used as the default model.'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
