@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, CreditCard, Loader2, CheckCircle } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -41,13 +41,33 @@ function StripeCheckoutForm({
   const [processing, setProcessing] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [error, setError] = useState<string>('');
+  const [exchangeRate, setExchangeRate] = useState<number>(45.5);
+
+  // Fetch exchange rate from database
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('currency_exchange_rates')
+          .select('rate_to_usd')
+          .eq('currency_code', 'MUR')
+          .single();
+
+        if (!error && data) {
+          setExchangeRate(data.rate_to_usd);
+        }
+      } catch (err) {
+        console.error('Error fetching exchange rate:', err);
+      }
+    };
+    fetchExchangeRate();
+  }, []);
 
   // Convert amount to USD if needed (Stripe only supports USD)
   const convertToUSD = (amount: number, currency: string) => {
     if (currency === 'USD') return amount;
     if (currency === 'MUR') {
-      // Exchange rate: 45.5 MUR = 1 USD
-      return Number((amount / 45.5).toFixed(2));
+      return Number((amount / exchangeRate).toFixed(2));
     }
     return amount; // Default fallback
   };
@@ -87,16 +107,6 @@ function StripeCheckoutForm({
       }
 
       // Debug logging for payment data
-
-      // Convert amount to USD if needed (Stripe only supports USD)
-      const convertToUSD = (amount: number, currency: string) => {
-        if (currency === 'USD') return amount;
-        if (currency === 'MUR') {
-          // Exchange rate: 45.5 MUR = 1 USD
-          return Number((amount / 45.5).toFixed(2));
-        }
-        return amount; // Default fallback
-      };
 
       // Calculate final amount (use coupon final amount if present, otherwise original amount)
       const baseAmount = paymentData.amount;

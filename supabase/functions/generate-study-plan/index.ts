@@ -81,6 +81,27 @@ Deno.serve(async (req) => {
     console.log("  - Preferred times:", preferred_times);
     console.log("  - Date range:", start_date, "to", end_date);
 
+    // CRITICAL: Verify the schedule exists before proceeding
+    console.log("🔍 Verifying schedule exists in database...");
+    const { data: scheduleCheck, error: scheduleCheckError } = await supabaseClient
+      .from('study_plan_schedules')
+      .select('id, user_id')
+      .eq('id', schedule_id)
+      .single();
+
+    if (scheduleCheckError || !scheduleCheck) {
+      console.error("❌ Schedule not found:", schedule_id);
+      console.error("Error details:", scheduleCheckError);
+      throw new Error(`Schedule with ID ${schedule_id} not found in database. This may be due to a race condition or the schedule was deleted.`);
+    }
+
+    if (scheduleCheck.user_id !== user_id) {
+      console.error("❌ User ID mismatch!");
+      throw new Error("User ID mismatch: schedule belongs to different user");
+    }
+
+    console.log("✅ Schedule verified successfully");
+
     // Fetch subject and grade names
     console.log("🔍 Fetching subject and grade information...");
     const { data: subject, error: subjectError } = await supabaseClient

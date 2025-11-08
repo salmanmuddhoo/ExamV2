@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase';
 import { CouponInput } from './CouponInput';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
+// Currency exchange rate cache
+let exchangeRateCache: { [key: string]: number } = {};
+
 interface PaymentMethodSelectorProps {
   paymentData: PaymentSelectionData;
   onBack: () => void;
@@ -30,10 +33,33 @@ export function PaymentMethodSelector({
     discountAmount: number;
     finalAmount: number;
   } | null>(null);
+  const [exchangeRates, setExchangeRates] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
     fetchPaymentMethods();
+    fetchExchangeRates();
   }, []);
+
+  const fetchExchangeRates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('currency_exchange_rates')
+        .select('currency_code, rate_to_usd');
+
+      if (error) throw error;
+
+      const rates: { [key: string]: number } = {};
+      data?.forEach(rate => {
+        rates[rate.currency_code] = rate.rate_to_usd;
+      });
+      setExchangeRates(rates);
+      exchangeRateCache = rates; // Update cache
+    } catch (error) {
+      console.error('Error fetching exchange rates:', error);
+      // Fallback to default rates
+      setExchangeRates({ USD: 1, MUR: 45.5 });
+    }
+  };
 
   const fetchPaymentMethods = async () => {
     try {
@@ -106,14 +132,14 @@ export function PaymentMethodSelector({
   };
 
   const convertToMUR = (usdAmount: number) => {
-    // Exchange rate USD to MUR (approximate, should be updated from API)
-    const exchangeRate = 45.5;
+    // Get exchange rate from database
+    const exchangeRate = exchangeRates['MUR'] || 45.5;
     return Math.round(usdAmount * exchangeRate);
   };
 
   const convertToUSD = (murAmount: number) => {
-    // Exchange rate MUR to USD (approximate, should be updated from API)
-    const exchangeRate = 45.5;
+    // Get exchange rate from database
+    const exchangeRate = exchangeRates['MUR'] || 45.5;
     return Number((murAmount / exchangeRate).toFixed(2));
   };
 
