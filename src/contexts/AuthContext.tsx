@@ -36,7 +36,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }, 10000); // 10 second timeout
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    // CRITICAL PWA FIX: Check for OAuth callback code in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const authCode = urlParams.get('code');
+
+    const initAuth = async () => {
+      // If we have an OAuth code in URL, try to exchange it for a session
+      if (authCode) {
+        console.log('[Auth] OAuth code detected in URL, attempting to exchange for session');
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+          if (error) {
+            console.error('[Auth] Failed to exchange code for session:', error);
+          } else if (data.session) {
+            console.log('[Auth] Successfully exchanged code for session:', data.session.user.email);
+            setUser(data.session.user);
+            fetchProfile(data.session.user.id).finally(() => {
+              clearTimeout(loadingTimeout);
+            });
+            // Clean up URL to remove the code parameter
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
+        } catch (err) {
+          console.error('[Auth] Error during code exchange:', err);
+        }
+      }
+
+      // If no code or exchange failed, check for existing session
+      const { data: { session }, error } = await supabase.auth.getSession();
+
       if (error) {
         console.error('[Auth] Session error:', error);
         setUser(null);
@@ -60,8 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         clearTimeout(loadingTimeout);
       }
-    }).catch((err) => {
-      console.error('[Auth] Session fetch error:', err);
+    };
+
+    initAuth().catch((err) => {
+      console.error('[Auth] Auth initialization error:', err);
       setUser(null);
       setProfile(null);
       setLoading(false);
