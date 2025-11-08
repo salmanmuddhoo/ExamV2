@@ -205,8 +205,14 @@ Deno.serve(async (req) => {
             const pdfArrayBuffer = await pdfResponse.arrayBuffer();
             const pdfBytes = new Uint8Array(pdfArrayBuffer);
 
-            // Convert to base64
-            const base64 = btoa(String.fromCharCode(...pdfBytes));
+            // Convert to base64 - process in chunks to avoid stack overflow
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+              const chunk = pdfBytes.slice(i, i + chunkSize);
+              binary += String.fromCharCode.apply(null, Array.from(chunk));
+            }
+            const base64 = btoa(binary);
             syllabusPdfBase64 = base64;
             console.log("✅ PDF downloaded and converted to base64");
             console.log(`📊 PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
@@ -488,8 +494,26 @@ Return ONLY the JSON array, no additional text.`;
     );
     console.log(`✅ Chapter map created with ${chapterMap.size} entries`);
 
+    // Re-verify schedule exists before inserting events (defensive check)
+    console.log("🔍 Re-verifying schedule before inserting events...");
+    const { data: scheduleRecheck, error: scheduleRecheckError } = await supabaseClient
+      .from('study_plan_schedules')
+      .select('id, user_id')
+      .eq('id', schedule_id)
+      .single();
+
+    if (scheduleRecheckError || !scheduleRecheck) {
+      console.error("❌ Schedule no longer exists:", schedule_id);
+      console.error("Recheck error:", scheduleRecheckError);
+      throw new Error(`Schedule ${schedule_id} was deleted or is no longer accessible. Please try creating the study plan again.`);
+    }
+    console.log("✅ Schedule still exists, proceeding with event insertion");
+
     // Insert events into database
     console.log("💾 Preparing events for database insertion...");
+    console.log("💾 Using schedule_id:", schedule_id);
+    console.log("💾 Using user_id:", user_id);
+
     const eventsToInsert = studyEvents.map(event => ({
       schedule_id,
       user_id,
