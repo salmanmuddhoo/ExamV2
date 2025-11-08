@@ -13,6 +13,7 @@ interface StudyPlanRequest {
   user_id: string;
   subject_id: string;
   grade_id: string;
+  syllabus_id?: string; // Optional: specific syllabus to use
   chapter_ids?: string[]; // Optional: specific chapters to include
   study_duration_minutes: number;
   selected_days?: string[]; // Selected days of the week (e.g., ['monday', 'wednesday', 'friday'])
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
       user_id,
       subject_id,
       grade_id,
+      syllabus_id,
       chapter_ids,
       study_duration_minutes,
       selected_days = ['monday', 'wednesday', 'friday'], // Default to MWF if not provided
@@ -75,6 +77,7 @@ Deno.serve(async (req) => {
     console.log("  - User ID:", user_id);
     console.log("  - Subject ID:", subject_id);
     console.log("  - Grade ID:", grade_id);
+    console.log("  - Syllabus ID:", syllabus_id || "Auto-detect from subject/grade");
     console.log("  - Chapter IDs:", chapter_ids || "All chapters");
     console.log("  - Duration:", study_duration_minutes, "minutes");
     console.log("  - Selected days:", selected_days.join(', '));
@@ -133,19 +136,29 @@ Deno.serve(async (req) => {
 
     // Fetch syllabus chapters for the subject
     console.log("🔍 Fetching syllabus and chapters...");
-    const { data: syllabusData, error: syllabusError } = await supabaseClient
+    let syllabusQuery = supabaseClient
       .from('syllabus')
-      .select('id, file_url')
-      .eq('subject_id', subject_id)
-      .eq('grade_id', grade_id)
-      .single();
+      .select('id, file_url');
+
+    // If syllabus_id is provided, use it directly; otherwise find by subject/grade
+    if (syllabus_id) {
+      console.log("📋 Using provided syllabus ID:", syllabus_id);
+      syllabusQuery = syllabusQuery.eq('id', syllabus_id);
+    } else {
+      console.log("📋 Auto-detecting syllabus from subject/grade");
+      syllabusQuery = syllabusQuery
+        .eq('subject_id', subject_id)
+        .eq('grade_id', grade_id);
+    }
+
+    const { data: syllabusData, error: syllabusError } = await syllabusQuery.single();
 
     if (syllabusError) {
-      console.warn("⚠️ No syllabus found for this subject/grade:", syllabusError.message);
+      console.warn("⚠️ No syllabus found:", syllabusError.message);
       console.log("📝 Will generate study plan without specific chapters");
     } else {
       console.log("✅ Syllabus found:", syllabusData.id);
-      console.log("📄 Syllabus PDF URL:", syllabusData.file_url);
+      console.log("📄 Syllabus PDF URL:", syllabusData.file_url || "No PDF file");
     }
 
     let chapters: any[] = [];
@@ -411,16 +424,39 @@ Return ONLY the JSON array, no additional text.`;
     try {
       console.log("🔍 Attempting to extract JSON from response...");
 
-      // Strip markdown code blocks if present (e.g., ```json\n[...]\n```)
-      let cleanedText = generatedText.replace(/```json\s*\n?/g, '').replace(/```\s*$/g, '').trim();
+      // Strip markdown code blocks if present (e.g., ```json\n[...]\n``` or ```\n[...]\n```)
+      let cleanedText = generatedText
+        .replace(/```json\s*\n?/g, '')
+        .replace(/```javascript\s*\n?/g, '')
+        .replace(/```\s*\n?/g, '')
+        .trim();
+
       console.log("📄 Cleaned text preview:", cleanedText.substring(0, 500));
 
-      // Try to find JSON in the response
+      // Try to find JSON array in the response
       const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        console.log("✅ JSON pattern found");
-        studyEvents = JSON.parse(jsonMatch[0]);
-        console.log(`✅ Parsed ${studyEvents.length} study events`);
+        console.log("✅ JSON pattern found, attempting to parse...");
+        let jsonText = jsonMatch[0];
+
+        // Additional cleanup for common AI formatting issues
+        // Remove trailing commas before closing brackets/braces
+        jsonText = jsonText.replace(/,(\s*[\]}])/g, '$1');
+
+        try {
+          studyEvents = JSON.parse(jsonText);
+          console.log(`✅ Parsed ${studyEvents.length} study events successfully`);
+        } catch (parseError) {
+          console.error("❌ Initial parse failed, trying with more aggressive cleanup...");
+
+          // Try more aggressive cleanup
+          // Remove comments (both // and /* */)
+          jsonText = jsonText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
+
+          // Try parsing again
+          studyEvents = JSON.parse(jsonText);
+          console.log(`✅ Parsed ${studyEvents.length} study events after cleanup`);
+        }
 
         // Validate event count
         if (studyEvents.length === 0) {
@@ -438,9 +474,11 @@ Return ONLY the JSON array, no additional text.`;
         throw new Error('No valid JSON found in response');
       }
     } catch (parseError) {
-      console.error('❌ Failed to parse Gemini response:', parseError);
-      console.error('Generated text:', generatedText);
-      throw new Error('Failed to parse AI-generated study plan');
+      console.error('❌ Failed to parse AI response:', parseError);
+      console.error('Error details:', parseError instanceof Error ? parseError.message : String(parseError));
+      console.error('Generated text (first 1000 chars):', generatedText.substring(0, 1000));
+      console.error('Generated text (last 1000 chars):', generatedText.substring(Math.max(0, generatedText.length - 1000)));
+      throw new Error(`Failed to parse AI-generated study plan: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
 
     // Create a map of chapter titles to IDs

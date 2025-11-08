@@ -360,6 +360,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.free.coming_soon ? "Coming Soon" : "Get Started Free"}
                 onButtonClick={tiers.free.coming_soon ? undefined : onGetStarted}
                 popular={false}
+                comingSoon={tiers.free.coming_soon}
               />
             )}
 
@@ -381,6 +382,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.student_lite.coming_soon ? "Coming Soon" : "Start Learning"}
                 onButtonClick={tiers.student_lite.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={true}
+                comingSoon={tiers.student_lite.coming_soon}
               />
             )}
 
@@ -402,6 +404,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.student.coming_soon ? "Coming Soon" : "Get Full Access"}
                 onButtonClick={tiers.student.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
+                comingSoon={tiers.student.coming_soon}
               />
             )}
 
@@ -422,6 +425,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.pro.coming_soon ? "Coming Soon" : "Go Premium"}
                 onButtonClick={tiers.pro.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
+                comingSoon={tiers.pro.coming_soon}
               />
             )}
           </div>
@@ -556,6 +560,7 @@ interface PricingCardProps {
   buttonText: string;
   onButtonClick?: () => void; // Optional - for coming soon tiers
   popular?: boolean;
+  comingSoon?: boolean; // True if tier is coming soon
 }
 
 function PricingCard({
@@ -567,7 +572,8 @@ function PricingCard({
   features,
   buttonText,
   onButtonClick,
-  popular = false
+  popular = false,
+  comingSoon = false
 }: PricingCardProps) {
   return (
     <div className={`relative rounded-2xl border-2 ${
@@ -591,7 +597,7 @@ function PricingCard({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2">{name}</h3>
         <p className="text-sm text-gray-600 mb-4">{description}</p>
-        {price && (
+        {price && !comingSoon && (
           <div className="flex items-baseline justify-center">
             <span className="text-5xl font-bold text-gray-900">{price}</span>
             {period && <span className="text-gray-600 ml-2">/ {period}</span>}
@@ -613,7 +619,9 @@ function PricingCard({
       <button
         onClick={onButtonClick}
         className={`w-full py-3 px-6 rounded-xl font-semibold transition-all ${
-          popular
+          comingSoon
+            ? 'bg-yellow-500 text-gray-900 cursor-default'
+            : popular
             ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
             : 'bg-gray-900 text-white hover:bg-gray-800'
         }`}
