@@ -44,6 +44,10 @@ interface StudyPlanWizardProps {
 export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0 }: StudyPlanWizardProps) {
   const { user } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
+
+  // Configuration constants
+  const MAX_CHAPTERS = 2; // Maximum number of chapters that can be selected
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -261,11 +265,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     if (selectedChapters.includes(chapterId)) {
       setSelectedChapters(selectedChapters.filter(id => id !== chapterId));
     } else {
-      // Limit to maximum 2 chapters
-      if (selectedChapters.length >= 2) {
+      // Limit to maximum chapters
+      if (selectedChapters.length >= MAX_CHAPTERS) {
         setAlertConfig({
           title: 'Chapter Limit Reached',
-          message: 'You can select a maximum of 2 chapters per study plan. Deselect a chapter to select a different one.',
+          message: `You can select a maximum of ${MAX_CHAPTERS} chapters per study plan. Deselect a chapter to select a different one.`,
           type: 'warning'
         });
         setShowAlert(true);
@@ -696,10 +700,10 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               {selectedSyllabus && !loading && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Select Chapters (1-3 required) <span className="text-red-500">*</span>
+                    Select Chapters (1-{MAX_CHAPTERS} required) <span className="text-red-500">*</span>
                   </label>
                   <p className="text-xs text-gray-600 mb-3">
-                    Select 1 to 3 chapters to focus on. Selected: {selectedChapters.length}/3
+                    Select 1 to {MAX_CHAPTERS} chapters to focus on. Selected: {selectedChapters.length}/{MAX_CHAPTERS}
                   </p>
                   {loading ? (
                     <div className="border border-gray-200 rounded-lg p-6">

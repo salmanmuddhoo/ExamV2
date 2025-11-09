@@ -32,6 +32,10 @@ CREATE INDEX IF NOT EXISTS idx_user_badges_earned ON user_badges(user_id, earned
 -- Enable RLS
 ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own badges" ON user_badges;
+DROP POLICY IF EXISTS "System can insert badges" ON user_badges;
+
 -- RLS policies for user_badges
 CREATE POLICY "Users can view their own badges"
   ON user_badges
