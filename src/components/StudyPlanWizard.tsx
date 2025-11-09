@@ -262,6 +262,30 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
+      // Check if user already has 3 study plans for this subject/grade
+      const { data: existingPlans, error: countError } = await supabase
+        .from('study_plan_schedules')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('subject_id', selectedSubject)
+        .eq('grade_id', selectedGrade);
+
+      if (countError) {
+        console.error('Error checking existing plans:', countError);
+        throw new Error('Failed to check existing study plans');
+      }
+
+      if (existingPlans && existingPlans.length >= 3) {
+        setAlertConfig({
+          title: 'Study Plan Limit Reached',
+          message: 'You can only have a maximum of 3 study plans per subject per grade. Please delete an existing plan before creating a new one.',
+          type: 'warning'
+        });
+        setShowAlert(true);
+        setGenerating(false);
+        return;
+      }
+
       // Deactivate any existing active plans for the same subject/grade
       const { error: deactivateError } = await supabase
         .from('study_plan_schedules')

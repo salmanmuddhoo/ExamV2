@@ -551,9 +551,16 @@ Return ONLY the JSON array, no additional text.`;
       return formatted === dateStr;
     };
 
-    // Helper function to get day of week from date string
+    // Helper function to get day of week from date string (parse in local timezone)
     const getDayOfWeek = (dateStr: string): string => {
-      const date = new Date(dateStr);
+      // Parse as local date to avoid timezone issues
+      // "2026-05-19" should be parsed as local May 19, 2026
+      const parts = dateStr.split('-');
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+      const day = parseInt(parts[2]);
+      const date = new Date(year, month, day);
+
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       return days[date.getDay()];
     };
