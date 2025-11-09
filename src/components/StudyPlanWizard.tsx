@@ -63,7 +63,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [selectedSyllabus, setSelectedSyllabus] = useState('');
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [studyDuration, setStudyDuration] = useState(60);
-  const [selectedDays, setSelectedDays] = useState<string[]>(['monday', 'wednesday', 'friday']); // Default selection
+  const [selectedDays, setSelectedDays] = useState<string[]>([]); // No default selection - user must choose
   const [preferredTimes, setPreferredTimes] = useState<string[]>(['evening']);
   const [startDate, setStartDate] = useState(() => {
     const tomorrow = new Date();
@@ -85,6 +85,44 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       fetchGrades();
     }
   }, [isOpen]);
+
+  // Check study plan limit early when subject and grade are selected
+  useEffect(() => {
+    const checkStudyPlanLimit = async () => {
+      if (!user || !selectedSubject || !selectedGrade) return;
+
+      try {
+        const { data: existingPlans, error } = await supabase
+          .from('study_plan_schedules')
+          .select('id, is_completed')
+          .eq('user_id', user.id)
+          .eq('subject_id', selectedSubject)
+          .eq('grade_id', selectedGrade);
+
+        if (error) {
+          console.error('Error checking study plan limit:', error);
+          return;
+        }
+
+        // Only count active (non-completed) plans toward the limit
+        const activePlans = existingPlans?.filter(plan => !plan.is_completed) || [];
+
+        if (activePlans.length >= 3) {
+          setAlertConfig({
+            title: 'Study Plan Limit Reached',
+            message: 'You already have 3 active study plans for this subject and grade. You cannot create more until you complete or delete an existing plan.',
+            type: 'warning'
+          });
+          setShowAlert(true);
+          // Don't proceed - user needs to address this first
+        }
+      } catch (error) {
+        console.error('Error checking study plan limit:', error);
+      }
+    };
+
+    checkStudyPlanLimit();
+  }, [user, selectedSubject, selectedGrade]);
 
   // Validate date range - maximum 4 months
   useEffect(() => {
@@ -220,6 +258,16 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     if (selectedChapters.includes(chapterId)) {
       setSelectedChapters(selectedChapters.filter(id => id !== chapterId));
     } else {
+      // Limit to maximum 3 chapters
+      if (selectedChapters.length >= 3) {
+        setAlertConfig({
+          title: 'Chapter Limit Reached',
+          message: 'You can select a maximum of 3 chapters per study plan. Deselect a chapter to select a different one.',
+          type: 'warning'
+        });
+        setShowAlert(true);
+        return;
+      }
       setSelectedChapters([...selectedChapters, chapterId]);
     }
   };
@@ -262,10 +310,10 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
-      // Check if user already has 3 study plans for this subject/grade
+      // Check if user already has 3 ACTIVE (non-completed) study plans for this subject/grade
       const { data: existingPlans, error: countError } = await supabase
         .from('study_plan_schedules')
-        .select('id')
+        .select('id, is_completed')
         .eq('user_id', user.id)
         .eq('subject_id', selectedSubject)
         .eq('grade_id', selectedGrade);
@@ -275,10 +323,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         throw new Error('Failed to check existing study plans');
       }
 
-      if (existingPlans && existingPlans.length >= 3) {
+      // Only count active (non-completed) plans toward the limit
+      const activePlans = existingPlans?.filter(plan => !plan.is_completed) || [];
+
+      if (activePlans.length >= 3) {
         setAlertConfig({
           title: 'Study Plan Limit Reached',
-          message: 'You can only have a maximum of 3 study plans per subject per grade. Please delete an existing plan before creating a new one.',
+          message: 'You can only have a maximum of 3 active study plans per subject per grade. Complete or delete an existing plan before creating a new one.',
           type: 'warning'
         });
         setShowAlert(true);
@@ -463,7 +514,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     setSelectedChapters([]);
     setChapters([]);
     setStudyDuration(60);
-    setSelectedDays(['monday', 'wednesday', 'friday']);
+    setSelectedDays([]); // No default selection
     setPreferredTimes(['evening']);
     setConflictWarning(null);
     const tomorrow = new Date();
@@ -477,8 +528,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const canProceed = () => {
     switch (step) {
       case 1:
-        // Syllabus is required to create a study plan
-        return selectedSubject && selectedGrade && selectedSyllabus;
+        // Syllabus and chapters are required (1-3 chapters mandatory)
+        return selectedSubject && selectedGrade && selectedSyllabus && selectedChapters.length > 0 && selectedChapters.length <= 3;
       case 2:
         return studyDuration > 0 && selectedDays.length > 0;
       case 3:
@@ -633,10 +684,10 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               {selectedSyllabus && !loading && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Select Chapters (Optional)
+                    Select Chapters (1-3 required) <span className="text-red-500">*</span>
                   </label>
                   <p className="text-xs text-gray-600 mb-3">
-                    Leave unselected to create a study plan for all chapters
+                    Select 1 to 3 chapters to focus on. Selected: {selectedChapters.length}/3
                   </p>
                   {loading ? (
                     <div className="border border-gray-200 rounded-lg p-6">

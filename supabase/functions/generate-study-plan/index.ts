@@ -228,7 +228,13 @@ Deno.serve(async (req) => {
     console.log("🔍 Fetching existing events to check for conflicts...");
     const { data: existingEvents, error: eventsError } = await supabaseClient
       .from('study_plan_events')
-      .select('event_date, start_time, end_time, title')
+      .select(`
+        event_date,
+        start_time,
+        end_time,
+        title,
+        study_plan_schedules!inner(subject_id, grade_id)
+      `)
       .eq('user_id', user_id)
       .gte('event_date', start_date)
       .lte('event_date', end_date);
@@ -240,12 +246,61 @@ Deno.serve(async (req) => {
     }
 
     // Format busy time slots for AI
+    // Filter out events from the SAME subject and grade (can only have 1 active session per subject/grade)
     let busyTimeSlots = '';
+    let conflictingSessions: any[] = [];
+
     if (existingEvents && existingEvents.length > 0) {
-      busyTimeSlots = existingEvents.map(event =>
-        `${event.event_date} from ${event.start_time} to ${event.end_time} (${event.title})`
-      ).join('\n');
-      console.log("📅 Busy time slots:\n", busyTimeSlots);
+      console.log(`🔍 Checking for subject/grade conflicts...`);
+      console.log(`   Current session: Subject ${subject_id}, Grade ${grade_id}`);
+
+      existingEvents.forEach(event => {
+        const eventSubjectId = event.study_plan_schedules?.subject_id;
+        const eventGradeId = event.study_plan_schedules?.grade_id;
+
+        // If there's already a session for the same subject AND grade at this time, it's a conflict
+        if (eventSubjectId === subject_id && eventGradeId === grade_id) {
+          conflictingSessions.push(event);
+        }
+      });
+
+      // Only log first 5 conflicts to avoid flooding logs
+      if (conflictingSessions.length > 0) {
+        console.log(`   ⚠️ Found ${conflictingSessions.length} conflicting session(s) for same subject/grade`);
+        if (conflictingSessions.length <= 5) {
+          conflictingSessions.forEach(event => {
+            console.log(`      - ${event.event_date} ${event.start_time} - ${event.title}`);
+          });
+        } else {
+          conflictingSessions.slice(0, 5).forEach(event => {
+            console.log(`      - ${event.event_date} ${event.start_time} - ${event.title}`);
+          });
+          console.log(`      ... and ${conflictingSessions.length - 5} more conflicts`);
+        }
+      }
+
+      // Only include NON-conflicting sessions in busy slots for AI
+      // Conflicting sessions will be replaced with the new schedule
+      const nonConflictingEvents = existingEvents.filter(event => {
+        const eventSubjectId = event.study_plan_schedules?.subject_id;
+        const eventGradeId = event.study_plan_schedules?.grade_id;
+        return !(eventSubjectId === subject_id && eventGradeId === grade_id);
+      });
+
+      if (nonConflictingEvents.length > 0) {
+        busyTimeSlots = nonConflictingEvents.map(event =>
+          `${event.event_date} from ${event.start_time} to ${event.end_time} (${event.title})`
+        ).join('\n');
+        console.log(`📅 Busy time slots (excluding ${conflictingSessions.length} conflicting sessions):`);
+        console.log(busyTimeSlots);
+      } else {
+        busyTimeSlots = 'No conflicting events - calendar is clear for this subject/grade';
+        console.log(`📅 No non-conflicting events found - calendar is clear`);
+      }
+
+      if (conflictingSessions.length > 0) {
+        console.log(`✅ ${conflictingSessions.length} conflicting sessions will be replaced with new schedule`);
+      }
     } else {
       busyTimeSlots = 'No existing events - calendar is clear';
       console.log("📅 No existing events found - calendar is clear");
@@ -311,9 +366,52 @@ Deno.serve(async (req) => {
     const totalDays = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
     const weeksAvailable = Math.floor(totalDays / 7);
     const chaptersTocover = isChapterSpecific ? chapters.length : chapters.length;
+
+    // Calculate chapter distribution for sequential ordering
+    let chapterDistribution = '';
+    if (chapters.length > 0) {
+      const totalSessions = validDates.length;
+      const sessionsPerChapter = Math.floor(totalSessions / chapters.length);
+      const remainingSessions = totalSessions % chapters.length;
+
+      console.log(`📊 Chapter Distribution Calculation:`);
+      console.log(`   Total sessions: ${totalSessions}`);
+      console.log(`   Total chapters: ${chapters.length}`);
+      console.log(`   Sessions per chapter: ${sessionsPerChapter}`);
+      console.log(`   Remaining sessions: ${remainingSessions}`);
+
+      // Build chapter date ranges for sequential ordering
+      let sessionIndex = 0;
+      const chapterSchedule = chapters.map((ch, idx) => {
+        const sessionsForThisChapter = sessionsPerChapter + (idx < remainingSessions ? 1 : 0);
+        const startDate = validDates[sessionIndex];
+        const endDate = validDates[Math.min(sessionIndex + sessionsForThisChapter - 1, validDates.length - 1)];
+        sessionIndex += sessionsForThisChapter;
+
+        return `  Chapter ${ch.chapter_number}: ${ch.chapter_title}
+    Sessions: ${sessionsForThisChapter}
+    Date range: ${startDate} to ${endDate}`;
+      }).join('\n\n');
+
+      chapterDistribution = `\n\n🚨 SEQUENTIAL CHAPTER ORDERING - ABSOLUTELY CRITICAL 🚨
+
+You MUST follow this EXACT chapter schedule. Complete each chapter BEFORE moving to the next:
+
+${chapterSchedule}
+
+RULES:
+- Complete ALL sessions for Chapter 1 before starting Chapter 2
+- Complete ALL sessions for Chapter 2 before starting Chapter 3
+- And so on for all chapters in sequential order
+- Do NOT jump between chapters
+- Do NOT go back to previous chapters once you've moved to the next
+- Each chapter should be covered in the date range specified above
+- The date ranges ensure even distribution across the study period`;
+    }
+
     const planningContext = !isChapterSpecific && chapters.length > 0
-      ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.`
-      : '';
+      ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.${chapterDistribution}`
+      : chapterDistribution;
 
     // Generate list of ALL valid dates based on selected days
     console.log("📅 Generating list of valid dates based on selected days...");
@@ -369,11 +467,20 @@ End Date: ${end_date}
 You MUST ONLY use dates from this exact list. These are the ONLY valid dates for scheduling sessions:
 ${validDatesFormatted}
 
-DO NOT use any dates not in this list. These dates represent ALL occurrences of the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}) between ${start_date} and ${end_date}. You should use ALL or most of these ${validDates.length} dates to create your study plan.
+IMPORTANT INSTRUCTIONS:
+- DO NOT use any dates not in this list
+- These dates represent ALL occurrences of the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}) between ${start_date} and ${end_date}
+- You MUST create a study session for EVERY SINGLE ONE of these ${validDates.length} dates
+- Your output should have EXACTLY ${validDates.length} study sessions (one per valid date)
+- Distribute the chapters/topics evenly across ALL ${validDates.length} dates
+- EVERY date in the list should appear EXACTLY ONCE in your study plan
+- Do NOT skip any dates unless there is a scheduling conflict
 
 CRITICAL - AVOID SCHEDULING CONFLICTS:
-The student already has the following events scheduled. YOU MUST NOT schedule any sessions that overlap with these existing events:
+The student already has the following events scheduled. YOU MUST NOT schedule any sessions that overlap with these existing events. If a date/time has a conflict, choose a different time slot on the same date:
 ${busyTimeSlots}
+
+NOTE: If an existing event is for a DIFFERENT subject or grade, you MUST avoid that time slot. Only schedule in available time slots.
 
 IMPORTANT - Chapter Selection:
 ${chapterScope}
@@ -398,18 +505,15 @@ Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
 3. 🚨 ABSOLUTELY CRITICAL - USE ONLY THE VALID DATES LISTED ABOVE 🚨: You MUST pick dates ONLY from the list of ${validDates.length} valid dates provided above. Do NOT generate any dates that are not in that exact list. Every single "date" field in your JSON output must be one of the dates from the valid dates list. This is NON-NEGOTIABLE.
-4. ⚠️ ABSOLUTELY CRITICAL - COMPREHENSIVE COVERAGE ⚠️: You should use MOST or ALL of the ${validDates.length} valid dates provided above. Create study sessions for as many of these dates as possible to ensure comprehensive coverage. Do not skip dates unless there is a scheduling conflict.
-5. Each session should be ${study_duration_minutes} minutes long
-6. Schedule sessions during ${preferred_times.join(' or ')} time slots
-7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
-8. Include review sessions every few weeks
-9. Start with easier topics and progress to harder ones
-10. Add milestone checkpoints for assessments
-11. CRITICAL: ALL dates MUST be from the valid dates list provided above. Do not use any other dates.
-12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next valid date
-14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end. Use the PDF content to understand the full scope and depth of each chapter.`}
-${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : '15. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once. Plan the distribution of chapters to fit within the available time between start and end dates.'}
+4. ⚠️ ABSOLUTELY CRITICAL - USE ALL ${validDates.length} DATES ⚠️: You MUST create EXACTLY ${validDates.length} study sessions - ONE session for EACH valid date. Do NOT skip any dates. Your JSON array should contain exactly ${validDates.length} objects. Each valid date should appear EXACTLY ONCE in your study plan. If you skip dates, you will fail this task.
+5. 🚨 ABSOLUTELY CRITICAL - SEQUENTIAL CHAPTER ORDER 🚨: Follow the chapter schedule provided above EXACTLY. Complete ALL sessions for Chapter 1 BEFORE starting Chapter 2. Complete ALL sessions for Chapter 2 BEFORE starting Chapter 3. Do NOT jump between chapters. Do NOT revisit previous chapters. The FIRST event in your JSON array MUST be for Chapter 1, and you must stay on Chapter 1 until you've used up all the sessions allocated to it in the schedule above. This sequential ordering is MANDATORY.
+6. Each session should be ${study_duration_minutes} minutes long
+7. Schedule sessions during ${preferred_times.join(' or ')} time slots
+8. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically in sequential order as specified. Do NOT skip any of the ${chapters.length} selected chapters. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above in sequential order. Create study sessions for EVERY chapter from Chapter 1 to the last chapter following the chapter schedule provided above. Do not skip any chapters.`}
+9. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
+10. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next valid date
+11. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end in sequential order. Use the PDF content to understand the full scope and depth of each chapter.`}
+${isChapterSpecific ? '12. Do NOT include any chapters that are not in the list above' : '12. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once following the sequential chapter schedule provided above.'}
 
 Return ONLY the JSON array, no additional text.`;
 
@@ -441,7 +545,7 @@ Return ONLY the JSON array, no additional text.`;
       }],
       images: pdfToInclude,
       temperature: 0.7,
-      maxTokens: 16000  // Increased to handle comprehensive study plans
+      maxTokens: 32000  // Increased to prevent truncation for large study plans
     });
 
     console.log("✅ AI API response received");
@@ -565,7 +669,59 @@ Return ONLY the JSON array, no additional text.`;
           studyEvents = studyEvents.slice(0, 500);
         }
 
-        console.log("📋 First event:", JSON.stringify(studyEvents[0], null, 2));
+        // Check if AI generated the expected number of events
+        console.log(`\n📊 AI EVENT GENERATION CHECK:`);
+        console.log(`   Expected: ${validDates.length} events (one per valid date)`);
+        console.log(`   Generated: ${studyEvents.length} events`);
+        if (studyEvents.length < validDates.length) {
+          const missing = validDates.length - studyEvents.length;
+          console.warn(`   ⚠️ WARNING: AI generated ${missing} fewer events than expected!`);
+          console.warn(`   This means ${missing} dates will NOT have study sessions.`);
+        } else if (studyEvents.length > validDates.length) {
+          const extra = studyEvents.length - validDates.length;
+          console.warn(`   ⚠️ WARNING: AI generated ${extra} extra events!`);
+          console.warn(`   Some dates may have duplicate sessions (will be filtered).`);
+        } else {
+          console.log(`   ✅ Perfect! AI generated exactly the right number of events.`);
+        }
+
+        // Check if AI followed sequential chapter ordering
+        if (chapters.length > 0 && studyEvents.length > 0) {
+          console.log(`\n📚 SEQUENTIAL CHAPTER ORDER CHECK:`);
+          let currentChapter = 0;
+          let chapterJumps = 0;
+          let backwardJumps = 0;
+
+          studyEvents.forEach((event, idx) => {
+            const eventChapter = event.chapter_number;
+            if (eventChapter) {
+              if (eventChapter < currentChapter) {
+                backwardJumps++;
+                console.warn(`   ⚠️ Event ${idx + 1}: Backward jump from Ch ${currentChapter} to Ch ${eventChapter} - "${event.title}"`);
+              } else if (eventChapter > currentChapter + 1) {
+                chapterJumps++;
+                console.warn(`   ⚠️ Event ${idx + 1}: Skipped chapter(s) from Ch ${currentChapter} to Ch ${eventChapter} - "${event.title}"`);
+              }
+              currentChapter = Math.max(currentChapter, eventChapter);
+            }
+          });
+
+          if (backwardJumps === 0 && chapterJumps === 0) {
+            console.log(`   ✅ Perfect! All chapters follow sequential order.`);
+          } else {
+            console.warn(`   ⚠️ Chapter ordering issues detected:`);
+            console.warn(`      - Backward jumps: ${backwardJumps}`);
+            console.warn(`      - Skipped chapters: ${chapterJumps}`);
+          }
+
+          // Show first 10 events and their chapters
+          console.log(`\n   First 10 events by chapter:`);
+          studyEvents.slice(0, 10).forEach((event, idx) => {
+            console.log(`      ${idx + 1}. Ch ${event.chapter_number || 'N/A'}: ${event.title.substring(0, 60)}`);
+          });
+        }
+
+        console.log("\n📋 First event:", JSON.stringify(studyEvents[0], null, 2));
       } else {
         console.error("❌ No valid JSON array found in response");
         throw new Error('No valid JSON found in response');
@@ -580,6 +736,7 @@ Return ONLY the JSON array, no additional text.`;
 
     // Validate and filter events for correct dates and days
     console.log("🔍 Validating generated events...");
+    console.log(`📊 AI GENERATED ${studyEvents.length} TOTAL EVENTS`);
 
     // Helper function to check if a date is valid
     const isValidDate = (dateStr: string): boolean => {
@@ -611,28 +768,50 @@ Return ONLY the JSON array, no additional text.`;
       return days[date.getDay()];
     };
 
+    // Track filtering reasons
+    let invalidDateCount = 0;
+    let wrongDayCount = 0;
+    const wrongDaysByDay: { [key: string]: number } = {};
+
     // Filter events: keep only those with valid dates on selected days
     const initialEventCount = studyEvents.length;
     studyEvents = studyEvents.filter(event => {
       // Check if date is valid
       if (!isValidDate(event.date)) {
-        console.warn(`⚠️ Filtered out event with invalid date: ${event.date} - ${event.title}`);
+        invalidDateCount++;
+        console.warn(`⚠️ FILTERED (Invalid Date): ${event.date} - ${event.title}`);
         return false;
       }
 
       // Check if date is on a selected day
       const dayOfWeek = getDayOfWeek(event.date);
       if (!selected_days.includes(dayOfWeek)) {
-        console.warn(`⚠️ Filtered out event on non-selected day (${dayOfWeek}): ${event.date} - ${event.title}`);
+        wrongDayCount++;
+        wrongDaysByDay[dayOfWeek] = (wrongDaysByDay[dayOfWeek] || 0) + 1;
+        console.warn(`⚠️ FILTERED (Wrong Day - ${dayOfWeek}): ${event.date} - ${event.title}`);
         return false;
       }
 
       return true;
     });
 
-    if (initialEventCount !== studyEvents.length) {
-      console.log(`📊 Filtered events: ${initialEventCount} → ${studyEvents.length} (removed ${initialEventCount - studyEvents.length} invalid events)`);
+    // Log detailed filtering summary
+    console.log("\n" + "=".repeat(80));
+    console.log("📊 FILTERING SUMMARY");
+    console.log("=".repeat(80));
+    console.log(`🤖 AI Generated:           ${initialEventCount} events`);
+    console.log(`❌ Invalid Dates:          ${invalidDateCount} events filtered`);
+    console.log(`❌ Wrong Day of Week:      ${wrongDayCount} events filtered`);
+    if (wrongDayCount > 0) {
+      console.log(`   Breakdown by day:`);
+      Object.entries(wrongDaysByDay).forEach(([day, count]) => {
+        console.log(`     - ${day}: ${count} events`);
+      });
+      console.log(`   Selected days were: ${selected_days.join(', ')}`);
     }
+    console.log(`✅ Valid Events Remaining: ${studyEvents.length} events`);
+    console.log(`📉 Total Filtered:         ${initialEventCount - studyEvents.length} events (${((initialEventCount - studyEvents.length) / initialEventCount * 100).toFixed(1)}%)`);
+    console.log("=".repeat(80) + "\n");
 
     if (studyEvents.length === 0) {
       throw new Error('All generated events were invalid. Please try again.');
@@ -738,10 +917,27 @@ Return ONLY the JSON array, no additional text.`;
     }
 
     console.log(`✅ Successfully inserted ${insertedEvents.length} events`);
-    console.log("📊 Inserted events summary:");
-    insertedEvents.forEach((event, idx) => {
+
+    // Log detailed insertion summary
+    console.log("\n" + "=".repeat(80));
+    console.log("💾 DATABASE INSERTION SUMMARY");
+    console.log("=".repeat(80));
+    console.log(`📝 Events Prepared for Insert: ${eventsToInsert.length}`);
+    console.log(`📦 Number of Batches:          ${batches.length} (batch size: ${BATCH_SIZE})`);
+    console.log(`✅ Events Successfully Inserted: ${insertedEvents.length}`);
+    console.log(`❌ Events Lost During Insert:  ${eventsToInsert.length - insertedEvents.length}`);
+    if (eventsToInsert.length !== insertedEvents.length) {
+      console.error(`🚨 WARNING: ${eventsToInsert.length - insertedEvents.length} events were prepared but NOT inserted!`);
+    }
+    console.log("=".repeat(80) + "\n");
+
+    console.log("📊 First 10 inserted events:");
+    insertedEvents.slice(0, 10).forEach((event, idx) => {
       console.log(`   ${idx + 1}. ${event.title} - ${event.event_date}`);
     });
+    if (insertedEvents.length > 10) {
+      console.log(`   ... and ${insertedEvents.length - 10} more events`);
+    }
 
     // Save token usage to database for cost tracking and analytics
     console.log("💾 Logging token usage to database...");
@@ -831,11 +1027,51 @@ Return ONLY the JSON array, no additional text.`;
     console.log("🎉 Study plan generation completed successfully!");
     console.log("⏰ Completion time:", new Date().toISOString());
 
+    // Final comprehensive summary
+    console.log("\n" + "=".repeat(80));
+    console.log("🎯 FINAL STUDY PLAN GENERATION SUMMARY");
+    console.log("=".repeat(80));
+    console.log(`📅 Date Range:                 ${start_date} to ${end_date}`);
+    console.log(`📚 Subject:                    ${subjectName} (${gradeName})`);
+    console.log(`👤 User ID:                    ${user_id}`);
+    console.log(`📋 Schedule ID:                ${schedule_id}`);
+    console.log("");
+    console.log("EVENT PIPELINE:");
+    console.log(`  1️⃣ AI Generated:             ${initialEventCount} events`);
+    console.log(`  2️⃣ After Filtering:          ${studyEvents.length} events (-${initialEventCount - studyEvents.length})`);
+    console.log(`     ├─ Invalid Dates:         ${invalidDateCount} filtered`);
+    console.log(`     └─ Wrong Day of Week:     ${wrongDayCount} filtered`);
+    console.log(`  3️⃣ Prepared for Insert:      ${eventsToInsert.length} events`);
+    console.log(`  4️⃣ Successfully Inserted:    ${insertedEvents.length} events`);
+    console.log("");
+    if (initialEventCount !== insertedEvents.length) {
+      const totalLost = initialEventCount - insertedEvents.length;
+      const lostToFiltering = initialEventCount - studyEvents.length;
+      const lostToInsertion = eventsToInsert.length - insertedEvents.length;
+      console.log(`📉 EVENTS LOST: ${totalLost} total (${((totalLost / initialEventCount) * 100).toFixed(1)}%)`);
+      console.log(`   ├─ Lost to Filtering:      ${lostToFiltering} events`);
+      console.log(`   └─ Lost to Insertion:      ${lostToInsertion} events`);
+      if (lostToInsertion > 0) {
+        console.error(`   🚨 ERROR: ${lostToInsertion} events failed to insert!`);
+      }
+    } else {
+      console.log(`✅ SUCCESS: All events created successfully!`);
+    }
+    console.log("=".repeat(80) + "\n");
+
     return new Response(
       JSON.stringify({
         success: true,
         events_created: insertedEvents.length,
         message: `Successfully generated ${insertedEvents.length} study sessions`,
+        debug_info: {
+          ai_generated: initialEventCount,
+          filtered_out: initialEventCount - studyEvents.length,
+          invalid_dates: invalidDateCount,
+          wrong_days: wrongDayCount,
+          prepared_for_insert: eventsToInsert.length,
+          successfully_inserted: insertedEvents.length
+        },
         tokenUsage: {
           promptTokens: promptTokenCount,
           completionTokens: candidatesTokenCount,
