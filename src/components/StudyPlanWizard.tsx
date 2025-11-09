@@ -77,6 +77,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   });
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -84,6 +85,24 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       fetchGrades();
     }
   }, [isOpen]);
+
+  // Validate date range - maximum 4 months
+  useEffect(() => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Calculate 4 months from start date
+      const maxEnd = new Date(start);
+      maxEnd.setMonth(maxEnd.getMonth() + 4);
+
+      if (end > maxEnd) {
+        setDateRangeError('Study plan duration cannot exceed 4 months. Please select an earlier end date.');
+      } else {
+        setDateRangeError(null);
+      }
+    }
+  }, [startDate, endDate]);
 
   // Auto-select grade if only one is available (non-pro users)
   useEffect(() => {
@@ -439,7 +458,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       case 2:
         return studyDuration > 0 && selectedDays.length > 0;
       case 3:
-        return preferredTimes.length > 0 && startDate && endDate;
+        return preferredTimes.length > 0 && startDate && endDate && !dateRangeError;
       default:
         return false;
     }
@@ -788,8 +807,19 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    max={(() => {
+                      const maxEndDate = new Date(startDate);
+                      maxEndDate.setMonth(maxEndDate.getMonth() + 4);
+                      return maxEndDate.toISOString().split('T')[0];
+                    })()}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${
+                      dateRangeError ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   />
+                  {dateRangeError && (
+                    <p className="text-xs text-red-600 mt-1">{dateRangeError}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Maximum 4 months from start date</p>
                 </div>
               </div>
 

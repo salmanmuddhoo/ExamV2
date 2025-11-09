@@ -25,7 +25,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'syllabus' | 'question-bank' | 'users' | 'system-settings';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'profile';
 
 interface MenuItem {
   id: Tab;
@@ -99,6 +99,7 @@ export function AdminDashboard({
       ],
     },
     { id: 'analytics' as Tab, label: 'Analytics', icon: BarChart3 },
+    { id: 'profile' as Tab, label: 'My Profile', icon: User },
   ];
 
   const toggleGroup = (groupId: string) => {
@@ -327,6 +328,25 @@ export function AdminDashboard({
             {activeTab === 'currency-rates' && <CurrencyExchangeManager />}
             {activeTab === 'tier-config' && <TierConfigManager />}
             {activeTab === 'analytics' && <AnalyticsDashboard />}
+            {activeTab === 'profile' && (
+              <div className="max-w-2xl">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h2>
+                <div className="space-y-4">
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                    <p className="text-gray-900">{profile?.email || 'N/A'}</p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Role</label>
+                    <p className="text-gray-900 capitalize">{profile?.role || 'N/A'}</p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Account Status</label>
+                    <p className="text-gray-900">Active</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
