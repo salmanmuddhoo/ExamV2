@@ -261,9 +261,23 @@ Deno.serve(async (req) => {
         // If there's already a session for the same subject AND grade at this time, it's a conflict
         if (eventSubjectId === subject_id && eventGradeId === grade_id) {
           conflictingSessions.push(event);
-          console.log(`   ⚠️ Conflict found: ${event.event_date} ${event.start_time} - ${event.title} (same subject/grade)`);
         }
       });
+
+      // Only log first 5 conflicts to avoid flooding logs
+      if (conflictingSessions.length > 0) {
+        console.log(`   ⚠️ Found ${conflictingSessions.length} conflicting session(s) for same subject/grade`);
+        if (conflictingSessions.length <= 5) {
+          conflictingSessions.forEach(event => {
+            console.log(`      - ${event.event_date} ${event.start_time} - ${event.title}`);
+          });
+        } else {
+          conflictingSessions.slice(0, 5).forEach(event => {
+            console.log(`      - ${event.event_date} ${event.start_time} - ${event.title}`);
+          });
+          console.log(`      ... and ${conflictingSessions.length - 5} more conflicts`);
+        }
+      }
 
       // Only include NON-conflicting sessions in busy slots for AI
       // Conflicting sessions will be replaced with the new schedule
