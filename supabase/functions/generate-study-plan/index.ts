@@ -580,6 +580,7 @@ Return ONLY the JSON array, no additional text.`;
 
     // Validate and filter events for correct dates and days
     console.log("🔍 Validating generated events...");
+    console.log(`📊 AI GENERATED ${studyEvents.length} TOTAL EVENTS`);
 
     // Helper function to check if a date is valid
     const isValidDate = (dateStr: string): boolean => {
@@ -611,28 +612,50 @@ Return ONLY the JSON array, no additional text.`;
       return days[date.getDay()];
     };
 
+    // Track filtering reasons
+    let invalidDateCount = 0;
+    let wrongDayCount = 0;
+    const wrongDaysByDay: { [key: string]: number } = {};
+
     // Filter events: keep only those with valid dates on selected days
     const initialEventCount = studyEvents.length;
     studyEvents = studyEvents.filter(event => {
       // Check if date is valid
       if (!isValidDate(event.date)) {
-        console.warn(`⚠️ Filtered out event with invalid date: ${event.date} - ${event.title}`);
+        invalidDateCount++;
+        console.warn(`⚠️ FILTERED (Invalid Date): ${event.date} - ${event.title}`);
         return false;
       }
 
       // Check if date is on a selected day
       const dayOfWeek = getDayOfWeek(event.date);
       if (!selected_days.includes(dayOfWeek)) {
-        console.warn(`⚠️ Filtered out event on non-selected day (${dayOfWeek}): ${event.date} - ${event.title}`);
+        wrongDayCount++;
+        wrongDaysByDay[dayOfWeek] = (wrongDaysByDay[dayOfWeek] || 0) + 1;
+        console.warn(`⚠️ FILTERED (Wrong Day - ${dayOfWeek}): ${event.date} - ${event.title}`);
         return false;
       }
 
       return true;
     });
 
-    if (initialEventCount !== studyEvents.length) {
-      console.log(`📊 Filtered events: ${initialEventCount} → ${studyEvents.length} (removed ${initialEventCount - studyEvents.length} invalid events)`);
+    // Log detailed filtering summary
+    console.log("\n" + "=".repeat(80));
+    console.log("📊 FILTERING SUMMARY");
+    console.log("=".repeat(80));
+    console.log(`🤖 AI Generated:           ${initialEventCount} events`);
+    console.log(`❌ Invalid Dates:          ${invalidDateCount} events filtered`);
+    console.log(`❌ Wrong Day of Week:      ${wrongDayCount} events filtered`);
+    if (wrongDayCount > 0) {
+      console.log(`   Breakdown by day:`);
+      Object.entries(wrongDaysByDay).forEach(([day, count]) => {
+        console.log(`     - ${day}: ${count} events`);
+      });
+      console.log(`   Selected days were: ${selected_days.join(', ')}`);
     }
+    console.log(`✅ Valid Events Remaining: ${studyEvents.length} events`);
+    console.log(`📉 Total Filtered:         ${initialEventCount - studyEvents.length} events (${((initialEventCount - studyEvents.length) / initialEventCount * 100).toFixed(1)}%)`);
+    console.log("=".repeat(80) + "\n");
 
     if (studyEvents.length === 0) {
       throw new Error('All generated events were invalid. Please try again.');
@@ -738,10 +761,27 @@ Return ONLY the JSON array, no additional text.`;
     }
 
     console.log(`✅ Successfully inserted ${insertedEvents.length} events`);
-    console.log("📊 Inserted events summary:");
-    insertedEvents.forEach((event, idx) => {
+
+    // Log detailed insertion summary
+    console.log("\n" + "=".repeat(80));
+    console.log("💾 DATABASE INSERTION SUMMARY");
+    console.log("=".repeat(80));
+    console.log(`📝 Events Prepared for Insert: ${eventsToInsert.length}`);
+    console.log(`📦 Number of Batches:          ${batches.length} (batch size: ${BATCH_SIZE})`);
+    console.log(`✅ Events Successfully Inserted: ${insertedEvents.length}`);
+    console.log(`❌ Events Lost During Insert:  ${eventsToInsert.length - insertedEvents.length}`);
+    if (eventsToInsert.length !== insertedEvents.length) {
+      console.error(`🚨 WARNING: ${eventsToInsert.length - insertedEvents.length} events were prepared but NOT inserted!`);
+    }
+    console.log("=".repeat(80) + "\n");
+
+    console.log("📊 First 10 inserted events:");
+    insertedEvents.slice(0, 10).forEach((event, idx) => {
       console.log(`   ${idx + 1}. ${event.title} - ${event.event_date}`);
     });
+    if (insertedEvents.length > 10) {
+      console.log(`   ... and ${insertedEvents.length - 10} more events`);
+    }
 
     // Save token usage to database for cost tracking and analytics
     console.log("💾 Logging token usage to database...");
@@ -831,11 +871,51 @@ Return ONLY the JSON array, no additional text.`;
     console.log("🎉 Study plan generation completed successfully!");
     console.log("⏰ Completion time:", new Date().toISOString());
 
+    // Final comprehensive summary
+    console.log("\n" + "=".repeat(80));
+    console.log("🎯 FINAL STUDY PLAN GENERATION SUMMARY");
+    console.log("=".repeat(80));
+    console.log(`📅 Date Range:                 ${start_date} to ${end_date}`);
+    console.log(`📚 Subject:                    ${subjectName} (${gradeName})`);
+    console.log(`👤 User ID:                    ${user_id}`);
+    console.log(`📋 Schedule ID:                ${schedule_id}`);
+    console.log("");
+    console.log("EVENT PIPELINE:");
+    console.log(`  1️⃣ AI Generated:             ${initialEventCount} events`);
+    console.log(`  2️⃣ After Filtering:          ${studyEvents.length} events (-${initialEventCount - studyEvents.length})`);
+    console.log(`     ├─ Invalid Dates:         ${invalidDateCount} filtered`);
+    console.log(`     └─ Wrong Day of Week:     ${wrongDayCount} filtered`);
+    console.log(`  3️⃣ Prepared for Insert:      ${eventsToInsert.length} events`);
+    console.log(`  4️⃣ Successfully Inserted:    ${insertedEvents.length} events`);
+    console.log("");
+    if (initialEventCount !== insertedEvents.length) {
+      const totalLost = initialEventCount - insertedEvents.length;
+      const lostToFiltering = initialEventCount - studyEvents.length;
+      const lostToInsertion = eventsToInsert.length - insertedEvents.length;
+      console.log(`📉 EVENTS LOST: ${totalLost} total (${((totalLost / initialEventCount) * 100).toFixed(1)}%)`);
+      console.log(`   ├─ Lost to Filtering:      ${lostToFiltering} events`);
+      console.log(`   └─ Lost to Insertion:      ${lostToInsertion} events`);
+      if (lostToInsertion > 0) {
+        console.error(`   🚨 ERROR: ${lostToInsertion} events failed to insert!`);
+      }
+    } else {
+      console.log(`✅ SUCCESS: All events created successfully!`);
+    }
+    console.log("=".repeat(80) + "\n");
+
     return new Response(
       JSON.stringify({
         success: true,
         events_created: insertedEvents.length,
         message: `Successfully generated ${insertedEvents.length} study sessions`,
+        debug_info: {
+          ai_generated: initialEventCount,
+          filtered_out: initialEventCount - studyEvents.length,
+          invalid_dates: invalidDateCount,
+          wrong_days: wrongDayCount,
+          prepared_for_insert: eventsToInsert.length,
+          successfully_inserted: insertedEvents.length
+        },
         tokenUsage: {
           promptTokens: promptTokenCount,
           completionTokens: candidatesTokenCount,
