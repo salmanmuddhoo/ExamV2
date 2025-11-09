@@ -85,26 +85,31 @@ export function MCBJuicePayment({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user || !proofFile) return;
+    if (!user) return;
 
     setUploading(true);
 
     try {
-      // Upload proof of payment
-      const fileExt = proofFile.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
+      // Upload proof of payment if provided
+      let publicUrl: string | null = null;
+      if (proofFile) {
+        const fileExt = proofFile.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('payment-proofs')
-        .upload(filePath, proofFile);
+        const { error: uploadError } = await supabase.storage
+          .from('payment-proofs')
+          .upload(filePath, proofFile);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(filePath);
+        // Get public URL
+        const { data } = supabase.storage
+          .from('payment-proofs')
+          .getPublicUrl(filePath);
+
+        publicUrl = data.publicUrl;
+      }
 
       // Create payment transaction
       const { data: transaction, error: transactionError } = await supabase
@@ -243,15 +248,7 @@ export function MCBJuicePayment({
           </li>
           <li className="flex items-start">
             <span className="font-semibold mr-2">3.</span>
-            <span>Keep the transaction reference number</span>
-          </li>
-          <li className="flex items-start">
-            <span className="font-semibold mr-2">4.</span>
-            <span>Take a screenshot of the payment confirmation</span>
-          </li>
-          <li className="flex items-start">
-            <span className="font-semibold mr-2">5.</span>
-            <span>Fill in the form below and upload the screenshot</span>
+            <span>Keep the transaction reference number and fill in the form below</span>
           </li>
         </ol>
       </div>
@@ -302,14 +299,13 @@ export function MCBJuicePayment({
         {/* Proof Upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Payment Proof (Screenshot) *
+            Upload Payment Proof (Screenshot)
           </label>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
             <input
               type="file"
               accept="image/*"
               onChange={handleFileChange}
-              required
               className="hidden"
               id="proof-upload"
             />
@@ -333,7 +329,7 @@ export function MCBJuicePayment({
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={uploading || !phoneNumber || !referenceNumber || !proofFile}
+          disabled={uploading || !phoneNumber || !referenceNumber}
           className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
         >
           {uploading ? (

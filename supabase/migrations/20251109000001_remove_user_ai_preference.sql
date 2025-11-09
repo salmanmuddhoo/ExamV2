@@ -1,5 +1,6 @@
--- Fix get_user_ai_model to check subscription tier's AI model
--- This ensures users get the AI model configured for their subscription tier
+-- Remove user personal AI preference from get_user_ai_model function
+-- Now users ONLY get the AI model configured for their subscription tier
+-- No more personal preferences - admin configures tier model
 
 DROP FUNCTION IF EXISTS get_user_ai_model(UUID);
 
@@ -19,22 +20,8 @@ RETURNS TABLE (
   created_at TIMESTAMPTZ
 ) AS $$
 BEGIN
-  -- Priority 1: User's personal preference (if set)
-  RETURN QUERY
-  SELECT m.id, m.provider, m.model_name, m.display_name, m.api_endpoint,
-         m.temperature_default, m.max_output_tokens, m.supports_vision, m.supports_caching,
-         m.is_default, m.is_active, m.created_at
-  FROM profiles p
-  INNER JOIN ai_models m ON m.id = p.preferred_ai_model_id
-  WHERE p.id = p_user_id
-    AND m.is_active = true
-  LIMIT 1;
-
-  IF FOUND THEN
-    RETURN;
-  END IF;
-
-  -- Priority 2: Subscription tier's AI model (NEW - this was missing!)
+  -- Priority 1: Subscription tier's AI model
+  -- This is what the admin configures for each tier
   RETURN QUERY
   SELECT m.id, m.provider, m.model_name, m.display_name, m.api_endpoint,
          m.temperature_default, m.max_output_tokens, m.supports_vision, m.supports_caching,
@@ -52,7 +39,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Priority 3: System default model
+  -- Priority 2: System default model (fallback if no tier or tier has no AI model configured)
   RETURN QUERY
   SELECT m.id, m.provider, m.model_name, m.display_name, m.api_endpoint,
          m.temperature_default, m.max_output_tokens, m.supports_vision, m.supports_caching,
@@ -64,4 +51,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION get_user_ai_model IS 'Returns the AI model for a user by checking: 1) User preference, 2) Subscription tier model, 3) System default';
+COMMENT ON FUNCTION get_user_ai_model IS 'Returns the AI model for a user by checking: 1) Subscription tier model (admin configured), 2) System default. User personal preferences are no longer supported.';
