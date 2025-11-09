@@ -34,6 +34,8 @@ import { EventDetailModal } from './EventDetailModal';
 import { formatTokenCount } from '../lib/formatUtils';
 import { AlertModal } from './AlertModal';
 import { ConfirmModal } from './ConfirmModal';
+import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
+import { ContextualHint } from './ContextualHint';
 
 interface StudyPlanCalendarProps {
   onBack: () => void;
@@ -46,6 +48,7 @@ interface StudyPlanCalendarProps {
 
 export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0, onRefreshTokens }: StudyPlanCalendarProps) {
   const { user } = useAuth();
+  const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [featureEnabled, setFeatureEnabled] = useState(false);
@@ -377,8 +380,19 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     setShowConfirm(true);
   };
 
-  const handleToggleScheduleActive = async (scheduleId: string, currentlyActive: boolean, subjectId: string, gradeId: string) => {
+  const handleToggleScheduleActive = async (scheduleId: string, currentlyActive: boolean, subjectId: string, gradeId: string, isCompleted?: boolean) => {
     try {
+      // Prevent reactivating completed plans
+      if (!currentlyActive && isCompleted) {
+        setAlertConfig({
+          title: 'Cannot Reactivate',
+          message: 'A completed study plan cannot be reactivated. Please create a new study plan instead.',
+          type: 'warning'
+        });
+        setShowAlert(true);
+        return;
+      }
+
       if (!currentlyActive) {
         // Activating this plan - first deactivate any other active plan for same subject/grade
         const { error: deactivateError } = await supabase
@@ -910,11 +924,19 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {subjectSchedules.map((schedule, idx) => (
-                            <tr key={schedule.id} className="hover:bg-gray-50 transition-colors">
+                            <tr key={schedule.id} className={`hover:bg-gray-50 transition-colors ${schedule.is_completed ? 'bg-blue-50 md:bg-white' : ''}`}>
                               <td className="px-2 md:px-4 py-3 whitespace-nowrap">
-                                <span className="text-sm font-medium text-gray-900">
-                                  Plan #{idx + 1}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    Plan #{idx + 1}
+                                  </span>
+                                  {schedule.is_completed && (
+                                    <span className="md:hidden inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800">
+                                      <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
+                                      Done
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="hidden sm:table-cell px-2 md:px-4 py-3 whitespace-nowrap">
                                 <span className="text-sm text-gray-700">
@@ -954,7 +976,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                 )}
                               </td>
                               <td className="hidden md:table-cell px-4 py-3 whitespace-nowrap">
-                                {schedule.is_active ? (
+                                {schedule.is_completed ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                    Completed
+                                  </span>
+                                ) : schedule.is_active ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5"></span>
                                     Active
@@ -1022,13 +1049,16 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                               <td className="px-2 md:px-4 py-3 whitespace-nowrap text-right">
                                 <div className="flex items-center justify-end space-x-1 md:space-x-2">
                                   <button
-                                    onClick={() => handleToggleScheduleActive(schedule.id, schedule.is_active, schedule.subject_id, schedule.grade_id)}
+                                    onClick={() => handleToggleScheduleActive(schedule.id, schedule.is_active, schedule.subject_id, schedule.grade_id, schedule.is_completed)}
                                     className={`p-1 md:p-1.5 rounded transition-colors ${
-                                      schedule.is_active
+                                      schedule.is_completed
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : schedule.is_active
                                         ? 'bg-green-100 hover:bg-green-200 text-green-700'
                                         : 'bg-red-100 hover:bg-red-200 text-red-700'
                                     }`}
-                                    title={schedule.is_active ? 'Active - Click to deactivate' : 'Inactive - Click to activate'}
+                                    title={schedule.is_completed ? 'Completed - Cannot reactivate' : schedule.is_active ? 'Active - Click to deactivate' : 'Inactive - Click to activate'}
+                                    disabled={schedule.is_completed}
                                   >
                                     {schedule.is_active ? (
                                       <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -1134,14 +1164,25 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden max-w-full">
           <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {calendarView === 'day'
-                  ? (selectedDate || currentDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
-                  : calendarView === 'week'
-                  ? `Week of ${getDaysInWeek()[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
-                  : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                }
-              </h2>
+              <div className="relative">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {calendarView === 'day'
+                    ? (selectedDate || currentDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+                    : calendarView === 'week'
+                    ? `Week of ${getDaysInWeek()[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                    : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                  }
+                </h2>
+                {/* Calendar Task Viewing Hint */}
+                <ContextualHint
+                  show={shouldShowHint('calendarTaskViewing') && events.length > 0 && !loading}
+                  onDismiss={() => markHintAsSeen('calendarTaskViewing')}
+                  title="View Your Study Sessions"
+                  message="Click on any study session to view details, mark it as in-progress, or complete it. Track your progress!"
+                  position="bottom"
+                  arrowAlign="left"
+                />
+              </div>
 
               {/* View Toggle - Desktop */}
               <div className="hidden md:flex items-center space-x-1 bg-gray-100 p-1 rounded-lg">

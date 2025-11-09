@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Server, Database, Zap, Save, RefreshCw, Calendar } from 'lucide-react';
+import { Server, Database, Zap, Save, RefreshCw, Calendar, Phone } from 'lucide-react';
 
 interface CacheSetting {
   useGeminiCache: boolean;
@@ -15,6 +15,7 @@ export function SystemSettings() {
   const [saving, setSaving] = useState(false);
   const [useGeminiCache, setUseGeminiCache] = useState(false);
   const [studyPlanEnabled, setStudyPlanEnabled] = useState(false);
+  const [mcbJuicePhoneNumber, setMcbJuicePhoneNumber] = useState('5822 2428');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -54,6 +55,24 @@ export function SystemSettings() {
         const studyPlanSetting = studyPlanData.setting_value as StudyPlanFeatureSetting;
         setStudyPlanEnabled(studyPlanSetting.enabled || false);
       }
+
+      // Fetch MCB Juice phone number
+      const { data: mcbPhoneData, error: mcbPhoneError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'mcb_juice_phone_number')
+        .single();
+
+      if (mcbPhoneError && mcbPhoneError.code !== 'PGRST116') {
+        throw mcbPhoneError;
+      }
+
+      if (mcbPhoneData) {
+        const phoneNumber = mcbPhoneData.setting_value?.phone_number;
+        if (phoneNumber) {
+          setMcbJuicePhoneNumber(phoneNumber);
+        }
+      }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load settings' });
     } finally {
@@ -90,6 +109,20 @@ export function SystemSettings() {
         });
 
       if (studyPlanError) throw studyPlanError;
+
+      // Update MCB Juice phone number
+      const { error: mcbPhoneError } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'mcb_juice_phone_number',
+          setting_value: { phone_number: mcbJuicePhoneNumber },
+          description: 'MCB Juice phone number for manual transfers. Displayed to users during payment.',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (mcbPhoneError) throw mcbPhoneError;
 
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
 
@@ -273,6 +306,52 @@ export function SystemSettings() {
             <p className="text-sm text-blue-800">
               <strong>Access Control:</strong> Even when enabled globally, users must have a paid subscription tier with
               "Study Plan Access" enabled (configured in Tier Configuration). Free tier users will see a message prompting them to upgrade.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* MCB Juice Phone Number Section */}
+      <div className="border border-gray-200 rounded-lg p-6 bg-white">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-red-100 rounded-lg">
+            <Phone className="w-5 h-5 text-red-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">MCB Juice Phone Number</h3>
+            <p className="text-sm text-gray-600">Configure the phone number for MCB Juice manual transfers</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 border-2 rounded-lg border-gray-200">
+            <label htmlFor="mcb-phone" className="block text-sm font-semibold text-gray-900 mb-2">
+              Transfer Phone Number
+            </label>
+            <input
+              id="mcb-phone"
+              type="text"
+              value={mcbJuicePhoneNumber}
+              onChange={(e) => setMcbJuicePhoneNumber(e.target.value)}
+              placeholder="e.g., 5822 2428"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-lg font-mono"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              This number will be displayed to users on the MCB Juice payment screen. Format: XXXX XXXX
+            </p>
+          </div>
+
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Display Location:</strong> This phone number is prominently displayed on the MCB Juice payment page,
+              so users know where to send their manual transfer. Make sure this number is always up to date and monitored.
+            </p>
+          </div>
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800">
+              <strong>Important:</strong> Any changes to this number will take effect immediately for all new payment screens.
+              Ensure the number is correct before saving to avoid payment issues.
             </p>
           </div>
         </div>

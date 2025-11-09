@@ -6,6 +6,9 @@ interface HintStatus {
   chatInput: boolean;
   tokenCounter: boolean;
   profileSubscription: boolean;
+  studyPlanCreation: boolean;
+  calendarTaskViewing: boolean;
+  markSessionProgress: boolean;
 }
 
 interface FirstTimeHintsContextType {
@@ -25,6 +28,9 @@ const defaultHintStatus: HintStatus = {
   chatInput: false,
   tokenCounter: false,
   profileSubscription: false,
+  studyPlanCreation: false,
+  calendarTaskViewing: false,
+  markSessionProgress: false,
 };
 
 // Define the order in which hints should appear
@@ -34,6 +40,9 @@ const HINT_ORDER: (keyof HintStatus)[] = [
   'chatInput',               // 3rd: Show where to type questions
   'tokenCounter',            // 4th: After user sends their first message
   'profileSubscription',     // 5th: After token counter is seen
+  'studyPlanCreation',       // 6th: When user first visits study plan section
+  'calendarTaskViewing',     // 7th: After study plan is created, show calendar
+  'markSessionProgress',     // 8th: When user views a study session in the calendar
 ];
 
 export function FirstTimeHintsProvider({ children }: { children: ReactNode }) {

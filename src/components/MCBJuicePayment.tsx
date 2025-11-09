@@ -35,8 +35,9 @@ export function MCBJuicePayment({
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<number>(45.5);
+  const [mcbPhoneNumber, setMcbPhoneNumber] = useState<string>('5822 2428');
 
-  // Fetch exchange rate from database
+  // Fetch exchange rate and MCB phone number from database
   useEffect(() => {
     const fetchExchangeRate = async () => {
       try {
@@ -53,7 +54,28 @@ export function MCBJuicePayment({
         console.error('Error fetching exchange rate:', err);
       }
     };
+
+    const fetchMcbPhoneNumber = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'mcb_juice_phone_number')
+          .single();
+
+        if (!error && data) {
+          const phoneNumber = data.setting_value?.phone_number;
+          if (phoneNumber) {
+            setMcbPhoneNumber(phoneNumber);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching MCB phone number:', err);
+      }
+    };
+
     fetchExchangeRate();
+    fetchMcbPhoneNumber();
   }, []);
 
   // Calculate MUR amount correctly
@@ -244,13 +266,19 @@ export function MCBJuicePayment({
           </li>
           <li className="flex items-start">
             <span className="font-semibold mr-2">2.</span>
-            <span>Send <strong>Rs {murAmount.toLocaleString()}</strong> to merchant account</span>
+            <span>Send <strong>Rs {murAmount.toLocaleString()}</strong> to the phone number below</span>
           </li>
           <li className="flex items-start">
             <span className="font-semibold mr-2">3.</span>
             <span>Keep the transaction reference number and fill in the form below</span>
           </li>
         </ol>
+
+        {/* MCB Juice Phone Number */}
+        <div className="mt-4 bg-white border-2 border-blue-300 rounded-lg p-4">
+          <p className="text-xs text-gray-600 mb-1 text-center">Transfer to this MCB Juice number:</p>
+          <p className="text-3xl font-bold text-gray-900 text-center tracking-wider">{mcbPhoneNumber}</p>
+        </div>
       </div>
 
       {/* Payment Amount */}

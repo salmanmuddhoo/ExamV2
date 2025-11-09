@@ -17,6 +17,8 @@ import {
 import { StudyPlanEvent } from '../types/studyPlan';
 import { AlertModal } from './AlertModal';
 import { ConfirmModal } from './ConfirmModal';
+import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
+import { ContextualHint } from './ContextualHint';
 
 interface EventDetailModalProps {
   event: StudyPlanEvent | null;
@@ -27,6 +29,7 @@ interface EventDetailModalProps {
 }
 
 export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }: EventDetailModalProps) {
+  const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -502,9 +505,20 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
 
           {/* Status */}
           <div>
-            <label className="block text-xs font-semibold text-gray-900 mb-1.5">
-              Status
-            </label>
+            <div className="relative">
+              <label className="block text-xs font-semibold text-gray-900 mb-1.5">
+                Status
+              </label>
+              {/* Mark Session Progress Hint */}
+              <ContextualHint
+                show={shouldShowHint('markSessionProgress') && event.status === 'pending'}
+                onDismiss={() => markHintAsSeen('markSessionProgress')}
+                title="Track Your Progress"
+                message="Click these buttons to mark your session as 'In Progress' when you start studying, or 'Completed' when done!"
+                position="bottom"
+                arrowAlign="left"
+              />
+            </div>
             <div className="grid grid-cols-4 gap-1.5">
               {/* Pending */}
               <button

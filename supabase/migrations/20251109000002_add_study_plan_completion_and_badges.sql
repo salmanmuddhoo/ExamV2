@@ -32,6 +32,10 @@ CREATE INDEX IF NOT EXISTS idx_user_badges_earned ON user_badges(user_id, earned
 -- Enable RLS
 ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own badges" ON user_badges;
+DROP POLICY IF EXISTS "System can insert badges" ON user_badges;
+
 -- RLS policies for user_badges
 CREATE POLICY "Users can view their own badges"
   ON user_badges
@@ -65,10 +69,11 @@ BEGIN
   WHERE schedule_id = plan_id
     AND status = 'completed';
 
-  -- If all events are completed, mark the schedule as completed
+  -- If all events are completed, mark the schedule as completed and inactive
   IF total_events > 0 AND total_events = completed_events THEN
     UPDATE study_plan_schedules
     SET is_completed = true,
+        is_active = false,
         completed_at = NOW()
     WHERE id = plan_id;
 
@@ -89,6 +94,9 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop existing trigger if it exists to avoid conflicts
+DROP TRIGGER IF EXISTS trigger_check_study_plan_completion ON study_plan_events;
 
 -- Create trigger to check completion after each event status update
 CREATE TRIGGER trigger_check_study_plan_completion
