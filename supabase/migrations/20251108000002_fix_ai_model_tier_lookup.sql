@@ -10,7 +10,7 @@ RETURNS TABLE (
   model_name TEXT,
   display_name TEXT,
   api_endpoint TEXT,
-  temperature NUMERIC,
+  temperature_default NUMERIC,
   max_output_tokens INTEGER,
   supports_vision BOOLEAN,
   supports_caching BOOLEAN,
@@ -22,7 +22,7 @@ BEGIN
   -- Priority 1: User's personal preference (if set)
   RETURN QUERY
   SELECT m.id, m.provider, m.model_name, m.display_name, m.api_endpoint,
-         m.temperature, m.max_output_tokens, m.supports_vision, m.supports_caching,
+         m.temperature_default, m.max_output_tokens, m.supports_vision, m.supports_caching,
          m.is_default, m.is_active, m.created_at
   FROM profiles p
   INNER JOIN ai_models m ON m.id = p.preferred_ai_model_id
@@ -37,7 +37,7 @@ BEGIN
   -- Priority 2: Subscription tier's AI model (NEW - this was missing!)
   RETURN QUERY
   SELECT m.id, m.provider, m.model_name, m.display_name, m.api_endpoint,
-         m.temperature, m.max_output_tokens, m.supports_vision, m.supports_caching,
+         m.temperature_default, m.max_output_tokens, m.supports_vision, m.supports_caching,
          m.is_default, m.is_active, m.created_at
   FROM user_subscriptions us
   INNER JOIN subscription_tiers st ON st.id = us.tier_id
@@ -55,7 +55,7 @@ BEGIN
   -- Priority 3: System default model
   RETURN QUERY
   SELECT m.id, m.provider, m.model_name, m.display_name, m.api_endpoint,
-         m.temperature, m.max_output_tokens, m.supports_vision, m.supports_caching,
+         m.temperature_default, m.max_output_tokens, m.supports_vision, m.supports_caching,
          m.is_default, m.is_active, m.created_at
   FROM ai_models m
   WHERE m.is_default = true

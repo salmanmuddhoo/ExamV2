@@ -309,7 +309,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     { id: 'general' as TabType, label: 'General', icon: User },
     { id: 'subscription' as TabType, label: 'Subscription', icon: CreditCard },
     { id: 'payment-history' as TabType, label: 'Payment History', icon: History },
-    { id: 'settings' as TabType, label: 'Settings', icon: Settings },
   ];
 
   const handleSignOut = async () => {
@@ -965,13 +964,6 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
               </div>
             )}
 
-            {activeTab === 'settings' && (
-              <div>
-                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 md:mb-6">Settings</h3>
-                <div className="space-y-6">
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
