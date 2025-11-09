@@ -294,6 +294,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       // Calculate progress for each schedule and identify orphaned schedules
       const progressMap: Record<string, { total: number; completed: number; percentage: number }> = {};
       const orphanedScheduleIds: string[] = [];
+      const now = new Date();
 
       scheduleIds.forEach(scheduleId => {
         const scheduleEvents = allEvents?.filter(e => e.schedule_id === scheduleId) || [];
@@ -304,16 +305,26 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         progressMap[scheduleId] = { total, completed, percentage };
 
         // Track schedules with no events (orphaned from failed AI generation)
+        // Only mark as orphaned if created more than 10 minutes ago (to avoid deleting during active generation)
         if (total === 0) {
-          orphanedScheduleIds.push(scheduleId);
+          const schedule = schedules.find(s => s.id === scheduleId);
+          if (schedule) {
+            const createdAt = new Date(schedule.created_at);
+            const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+
+            // Only cleanup schedules older than 10 minutes with no events
+            if (minutesSinceCreation > 10) {
+              orphanedScheduleIds.push(scheduleId);
+            }
+          }
         }
       });
 
       setScheduleProgress(progressMap);
 
-      // Clean up orphaned schedules (schedules with no events)
+      // Clean up old orphaned schedules (schedules with no events created >10 minutes ago)
       if (orphanedScheduleIds.length > 0) {
-        console.log('Cleaning up orphaned schedules:', orphanedScheduleIds);
+        console.log('Cleaning up old orphaned schedules (>10 min old):', orphanedScheduleIds);
         const { error: deleteError } = await supabase
           .from('study_plan_schedules')
           .delete()
