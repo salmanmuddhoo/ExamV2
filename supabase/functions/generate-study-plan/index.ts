@@ -351,8 +351,8 @@ Please generate a JSON array of study events with the following structure:
 Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
-3. ABSOLUTELY CRITICAL - SELECTED DAYS ONLY: You MUST schedule sessions ONLY on these specific days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. Do NOT schedule sessions on ANY other days of the week. For example, if the user selected Monday, Tuesday, Wednesday, Thursday, and Friday, you must ONLY use those 5 days and NEVER schedule on Saturday or Sunday.
-4. ABSOLUTELY CRITICAL - USE ALL SELECTED DAYS: Generate study sessions for EVERY SINGLE occurrence of EACH selected day between ${start_date} and ${end_date}. If Monday, Tuesday, Wednesday, Thursday, and Friday are selected, you must create sessions on EVERY Monday, EVERY Tuesday, EVERY Wednesday, EVERY Thursday, and EVERY Friday within the date range. Do not skip any occurrence of any selected day unless there is a scheduling conflict. The study plan must use ALL selected days equally and comprehensively.
+3. ⚠️ ABSOLUTELY CRITICAL - WEEKDAY RESTRICTION ⚠️: The user has selected ONLY these specific days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. You MUST ONLY schedule sessions on these exact days. This is NON-NEGOTIABLE. Before adding any session, verify the day of the week matches one of the selected days. If the selected days are [Monday, Thursday, Sunday], you can ONLY create sessions that fall on Monday, Thursday, or Sunday. You CANNOT use Tuesday, Wednesday, Friday, or Saturday under any circumstances. Double-check EVERY date to ensure it matches one of the selected days of the week.
+4. ⚠️ ABSOLUTELY CRITICAL - COMPREHENSIVE COVERAGE OF SELECTED DAYS ⚠️: You MUST generate study sessions for EVERY SINGLE occurrence of EACH selected day between ${start_date} and ${end_date}. Count all occurrences of each selected day in the date range and create sessions for ALL of them. If Monday, Thursday, and Sunday are selected, count how many Mondays exist between the start and end dates, how many Thursdays, and how many Sundays - then create sessions for ALL of those dates. Do not skip any occurrence of any selected day unless there is a scheduling conflict. The study plan must use ALL selected days equally and comprehensively.
 5. Each session should be ${study_duration_minutes} minutes long
 6. Schedule sessions during ${preferred_times.join(' or ')} time slots
 7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
@@ -530,6 +530,59 @@ Return ONLY the JSON array, no additional text.`;
       console.error('Generated text (first 1000 chars):', generatedText.substring(0, 1000));
       console.error('Generated text (last 1000 chars):', generatedText.substring(Math.max(0, generatedText.length - 1000)));
       throw new Error(`Failed to parse AI-generated study plan: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+
+    // Validate and filter events for correct dates and days
+    console.log("🔍 Validating generated events...");
+
+    // Helper function to check if a date is valid
+    const isValidDate = (dateStr: string): boolean => {
+      const date = new Date(dateStr);
+      // Check if date is valid and matches the input string
+      // This catches invalid dates like Feb 29 on non-leap years
+      if (isNaN(date.getTime())) return false;
+
+      // Format back to YYYY-MM-DD and compare to catch invalid dates
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const formatted = `${year}-${month}-${day}`;
+
+      return formatted === dateStr;
+    };
+
+    // Helper function to get day of week from date string
+    const getDayOfWeek = (dateStr: string): string => {
+      const date = new Date(dateStr);
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      return days[date.getDay()];
+    };
+
+    // Filter events: keep only those with valid dates on selected days
+    const initialEventCount = studyEvents.length;
+    studyEvents = studyEvents.filter(event => {
+      // Check if date is valid
+      if (!isValidDate(event.date)) {
+        console.warn(`⚠️ Filtered out event with invalid date: ${event.date} - ${event.title}`);
+        return false;
+      }
+
+      // Check if date is on a selected day
+      const dayOfWeek = getDayOfWeek(event.date);
+      if (!selected_days.includes(dayOfWeek)) {
+        console.warn(`⚠️ Filtered out event on non-selected day (${dayOfWeek}): ${event.date} - ${event.title}`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (initialEventCount !== studyEvents.length) {
+      console.log(`📊 Filtered events: ${initialEventCount} → ${studyEvents.length} (removed ${initialEventCount - studyEvents.length} invalid events)`);
+    }
+
+    if (studyEvents.length === 0) {
+      throw new Error('All generated events were invalid. Please try again.');
     }
 
     // Create a map of chapter titles to IDs
