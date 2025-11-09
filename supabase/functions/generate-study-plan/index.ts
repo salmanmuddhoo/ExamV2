@@ -352,9 +352,52 @@ Deno.serve(async (req) => {
     const totalDays = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
     const weeksAvailable = Math.floor(totalDays / 7);
     const chaptersTocover = isChapterSpecific ? chapters.length : chapters.length;
+
+    // Calculate chapter distribution for sequential ordering
+    let chapterDistribution = '';
+    if (chapters.length > 0) {
+      const totalSessions = validDates.length;
+      const sessionsPerChapter = Math.floor(totalSessions / chapters.length);
+      const remainingSessions = totalSessions % chapters.length;
+
+      console.log(`📊 Chapter Distribution Calculation:`);
+      console.log(`   Total sessions: ${totalSessions}`);
+      console.log(`   Total chapters: ${chapters.length}`);
+      console.log(`   Sessions per chapter: ${sessionsPerChapter}`);
+      console.log(`   Remaining sessions: ${remainingSessions}`);
+
+      // Build chapter date ranges for sequential ordering
+      let sessionIndex = 0;
+      const chapterSchedule = chapters.map((ch, idx) => {
+        const sessionsForThisChapter = sessionsPerChapter + (idx < remainingSessions ? 1 : 0);
+        const startDate = validDates[sessionIndex];
+        const endDate = validDates[Math.min(sessionIndex + sessionsForThisChapter - 1, validDates.length - 1)];
+        sessionIndex += sessionsForThisChapter;
+
+        return `  Chapter ${ch.chapter_number}: ${ch.chapter_title}
+    Sessions: ${sessionsForThisChapter}
+    Date range: ${startDate} to ${endDate}`;
+      }).join('\n\n');
+
+      chapterDistribution = `\n\n🚨 SEQUENTIAL CHAPTER ORDERING - ABSOLUTELY CRITICAL 🚨
+
+You MUST follow this EXACT chapter schedule. Complete each chapter BEFORE moving to the next:
+
+${chapterSchedule}
+
+RULES:
+- Complete ALL sessions for Chapter 1 before starting Chapter 2
+- Complete ALL sessions for Chapter 2 before starting Chapter 3
+- And so on for all chapters in sequential order
+- Do NOT jump between chapters
+- Do NOT go back to previous chapters once you've moved to the next
+- Each chapter should be covered in the date range specified above
+- The date ranges ensure even distribution across the study period`;
+    }
+
     const planningContext = !isChapterSpecific && chapters.length > 0
-      ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.`
-      : '';
+      ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.${chapterDistribution}`
+      : chapterDistribution;
 
     // Generate list of ALL valid dates based on selected days
     console.log("📅 Generating list of valid dates based on selected days...");
@@ -449,17 +492,14 @@ Requirements:
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
 3. 🚨 ABSOLUTELY CRITICAL - USE ONLY THE VALID DATES LISTED ABOVE 🚨: You MUST pick dates ONLY from the list of ${validDates.length} valid dates provided above. Do NOT generate any dates that are not in that exact list. Every single "date" field in your JSON output must be one of the dates from the valid dates list. This is NON-NEGOTIABLE.
 4. ⚠️ ABSOLUTELY CRITICAL - USE ALL ${validDates.length} DATES ⚠️: You MUST create EXACTLY ${validDates.length} study sessions - ONE session for EACH valid date. Do NOT skip any dates. Your JSON array should contain exactly ${validDates.length} objects. Each valid date should appear EXACTLY ONCE in your study plan. If you skip dates, you will fail this task.
-5. Each session should be ${study_duration_minutes} minutes long
-6. Schedule sessions during ${preferred_times.join(' or ')} time slots
-7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
-8. Include review sessions every few weeks
-9. Start with easier topics and progress to harder ones
-10. Add milestone checkpoints for assessments
-11. CRITICAL: ALL dates MUST be from the valid dates list provided above. Do not use any other dates.
-12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next valid date
-14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end. Use the PDF content to understand the full scope and depth of each chapter.`}
-${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : '15. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once. Plan the distribution of chapters to fit within the available time between start and end dates.'}
+5. 🚨 ABSOLUTELY CRITICAL - SEQUENTIAL CHAPTER ORDER 🚨: Follow the chapter schedule provided above EXACTLY. Complete ALL sessions for Chapter 1 BEFORE starting Chapter 2. Complete ALL sessions for Chapter 2 BEFORE starting Chapter 3. Do NOT jump between chapters. Do NOT revisit previous chapters. The FIRST event in your JSON array MUST be for Chapter 1, and you must stay on Chapter 1 until you've used up all the sessions allocated to it in the schedule above. This sequential ordering is MANDATORY.
+6. Each session should be ${study_duration_minutes} minutes long
+7. Schedule sessions during ${preferred_times.join(' or ')} time slots
+8. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically in sequential order as specified. Do NOT skip any of the ${chapters.length} selected chapters. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above in sequential order. Create study sessions for EVERY chapter from Chapter 1 to the last chapter following the chapter schedule provided above. Do not skip any chapters.`}
+9. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
+10. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next valid date
+11. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end in sequential order. Use the PDF content to understand the full scope and depth of each chapter.`}
+${isChapterSpecific ? '12. Do NOT include any chapters that are not in the list above' : '12. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once following the sequential chapter schedule provided above.'}
 
 Return ONLY the JSON array, no additional text.`;
 
@@ -491,7 +531,7 @@ Return ONLY the JSON array, no additional text.`;
       }],
       images: pdfToInclude,
       temperature: 0.7,
-      maxTokens: 16000  // Increased to handle comprehensive study plans
+      maxTokens: 32000  // Increased to prevent truncation for large study plans
     });
 
     console.log("✅ AI API response received");
@@ -631,7 +671,43 @@ Return ONLY the JSON array, no additional text.`;
           console.log(`   ✅ Perfect! AI generated exactly the right number of events.`);
         }
 
-        console.log("📋 First event:", JSON.stringify(studyEvents[0], null, 2));
+        // Check if AI followed sequential chapter ordering
+        if (chapters.length > 0 && studyEvents.length > 0) {
+          console.log(`\n📚 SEQUENTIAL CHAPTER ORDER CHECK:`);
+          let currentChapter = 0;
+          let chapterJumps = 0;
+          let backwardJumps = 0;
+
+          studyEvents.forEach((event, idx) => {
+            const eventChapter = event.chapter_number;
+            if (eventChapter) {
+              if (eventChapter < currentChapter) {
+                backwardJumps++;
+                console.warn(`   ⚠️ Event ${idx + 1}: Backward jump from Ch ${currentChapter} to Ch ${eventChapter} - "${event.title}"`);
+              } else if (eventChapter > currentChapter + 1) {
+                chapterJumps++;
+                console.warn(`   ⚠️ Event ${idx + 1}: Skipped chapter(s) from Ch ${currentChapter} to Ch ${eventChapter} - "${event.title}"`);
+              }
+              currentChapter = Math.max(currentChapter, eventChapter);
+            }
+          });
+
+          if (backwardJumps === 0 && chapterJumps === 0) {
+            console.log(`   ✅ Perfect! All chapters follow sequential order.`);
+          } else {
+            console.warn(`   ⚠️ Chapter ordering issues detected:`);
+            console.warn(`      - Backward jumps: ${backwardJumps}`);
+            console.warn(`      - Skipped chapters: ${chapterJumps}`);
+          }
+
+          // Show first 10 events and their chapters
+          console.log(`\n   First 10 events by chapter:`);
+          studyEvents.slice(0, 10).forEach((event, idx) => {
+            console.log(`      ${idx + 1}. Ch ${event.chapter_number || 'N/A'}: ${event.title.substring(0, 60)}`);
+          });
+        }
+
+        console.log("\n📋 First event:", JSON.stringify(studyEvents[0], null, 2));
       } else {
         console.error("❌ No valid JSON array found in response");
         throw new Error('No valid JSON found in response');
