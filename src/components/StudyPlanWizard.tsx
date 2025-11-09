@@ -601,7 +601,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               {selectedSubject && selectedGrade && !loading && syllabi.length === 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <p className="text-sm text-amber-900">
-                    <strong>⚠️ No syllabus available:</strong> A syllabus is required to create a study plan. Please contact your administrator to add a syllabus for this subject.
+                    <strong>⚠️ No chapters available:</strong> Chapters are required to create a study plan.
                   </p>
                 </div>
               )}
