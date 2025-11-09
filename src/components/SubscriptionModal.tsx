@@ -478,49 +478,68 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
 
                   {/* Features */}
                   <ul className="space-y-1 mb-3 flex-grow">
+                    {/* View all exam papers - everyone has this */}
                     <li className="flex items-start">
                       <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
                       <span className="text-[11px] text-gray-700">
-                        {formatTokens(tier.token_limit)} tokens/month
+                        View all exam papers
                       </span>
                     </li>
+
+                    {/* AI Assistant access */}
                     <li className="flex items-start">
                       <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
                       <span className="text-[11px] text-gray-700">
-                        {formatPapers(tier.papers_limit)} exam papers
+                        {tier.name === 'free'
+                          ? 'Demo AI on 2 subjects (any grade)'
+                          : tier.name === 'student_lite'
+                          ? 'AI on all papers for 1 subject (1 grade)'
+                          : tier.name === 'student'
+                          ? `AI on all papers for ${tier.max_subjects} subjects (1 grade)`
+                          : 'AI on all exam papers'}
                       </span>
                     </li>
-                    {tier.can_select_grade && (
+
+                    {/* Token limit */}
+                    <li className="flex items-start">
+                      <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
+                      <span className="text-[11px] text-gray-700">
+                        {formatTokens(tier.token_limit)} AI tokens/month
+                      </span>
+                    </li>
+
+                    {/* Yearly practice */}
+                    <li className="flex items-start">
+                      <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
+                      <span className="text-[11px] text-gray-700">
+                        Yearly practice{tier.name === 'free' ? ' only' : ''}
+                      </span>
+                    </li>
+
+                    {/* Chapter-wise practice */}
+                    <li className="flex items-start">
+                      <Check className={`w-3 h-3 mr-1.5 flex-shrink-0 mt-0.5 ${tier.name === 'free' ? 'text-gray-300' : 'text-green-500'}`} />
+                      <span className={`text-[11px] ${tier.name === 'free' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Chapter-wise practice
+                      </span>
+                    </li>
+
+                    {/* Study Plan */}
+                    <li className="flex items-start">
+                      <Check className={`w-3 h-3 mr-1.5 flex-shrink-0 mt-0.5 ${tier.name === 'free' ? 'text-gray-300' : 'text-green-500'}`} />
+                      <span className={`text-[11px] ${tier.name === 'free' ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Study Plan
+                      </span>
+                    </li>
+
+                    {/* Free tier - no credit card required */}
+                    {tier.name === 'free' && (
                       <li className="flex items-start">
                         <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
                         <span className="text-[11px] text-gray-700">
-                          Choose your grade level
+                          No credit card required
                         </span>
                       </li>
-                    )}
-                    {tier.can_select_subjects && (
-                      <li className="flex items-start">
-                        <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
-                        <span className="text-[11px] text-gray-700">
-                          Up to {tier.max_subjects} subjects
-                        </span>
-                      </li>
-                    )}
-                    {tier.name === 'pro' && (
-                      <>
-                        <li className="flex items-start">
-                          <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
-                          <span className="text-[11px] text-gray-700">
-                            All subjects & grades
-                          </span>
-                        </li>
-                        <li className="flex items-start">
-                          <Check className="w-3 h-3 text-green-500 mr-1.5 flex-shrink-0 mt-0.5" />
-                          <span className="text-[11px] text-gray-700">
-                            Priority support
-                          </span>
-                        </li>
-                      </>
                     )}
                   </ul>
 

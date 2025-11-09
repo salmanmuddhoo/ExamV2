@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
     }
 
     const chapterScope = isChapterSpecific
-      ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s)). Do NOT include any other chapters from the syllabus.`
+      ? `ABSOLUTELY CRITICAL: Focus ONLY on the following ${chapters.length} selected chapters. You MUST create study sessions for EVERY SINGLE ONE of these ${chapters.length} chapters. Do NOT include any other chapters from the syllabus, and do NOT skip any of the selected chapters. Ensure that all ${chapters.length} chapters listed below are covered in the study plan.`
       : `IMPORTANT: Cover ALL ${chapters.length} chapters systematically from the syllabus. The study plan must include sessions for EVERY chapter from start to finish. Distribute the chapters across the entire date range (${start_date} to ${end_date}) to ensure comprehensive coverage.`;
 
     console.log("📝 Preparing AI prompt...");
@@ -355,7 +355,7 @@ Requirements:
 4. ABSOLUTELY CRITICAL - USE ALL SELECTED DAYS: Generate study sessions for EVERY SINGLE occurrence of EACH selected day between ${start_date} and ${end_date}. If Monday, Tuesday, Wednesday, Thursday, and Friday are selected, you must create sessions on EVERY Monday, EVERY Tuesday, EVERY Wednesday, EVERY Thursday, and EVERY Friday within the date range. Do not skip any occurrence of any selected day unless there is a scheduling conflict. The study plan must use ALL selected days equally and comprehensively.
 5. Each session should be ${study_duration_minutes} minutes long
 6. Schedule sessions during ${preferred_times.join(' or ')} time slots
-7. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
+7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
 8. Include review sessions every few weeks
 9. Start with easier topics and progress to harder ones
 10. Add milestone checkpoints for assessments

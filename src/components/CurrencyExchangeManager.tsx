@@ -216,16 +216,16 @@ export function CurrencyExchangeManager() {
                 {rate.currency_code === 'USD' ? (
                   <p className="text-sm text-gray-600 italic">1.0000 (Base Currency)</p>
                 ) : (
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       step="0.0001"
                       min="0.0001"
                       value={getDisplayRate(rate)}
                       onChange={(e) => handleRateChange(rate.currency_code, e.target.value)}
-                      className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-28 px-2 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
-                    <span className="text-sm text-gray-500">{rate.currency_symbol}</span>
+                    <span className="text-sm text-gray-500 flex-shrink-0">{rate.currency_symbol}</span>
                   </div>
                 )}
               </div>

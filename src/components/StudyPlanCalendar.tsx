@@ -190,6 +190,14 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
   };
 
+  // Helper function to format date in local timezone (avoids UTC conversion issues)
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const fetchEvents = async () => {
     if (!user) return;
 
@@ -208,8 +216,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         `)
         .eq('user_id', user.id)
         .eq('study_plan_schedules.is_active', true)
-        .gte('event_date', startOfMonth.toISOString().split('T')[0])
-        .lte('event_date', endOfMonth.toISOString().split('T')[0])
+        .gte('event_date', formatDateLocal(startOfMonth))
+        .lte('event_date', formatDateLocal(endOfMonth))
         .order('event_date', { ascending: true });
 
       if (error) {
@@ -524,7 +532,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
   const getEventsForDate = (date: Date | null) => {
     if (!date) return [];
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateLocal(date);
     let filteredEvents = events.filter(event => event.event_date === dateStr);
 
     // Apply subject filter if selected
@@ -661,6 +669,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     return Array.from(grouped.values());
   };
 
+  // Helper function to parse date string in local timezone
+  const parseDateLocal = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Check if an event is overdue
   const isEventOverdue = (event: StudyPlanEvent) => {
     if (event.status === 'completed' || event.status === 'skipped') {
@@ -668,7 +682,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
-    const eventDate = new Date(event.event_date);
+    const eventDate = parseDateLocal(event.event_date);
     eventDate.setHours(0, 0, 0, 0);
     return eventDate < today;
   };
