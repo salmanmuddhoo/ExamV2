@@ -95,6 +95,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop existing trigger if it exists to avoid conflicts
+DROP TRIGGER IF EXISTS trigger_check_study_plan_completion ON study_plan_events;
+
 -- Create trigger to check completion after each event status update
 CREATE TRIGGER trigger_check_study_plan_completion
 AFTER UPDATE OF status ON study_plan_events
