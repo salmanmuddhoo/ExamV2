@@ -13,6 +13,7 @@ interface StudyPlanRequest {
   user_id: string;
   subject_id: string;
   grade_id: string;
+  syllabus_id?: string; // Optional: specific syllabus to use
   chapter_ids?: string[]; // Optional: specific chapters to include
   study_duration_minutes: number;
   selected_days?: string[]; // Selected days of the week (e.g., ['monday', 'wednesday', 'friday'])
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
       user_id,
       subject_id,
       grade_id,
+      syllabus_id,
       chapter_ids,
       study_duration_minutes,
       selected_days = ['monday', 'wednesday', 'friday'], // Default to MWF if not provided
@@ -75,11 +77,33 @@ Deno.serve(async (req) => {
     console.log("  - User ID:", user_id);
     console.log("  - Subject ID:", subject_id);
     console.log("  - Grade ID:", grade_id);
+    console.log("  - Syllabus ID:", syllabus_id || "Auto-detect from subject/grade");
     console.log("  - Chapter IDs:", chapter_ids || "All chapters");
     console.log("  - Duration:", study_duration_minutes, "minutes");
     console.log("  - Selected days:", selected_days.join(', '));
     console.log("  - Preferred times:", preferred_times);
     console.log("  - Date range:", start_date, "to", end_date);
+
+    // CRITICAL: Verify the schedule exists before proceeding
+    console.log("🔍 Verifying schedule exists in database...");
+    const { data: scheduleCheck, error: scheduleCheckError } = await supabaseClient
+      .from('study_plan_schedules')
+      .select('id, user_id')
+      .eq('id', schedule_id)
+      .single();
+
+    if (scheduleCheckError || !scheduleCheck) {
+      console.error("❌ Schedule not found:", schedule_id);
+      console.error("Error details:", scheduleCheckError);
+      throw new Error(`Schedule with ID ${schedule_id} not found in database. This may be due to a race condition or the schedule was deleted.`);
+    }
+
+    if (scheduleCheck.user_id !== user_id) {
+      console.error("❌ User ID mismatch!");
+      throw new Error("User ID mismatch: schedule belongs to different user");
+    }
+
+    console.log("✅ Schedule verified successfully");
 
     // Fetch subject and grade names
     console.log("🔍 Fetching subject and grade information...");
@@ -112,19 +136,29 @@ Deno.serve(async (req) => {
 
     // Fetch syllabus chapters for the subject
     console.log("🔍 Fetching syllabus and chapters...");
-    const { data: syllabusData, error: syllabusError } = await supabaseClient
+    let syllabusQuery = supabaseClient
       .from('syllabus')
-      .select('id, file_url')
-      .eq('subject_id', subject_id)
-      .eq('grade_id', grade_id)
-      .single();
+      .select('id, file_url');
+
+    // If syllabus_id is provided, use it directly; otherwise find by subject/grade
+    if (syllabus_id) {
+      console.log("📋 Using provided syllabus ID:", syllabus_id);
+      syllabusQuery = syllabusQuery.eq('id', syllabus_id);
+    } else {
+      console.log("📋 Auto-detecting syllabus from subject/grade");
+      syllabusQuery = syllabusQuery
+        .eq('subject_id', subject_id)
+        .eq('grade_id', grade_id);
+    }
+
+    const { data: syllabusData, error: syllabusError } = await syllabusQuery.single();
 
     if (syllabusError) {
-      console.warn("⚠️ No syllabus found for this subject/grade:", syllabusError.message);
+      console.warn("⚠️ No syllabus found:", syllabusError.message);
       console.log("📝 Will generate study plan without specific chapters");
     } else {
       console.log("✅ Syllabus found:", syllabusData.id);
-      console.log("📄 Syllabus PDF URL:", syllabusData.file_url);
+      console.log("📄 Syllabus PDF URL:", syllabusData.file_url || "No PDF file");
     }
 
     let chapters: any[] = [];
@@ -171,8 +205,14 @@ Deno.serve(async (req) => {
             const pdfArrayBuffer = await pdfResponse.arrayBuffer();
             const pdfBytes = new Uint8Array(pdfArrayBuffer);
 
-            // Convert to base64
-            const base64 = btoa(String.fromCharCode(...pdfBytes));
+            // Convert to base64 - process in chunks to avoid stack overflow
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+              const chunk = pdfBytes.slice(i, i + chunkSize);
+              binary += String.fromCharCode.apply(null, Array.from(chunk));
+            }
+            const base64 = btoa(binary);
             syllabusPdfBase64 = base64;
             console.log("✅ PDF downloaded and converted to base64");
             console.log(`📊 PDF size: ${(pdfBytes.length / 1024).toFixed(2)} KB`);
@@ -252,14 +292,30 @@ Deno.serve(async (req) => {
 
     const chapterScope = isChapterSpecific
       ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s)). Do NOT include any other chapters from the syllabus.`
-      : 'Cover all available chapters systematically from the syllabus.';
+      : `IMPORTANT: Cover ALL ${chapters.length} chapters systematically from the syllabus. The study plan must include sessions for EVERY chapter from start to finish. Distribute the chapters across the entire date range (${start_date} to ${end_date}) to ensure comprehensive coverage.`;
 
     console.log("📝 Preparing AI prompt...");
     console.log("📚 Chapters info length:", chaptersInfo.length);
     console.log("🎯 Chapter scope:", chapterScope);
     console.log("📄 Has PDF:", syllabusPdfBase64 ? 'Yes' : 'No');
 
-    const prompt = `You are an expert education planner. I have attached the complete syllabus document for reference. Generate a detailed study plan for a student with the following requirements:
+    const syllabusContext = syllabusPdfBase64
+      ? 'I have attached the complete syllabus document for reference.'
+      : chapters.length > 0
+      ? 'I have provided the chapter details below.'
+      : 'No specific syllabus is available. Use your knowledge of the subject curriculum.';
+
+    // Calculate study planning metrics
+    const startDateObj = new Date(start_date);
+    const endDateObj = new Date(end_date);
+    const totalDays = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksAvailable = Math.floor(totalDays / 7);
+    const chaptersTocover = isChapterSpecific ? chapters.length : chapters.length;
+    const planningContext = !isChapterSpecific && chapters.length > 0
+      ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.`
+      : '';
+
+    const prompt = `You are an expert education planner. ${syllabusContext} Generate a detailed study plan for a student with the following requirements:${planningContext}
 
 Subject: ${subjectName}
 Grade Level: ${gradeName}
@@ -294,33 +350,34 @@ Please generate a JSON array of study events with the following structure:
 
 Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
-2. ALL titles MUST start with "${subjectName} - " followed by a descriptive session title (e.g., "${subjectName} - Chapter 1: Introduction", "${subjectName} - Review Session", "${subjectName} - Practice Problems")
+2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
 3. CRITICAL: Schedule sessions ONLY on these days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. Do NOT schedule sessions on other days.
-4. Each session should be ${study_duration_minutes} minutes long
-5. Schedule sessions during ${preferred_times.join(' or ')} time slots
-6. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : 'Cover all chapters systematically from start to finish'}
-7. Include review sessions every few weeks
-8. Start with easier topics and progress to harder ones
-9. Add milestone checkpoints for assessments
-10. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
-11. Distribute sessions evenly across the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')})
+4. CRITICAL: Generate sessions for ALL occurrences of the selected days between ${start_date} and ${end_date}. For example, if the user selected Monday, Wednesday, and Friday, create sessions for EVERY Monday, Wednesday, and Friday within the date range. Do not skip weeks unless there are conflicts. Create a comprehensive study schedule that uses all available days.
+5. Each session should be ${study_duration_minutes} minutes long
+6. Schedule sessions during ${preferred_times.join(' or ')} time slots
+7. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
+8. Include review sessions every few weeks
+9. Start with easier topics and progress to harder ones
+10. Add milestone checkpoints for assessments
+11. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
 13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next occurrence of that day of the week
-${isChapterSpecific ? '14. Do NOT include any chapters that are not in the list above' : ''}
+14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end. Use the PDF content to understand the full scope and depth of each chapter.`}
+${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : '15. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once. Plan the distribution of chapters to fit within the available time between start and end dates.'}
 
 Return ONLY the JSON array, no additional text.`;
 
     console.log("🤖 Calling AI API...");
     console.log("📏 Prompt length:", prompt.length, "characters");
 
-    // Note: OpenAI and Claude don't support PDF files directly like Gemini does
-    // For non-Gemini models, we rely on the extracted chapter information in the prompt
+    // Gemini natively supports PDFs with application/pdf mime type
+    // Claude and OpenAI only support images, so we use extracted chapter text for those
     let pdfToInclude: string[] = [];
     if (syllabusPdfBase64 && aiModel.provider === 'gemini') {
-      console.log("📄 Including syllabus PDF (Gemini supports PDFs)");
+      console.log("📄 Including syllabus PDF (Gemini has native PDF support)");
       pdfToInclude = [syllabusPdfBase64];
     } else if (syllabusPdfBase64) {
-      console.log("⚠️ PDF available but provider doesn't support PDFs directly, using text description");
+      console.log(`⚠️ PDF available but ${aiModel.provider} doesn't support PDFs natively, using extracted chapter text`);
     }
 
     // For providers that don't support PDFs, enhance the prompt with chapter details
@@ -338,7 +395,7 @@ Return ONLY the JSON array, no additional text.`;
       }],
       images: pdfToInclude,
       temperature: 0.7,
-      maxTokens: 8000
+      maxTokens: 16000  // Increased to handle comprehensive study plans
     });
 
     console.log("✅ AI API response received");
@@ -382,12 +439,75 @@ Return ONLY the JSON array, no additional text.`;
     let studyEvents: any[] = [];
     try {
       console.log("🔍 Attempting to extract JSON from response...");
-      // Try to find JSON in the response
-      const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
+
+      // Strip markdown code blocks if present (e.g., ```json\n[...]\n``` or ```\n[...]\n```)
+      let cleanedText = generatedText
+        .replace(/```json\s*\n?/g, '')
+        .replace(/```javascript\s*\n?/g, '')
+        .replace(/```\s*\n?/g, '')
+        .trim();
+
+      console.log("📄 Cleaned text preview:", cleanedText.substring(0, 500));
+
+      // Try to find JSON array in the response
+      const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        console.log("✅ JSON pattern found");
-        studyEvents = JSON.parse(jsonMatch[0]);
-        console.log(`✅ Parsed ${studyEvents.length} study events`);
+        console.log("✅ JSON pattern found, attempting to parse...");
+        let jsonText = jsonMatch[0];
+
+        // Check if JSON is complete by counting brackets
+        const openBrackets = (jsonText.match(/\[/g) || []).length;
+        const closeBrackets = (jsonText.match(/\]/g) || []).length;
+        const openBraces = (jsonText.match(/\{/g) || []).length;
+        const closeBraces = (jsonText.match(/\}/g) || []).length;
+
+        console.log(`📊 Bracket counts: [ ${openBrackets}/${closeBrackets} ] { ${openBraces}/${closeBraces} }`);
+
+        // If JSON is incomplete (truncated), try to fix it
+        let wasTruncated = false;
+        if (openBraces > closeBraces || openBrackets > closeBrackets) {
+          console.warn("⚠️ Detected incomplete JSON (likely truncated by token limit), attempting to fix...");
+          wasTruncated = true;
+
+          // Remove any incomplete last object (everything after the last complete object)
+          const lastCompleteObject = jsonText.lastIndexOf('},');
+          if (lastCompleteObject > 0) {
+            jsonText = jsonText.substring(0, lastCompleteObject + 1); // Keep the comma after }
+          }
+
+          // Close the array
+          jsonText = jsonText.trim();
+          if (!jsonText.endsWith(']')) {
+            jsonText += '\n]';
+          }
+
+          console.log("🔧 Fixed JSON by removing incomplete trailing object");
+        }
+
+        // Additional cleanup for common AI formatting issues
+        // Remove trailing commas before closing brackets/braces
+        jsonText = jsonText.replace(/,(\s*[\]}])/g, '$1');
+
+        try {
+          studyEvents = JSON.parse(jsonText);
+          console.log(`✅ Parsed ${studyEvents.length} study events successfully`);
+          if (wasTruncated) {
+            console.warn(`⚠️ Note: JSON was truncated. Recovered ${studyEvents.length} complete events, but some events may have been lost.`);
+          }
+        } catch (parseError) {
+          console.error("❌ Initial parse failed, trying with more aggressive cleanup...");
+
+          // Try more aggressive cleanup
+          // Remove comments (both // and /* */)
+          jsonText = jsonText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
+
+          // Try parsing again
+          studyEvents = JSON.parse(jsonText);
+          console.log(`✅ Parsed ${studyEvents.length} study events after cleanup`);
+          if (wasTruncated) {
+            console.warn(`⚠️ Note: JSON was truncated. Recovered ${studyEvents.length} complete events, but some events may have been lost.`);
+          }
+        }
 
         // Validate event count
         if (studyEvents.length === 0) {
@@ -405,9 +525,11 @@ Return ONLY the JSON array, no additional text.`;
         throw new Error('No valid JSON found in response');
       }
     } catch (parseError) {
-      console.error('❌ Failed to parse Gemini response:', parseError);
-      console.error('Generated text:', generatedText);
-      throw new Error('Failed to parse AI-generated study plan');
+      console.error('❌ Failed to parse AI response:', parseError);
+      console.error('Error details:', parseError instanceof Error ? parseError.message : String(parseError));
+      console.error('Generated text (first 1000 chars):', generatedText.substring(0, 1000));
+      console.error('Generated text (last 1000 chars):', generatedText.substring(Math.max(0, generatedText.length - 1000)));
+      throw new Error(`Failed to parse AI-generated study plan: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
 
     // Create a map of chapter titles to IDs
@@ -417,8 +539,26 @@ Return ONLY the JSON array, no additional text.`;
     );
     console.log(`✅ Chapter map created with ${chapterMap.size} entries`);
 
+    // Re-verify schedule exists before inserting events (defensive check)
+    console.log("🔍 Re-verifying schedule before inserting events...");
+    const { data: scheduleRecheck, error: scheduleRecheckError } = await supabaseClient
+      .from('study_plan_schedules')
+      .select('id, user_id')
+      .eq('id', schedule_id)
+      .single();
+
+    if (scheduleRecheckError || !scheduleRecheck) {
+      console.error("❌ Schedule no longer exists:", schedule_id);
+      console.error("Recheck error:", scheduleRecheckError);
+      throw new Error(`Schedule ${schedule_id} was deleted or is no longer accessible. Please try creating the study plan again.`);
+    }
+    console.log("✅ Schedule still exists, proceeding with event insertion");
+
     // Insert events into database
     console.log("💾 Preparing events for database insertion...");
+    console.log("💾 Using schedule_id:", schedule_id);
+    console.log("💾 Using user_id:", user_id);
+
     const eventsToInsert = studyEvents.map(event => ({
       schedule_id,
       user_id,

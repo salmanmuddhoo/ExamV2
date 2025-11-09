@@ -77,7 +77,7 @@ export function PaymentPage({ onBack, onSuccess }: PaymentPageProps) {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Complete Your Purchase</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {paymentData.tierName} - ${paymentData.amount}/{paymentData.billingCycle === 'monthly' ? 'month' : 'year'}
+                {paymentData.tierName} - {paymentData.currency === 'MUR' ? `Rs ${paymentData.amount}` : `$${paymentData.amount}`}/{paymentData.billingCycle === 'monthly' ? 'month' : 'year'}
               </p>
             </div>
             <button

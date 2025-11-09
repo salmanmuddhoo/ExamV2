@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Upload, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,10 +34,47 @@ export function MCBJuicePayment({
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number>(45.5);
 
-  const exchangeRate = 45.5;
-  const finalUsdAmount = couponData ? couponData.finalAmount : paymentData.amount;
-  const murAmount = Math.round(finalUsdAmount * exchangeRate);
+  // Fetch exchange rate from database
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('currency_exchange_rates')
+          .select('rate_to_usd')
+          .eq('currency_code', 'MUR')
+          .single();
+
+        if (!error && data) {
+          setExchangeRate(data.rate_to_usd);
+        }
+      } catch (err) {
+        console.error('Error fetching exchange rate:', err);
+      }
+    };
+    fetchExchangeRate();
+  }, []);
+
+  // Calculate MUR amount correctly
+  // If paymentData.currency is already MUR, use it directly
+  // If it's USD, convert to MUR
+  const getMurAmount = () => {
+    const baseAmount = couponData ? couponData.finalAmount : paymentData.amount;
+
+    if (paymentData.currency === 'MUR') {
+      // Already in MUR, no conversion needed
+      return Math.round(baseAmount);
+    } else {
+      // Convert from USD to MUR
+      return Math.round(baseAmount * exchangeRate);
+    }
+  };
+
+  const murAmount = getMurAmount();
+  const finalUsdAmount = paymentData.currency === 'USD'
+    ? (couponData ? couponData.finalAmount : paymentData.amount)
+    : Math.round((murAmount / exchangeRate) * 100) / 100;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -225,7 +262,7 @@ export function MCBJuicePayment({
           <span className="text-gray-700 font-medium">Total Amount:</span>
           <div className="text-right">
             <p className="text-3xl font-bold text-gray-900">Rs {murAmount.toLocaleString()}</p>
-            <p className="text-sm text-gray-500">Approx. ${paymentData.amount} USD</p>
+            <p className="text-sm text-gray-500">Approx. ${finalUsdAmount} USD</p>
           </div>
         </div>
       </div>

@@ -41,9 +41,42 @@ export function PayPalPayment({
   const [processing, setProcessing] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [error, setError] = useState<string>('');
+  const [exchangeRate, setExchangeRate] = useState<number>(45.5);
 
   // PayPal client ID from environment variables
   const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || 'YOUR_PAYPAL_CLIENT_ID';
+
+  // Fetch exchange rate from database
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('currency_exchange_rates')
+          .select('rate_to_usd')
+          .eq('currency_code', 'MUR')
+          .single();
+
+        if (!error && data) {
+          setExchangeRate(data.rate_to_usd);
+        }
+      } catch (err) {
+        console.error('Error fetching exchange rate:', err);
+      }
+    };
+    fetchExchangeRate();
+  }, []);
+
+  // Convert amount to USD if needed (PayPal only supports USD)
+  const convertToUSD = (amount: number, currency: string) => {
+    if (currency === 'USD') return amount;
+    if (currency === 'MUR') {
+      return Number((amount / exchangeRate).toFixed(2));
+    }
+    return amount; // Default fallback
+  };
+
+  const displayAmountUSD = convertToUSD(paymentData.amount, paymentData.currency);
+  const displayFinalUSD = couponData ? couponData.finalAmount : displayAmountUSD;
 
   useEffect(() => {
     // Load PayPal SDK
@@ -62,14 +95,14 @@ export function PayPalPayment({
       window.paypal
         .Buttons({
           createOrder: async (data: any, actions: any) => {
-            const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
+            const finalAmountUSD = displayFinalUSD;
             return actions.order.create({
               purchase_units: [
                 {
                   description: `${paymentData.tierName} - ${paymentData.billingCycle}${couponData ? ` (Coupon: ${couponData.code})` : ''}`,
                   amount: {
                     currency_code: 'USD',
-                    value: finalAmount.toFixed(2),
+                    value: finalAmountUSD.toFixed(2),
                   },
                 },
               ],
@@ -84,8 +117,8 @@ export function PayPalPayment({
 
               if (!user) throw new Error('User not authenticated');
 
-              const finalAmount = couponData ? couponData.finalAmount : paymentData.amount;
-              const originalAmount = paymentData.amount;
+              const finalAmount = displayFinalUSD;
+              const originalAmount = displayAmountUSD;
 
               // Create payment transaction in database
               const { data: transaction, error: transactionError } = await supabase
@@ -206,7 +239,7 @@ export function PayPalPayment({
           <span className="text-blue-100">
             {paymentData.tierName} - {paymentData.billingCycle}
           </span>
-          <span className="text-2xl font-bold">${paymentData.amount}</span>
+          <span className="text-2xl font-bold">${displayAmountUSD}</span>
         </div>
       </div>
 
@@ -223,7 +256,7 @@ export function PayPalPayment({
         <div className="flex items-center justify-between">
           <span className="text-gray-700 font-medium">Total Amount:</span>
           <div className="text-right">
-            <p className="text-3xl font-bold text-gray-900">${paymentData.amount}</p>
+            <p className="text-3xl font-bold text-gray-900">${displayAmountUSD}</p>
             <p className="text-sm text-gray-500">USD</p>
           </div>
         </div>

@@ -70,10 +70,21 @@ async function generateWithGemini(
     }
   }
 
-  // Add images if provided separately
+  // Add images/documents if provided separately
   if (images && images.length > 0) {
     for (const img of images) {
-      parts.push({ inline_data: { mime_type: 'image/jpeg', data: img } });
+      // Detect if it's a PDF by checking the base64 decoded header
+      let mimeType = 'image/jpeg';
+      try {
+        // Decode first few bytes to check for PDF signature
+        const decoded = atob(img.substring(0, 20));
+        if (decoded.startsWith('%PDF')) {
+          mimeType = 'application/pdf';
+        }
+      } catch (e) {
+        // If decode fails, assume it's an image
+      }
+      parts.push({ inline_data: { mime_type: mimeType, data: img } });
     }
   }
 

@@ -872,6 +872,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Status
                             </th>
+                            <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Created
+                            </th>
                             <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Progress
                             </th>
@@ -937,6 +940,15 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                     Inactive
                                   </span>
                                 )}
+                              </td>
+                              <td className="hidden lg:table-cell px-4 py-3 whitespace-nowrap">
+                                <span className="text-xs text-gray-600">
+                                  {new Date(schedule.created_at).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </span>
                               </td>
                               <td className="hidden md:table-cell px-4 py-3 whitespace-nowrap">
                                 {(() => {

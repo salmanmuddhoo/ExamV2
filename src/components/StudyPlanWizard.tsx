@@ -155,10 +155,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (error) {
         console.error('Error fetching syllabi:', error);
         setSyllabi([]);
+        setSelectedSyllabus('');
       } else {
         setSyllabi(data || []);
-        // Auto-select if only one syllabus
-        if (data && data.length === 1) {
+        // Auto-select the first syllabus automatically (no user selection needed)
+        if (data && data.length > 0) {
           setSelectedSyllabus(data[0].id);
         } else {
           setSelectedSyllabus('');
@@ -167,6 +168,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     } catch (error) {
       console.error('Error fetching syllabi:', error);
       setSyllabi([]);
+      setSelectedSyllabus('');
     } finally {
       setLoading(false);
     }
@@ -234,7 +236,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   }, [selectedSyllabus]);
 
   const handleGenerateStudyPlan = async () => {
-    if (!user || !selectedSubject || !selectedGrade || !selectedSyllabus) return;
+    if (!user || !selectedSubject || !selectedGrade) return;
 
     let scheduleId: string | null = null;
 
@@ -293,7 +295,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           user_id: user.id,
           subject_id: selectedSubject,
           grade_id: selectedGrade,
-          syllabus_id: selectedSyllabus,
+          syllabus_id: selectedSyllabus || undefined, // Optional syllabus
           chapter_ids: selectedChapters.length > 0 ? selectedChapters : undefined,
           study_duration_minutes: studyDuration,
           selected_days: selectedDays, // Selected days of the week
@@ -432,6 +434,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const canProceed = () => {
     switch (step) {
       case 1:
+        // Syllabus is required to create a study plan
         return selectedSubject && selectedGrade && selectedSyllabus;
       case 2:
         return studyDuration > 0 && selectedDays.length > 0;
@@ -567,41 +570,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                 )}
               </div>
 
-              {selectedSubject && selectedGrade && syllabi.length > 0 && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Select Syllabus
-                  </label>
-                  <select
-                    value={selectedSyllabus}
-                    onChange={(e) => setSelectedSyllabus(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors text-gray-900 font-medium"
-                  >
-                    <option value="">Choose a syllabus...</option>
-                    {syllabi.map(syllabus => {
-                      // Display only the title if available, otherwise show descriptive text
-                      const displayName = syllabus.title ||
-                        [syllabus.region, syllabus.academic_year].filter(Boolean).join(' - ') ||
-                        'Syllabus';
-
-                      return (
-                        <option key={syllabus.id} value={syllabus.id}>
-                          {displayName}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <p className="text-xs text-gray-600 mt-2">
-                    Different syllabi may be available for different regions or exam boards
-                  </p>
-                </div>
-              )}
-
-              {selectedSubject && selectedGrade && loading && !syllabi.length && (
+              {selectedSubject && selectedGrade && loading && (
                 <div className="border border-gray-200 rounded-lg p-6">
                   <div className="flex items-center justify-center">
                     <Loader className="w-5 h-5 animate-spin text-gray-400 mr-2" />
-                    <span className="text-gray-600 text-sm">Loading syllabi...</span>
+                    <span className="text-gray-600 text-sm">Loading chapters...</span>
                   </div>
                 </div>
               )}
@@ -609,12 +582,12 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               {selectedSubject && selectedGrade && !loading && syllabi.length === 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <p className="text-sm text-amber-900">
-                    No syllabus found for this subject and grade combination. Please contact support to add a syllabus, or select a different combination.
+                    <strong>⚠️ No syllabus available:</strong> A syllabus is required to create a study plan. Please contact your administrator to add a syllabus for this subject.
                   </p>
                 </div>
               )}
 
-              {selectedSyllabus && (
+              {selectedSyllabus && !loading && (
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">
                     Select Chapters (Optional)
@@ -670,7 +643,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                   ) : (
                     <div className="border border-gray-200 rounded-lg p-6 text-center">
                       <div className="text-gray-500 text-sm">
-                        <p className="mb-2">No syllabus chapters available for this combination.</p>
+                        <p className="mb-2">No chapters detected for the subject.</p>
                         <p className="text-xs">The AI will generate a study plan based on the subject curriculum.</p>
                       </div>
                     </div>

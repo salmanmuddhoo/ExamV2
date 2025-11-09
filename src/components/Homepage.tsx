@@ -93,7 +93,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </h1>
               
               <p className="text-lg sm:text-xl text-gray-600 mb-6 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                Practice exam papers anywhere, anytime with your choice of <span className="font-semibold text-gray-900">Gemini, Claude, or GPT-4o</span> AI tutors. Get AI-generated Study Plans, organized chapter-wise content, and track your progress with detailed explanations for every question.
+                Practice exam papers anywhere, anytime with <span className="font-semibold text-gray-900">advanced AI tutors</span>. Get AI-generated Study Plans, organized chapter-wise content, and track your progress with detailed explanations for every question.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -147,8 +147,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             />
             <FeatureCard
               icon={<Brain className="w-8 h-8" />}
-              title="Multiple AI Models"
-              description="Choose from Gemini, Claude, or GPT-4o for your tutoring. Each AI provides instant, intelligent responses with step-by-step explanations tailored to your learning style."
+              title="Intelligent AI Tutors"
+              description="Get instant, intelligent responses with step-by-step explanations tailored to your learning style from our advanced AI tutoring system."
             />
             <FeatureCard
               icon={<Zap className="w-8 h-8" />}
@@ -172,27 +172,27 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {/* AI Model Selection */}
+            {/* AI-Powered Learning */}
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 hover:shadow-xl transition-all">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-6">
                 <Cpu className="w-8 h-8 text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Choose Your AI Tutor</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">AI-Powered Tutoring</h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Select from industry-leading AI models - <span className="font-semibold text-gray-900">Google Gemini</span>, <span className="font-semibold text-gray-900">Anthropic Claude</span>, or <span className="font-semibold text-gray-900">OpenAI GPT-4o</span>. Each model brings unique strengths to help you understand complex concepts.
+                Experience intelligent, adaptive learning with our state-of-the-art AI technology. Get personalized explanations and step-by-step guidance tailored to your understanding level.
               </p>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                  <span className="text-gray-700">Switch models anytime</span>
+                  <span className="text-gray-700">Instant, detailed explanations</span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
-                  <span className="text-gray-700">Different perspectives on same questions</span>
+                  <span className="text-gray-700">Adapts to your learning style</span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-2 h-2 bg-pink-600 rounded-full"></div>
-                  <span className="text-gray-700">Find the teaching style that works for you</span>
+                  <span className="text-gray-700">Available 24/7 for your questions</span>
                 </div>
               </div>
             </div>
@@ -360,6 +360,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.free.coming_soon ? "Coming Soon" : "Get Started Free"}
                 onButtonClick={tiers.free.coming_soon ? undefined : onGetStarted}
                 popular={false}
+                comingSoon={tiers.free.coming_soon}
               />
             )}
 
@@ -381,6 +382,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.student_lite.coming_soon ? "Coming Soon" : "Start Learning"}
                 onButtonClick={tiers.student_lite.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={true}
+                comingSoon={tiers.student_lite.coming_soon}
               />
             )}
 
@@ -402,6 +404,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.student.coming_soon ? "Coming Soon" : "Get Full Access"}
                 onButtonClick={tiers.student.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
+                comingSoon={tiers.student.coming_soon}
               />
             )}
 
@@ -422,6 +425,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 buttonText={tiers.pro.coming_soon ? "Coming Soon" : "Go Premium"}
                 onButtonClick={tiers.pro.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
                 popular={false}
+                comingSoon={tiers.pro.coming_soon}
               />
             )}
           </div>
@@ -556,6 +560,7 @@ interface PricingCardProps {
   buttonText: string;
   onButtonClick?: () => void; // Optional - for coming soon tiers
   popular?: boolean;
+  comingSoon?: boolean; // True if tier is coming soon
 }
 
 function PricingCard({
@@ -567,7 +572,8 @@ function PricingCard({
   features,
   buttonText,
   onButtonClick,
-  popular = false
+  popular = false,
+  comingSoon = false
 }: PricingCardProps) {
   return (
     <div className={`relative rounded-2xl border-2 ${
@@ -591,7 +597,7 @@ function PricingCard({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2">{name}</h3>
         <p className="text-sm text-gray-600 mb-4">{description}</p>
-        {price && (
+        {price && !comingSoon && (
           <div className="flex items-baseline justify-center">
             <span className="text-5xl font-bold text-gray-900">{price}</span>
             {period && <span className="text-gray-600 ml-2">/ {period}</span>}
@@ -613,7 +619,9 @@ function PricingCard({
       <button
         onClick={onButtonClick}
         className={`w-full py-3 px-6 rounded-xl font-semibold transition-all ${
-          popular
+          comingSoon
+            ? 'bg-yellow-500 text-gray-900 cursor-default'
+            : popular
             ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
             : 'bg-gray-900 text-white hover:bg-gray-800'
         }`}
