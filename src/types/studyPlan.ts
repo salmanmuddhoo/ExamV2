@@ -10,6 +10,8 @@ export interface StudyPlanSchedule {
   end_date: string | null;
   ai_generated: boolean;
   is_active: boolean;
+  is_completed: boolean;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

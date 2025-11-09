@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { X, Calendar, Clock, BookOpen, Sparkles, ChevronRight, ChevronLeft, Loader, Zap } from 'lucide-react';
 import { formatTokenCount } from '../lib/formatUtils';
 import { AlertModal } from './AlertModal';
+import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
+import { ContextualHint } from './ContextualHint';
 
 interface Subject {
   id: string;
@@ -41,6 +43,7 @@ interface StudyPlanWizardProps {
 
 export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0 }: StudyPlanWizardProps) {
   const { user } = useAuth();
+  const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -258,11 +261,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     if (selectedChapters.includes(chapterId)) {
       setSelectedChapters(selectedChapters.filter(id => id !== chapterId));
     } else {
-      // Limit to maximum 3 chapters
-      if (selectedChapters.length >= 3) {
+      // Limit to maximum 2 chapters
+      if (selectedChapters.length >= 2) {
         setAlertConfig({
           title: 'Chapter Limit Reached',
-          message: 'You can select a maximum of 3 chapters per study plan. Deselect a chapter to select a different one.',
+          message: 'You can select a maximum of 2 chapters per study plan. Deselect a chapter to select a different one.',
           type: 'warning'
         });
         setShowAlert(true);
@@ -547,7 +550,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 relative">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Sparkles className="w-5 h-5 text-black" />
               </div>
@@ -555,6 +558,15 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                 <h2 className="text-xl font-bold text-gray-900">Create Study Plan</h2>
                 <p className="text-sm text-gray-600">AI-powered personalized schedule</p>
               </div>
+              {/* Study Plan Creation Hint */}
+              <ContextualHint
+                show={shouldShowHint('studyPlanCreation') && !loading && !generating}
+                onDismiss={() => markHintAsSeen('studyPlanCreation')}
+                title="Create Your Study Plan"
+                message="Fill in your subject, grade, and preferences. Our AI will create a personalized study schedule just for you!"
+                position="bottom"
+                arrowAlign="left"
+              />
             </div>
             <button
               onClick={onClose}

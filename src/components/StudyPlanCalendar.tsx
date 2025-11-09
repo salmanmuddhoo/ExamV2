@@ -34,6 +34,8 @@ import { EventDetailModal } from './EventDetailModal';
 import { formatTokenCount } from '../lib/formatUtils';
 import { AlertModal } from './AlertModal';
 import { ConfirmModal } from './ConfirmModal';
+import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
+import { ContextualHint } from './ContextualHint';
 
 interface StudyPlanCalendarProps {
   onBack: () => void;
@@ -46,6 +48,7 @@ interface StudyPlanCalendarProps {
 
 export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0, onRefreshTokens }: StudyPlanCalendarProps) {
   const { user } = useAuth();
+  const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [featureEnabled, setFeatureEnabled] = useState(false);
@@ -1134,14 +1137,25 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden max-w-full">
           <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {calendarView === 'day'
-                  ? (selectedDate || currentDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
-                  : calendarView === 'week'
-                  ? `Week of ${getDaysInWeek()[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
-                  : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-                }
-              </h2>
+              <div className="relative">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {calendarView === 'day'
+                    ? (selectedDate || currentDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+                    : calendarView === 'week'
+                    ? `Week of ${getDaysInWeek()[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                    : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                  }
+                </h2>
+                {/* Calendar Task Viewing Hint */}
+                <ContextualHint
+                  show={shouldShowHint('calendarTaskViewing') && events.length > 0 && !loading}
+                  onDismiss={() => markHintAsSeen('calendarTaskViewing')}
+                  title="View Your Study Sessions"
+                  message="Click on any study session to view details, mark it as in-progress, or complete it. Track your progress!"
+                  position="bottom"
+                  arrowAlign="left"
+                />
+              </div>
 
               {/* View Toggle - Desktop */}
               <div className="hidden md:flex items-center space-x-1 bg-gray-100 p-1 rounded-lg">

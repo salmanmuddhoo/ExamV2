@@ -65,10 +65,11 @@ BEGIN
   WHERE schedule_id = plan_id
     AND status = 'completed';
 
-  -- If all events are completed, mark the schedule as completed
+  -- If all events are completed, mark the schedule as completed and inactive
   IF total_events > 0 AND total_events = completed_events THEN
     UPDATE study_plan_schedules
     SET is_completed = true,
+        is_active = false,
         completed_at = NOW()
     WHERE id = plan_id;
 
