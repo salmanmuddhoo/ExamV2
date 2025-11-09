@@ -315,6 +315,46 @@ Deno.serve(async (req) => {
       ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.`
       : '';
 
+    // Generate list of ALL valid dates based on selected days
+    console.log("📅 Generating list of valid dates based on selected days...");
+    const dayNameToNumber: { [key: string]: number } = {
+      'sunday': 0,
+      'monday': 1,
+      'tuesday': 2,
+      'wednesday': 3,
+      'thursday': 4,
+      'friday': 5,
+      'saturday': 6
+    };
+
+    const selectedDayNumbers = selected_days.map(day => dayNameToNumber[day.toLowerCase()]);
+    const validDates: string[] = [];
+
+    // Parse dates in local timezone to avoid timezone issues
+    const startParts = start_date.split('-');
+    const endParts = end_date.split('-');
+    const currentDate = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]));
+    const endDate = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]));
+
+    while (currentDate <= endDate) {
+      const dayOfWeek = currentDate.getDay();
+      if (selectedDayNumbers.includes(dayOfWeek)) {
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        validDates.push(`${year}-${month}-${day}`);
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log(`✅ Generated ${validDates.length} valid dates for selected days`);
+    console.log(`📋 First 10 valid dates: ${validDates.slice(0, 10).join(', ')}`);
+
+    // Create a readable list of valid dates for the AI
+    const validDatesFormatted = validDates.length > 50
+      ? `${validDates.slice(0, 50).join(', ')} ... and ${validDates.length - 50} more dates (total: ${validDates.length} dates)`
+      : validDates.join(', ');
+
     const prompt = `You are an expert education planner. ${syllabusContext} Generate a detailed study plan for a student with the following requirements:${planningContext}
 
 Subject: ${subjectName}
@@ -324,6 +364,12 @@ Selected Days of Week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.sl
 Preferred Study Times: ${preferred_times.join(', ')}
 Start Date: ${start_date}
 End Date: ${end_date}
+
+🚨 CRITICAL - VALID DATES ONLY 🚨
+You MUST ONLY use dates from this exact list. These are the ONLY valid dates for scheduling sessions:
+${validDatesFormatted}
+
+DO NOT use any dates not in this list. These dates represent ALL occurrences of the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}) between ${start_date} and ${end_date}. You should use ALL or most of these ${validDates.length} dates to create your study plan.
 
 CRITICAL - AVOID SCHEDULING CONFLICTS:
 The student already has the following events scheduled. YOU MUST NOT schedule any sessions that overlap with these existing events:
@@ -351,17 +397,17 @@ Please generate a JSON array of study events with the following structure:
 Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
-3. ⚠️ ABSOLUTELY CRITICAL - WEEKDAY RESTRICTION ⚠️: The user has selected ONLY these specific days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. You MUST ONLY schedule sessions on these exact days. This is NON-NEGOTIABLE. Before adding any session, verify the day of the week matches one of the selected days. If the selected days are [Monday, Thursday, Sunday], you can ONLY create sessions that fall on Monday, Thursday, or Sunday. You CANNOT use Tuesday, Wednesday, Friday, or Saturday under any circumstances. Double-check EVERY date to ensure it matches one of the selected days of the week.
-4. ⚠️ ABSOLUTELY CRITICAL - COMPREHENSIVE COVERAGE OF SELECTED DAYS ⚠️: You MUST generate study sessions for EVERY SINGLE occurrence of EACH selected day between ${start_date} and ${end_date}. Count all occurrences of each selected day in the date range and create sessions for ALL of them. If Monday, Thursday, and Sunday are selected, count how many Mondays exist between the start and end dates, how many Thursdays, and how many Sundays - then create sessions for ALL of those dates. Do not skip any occurrence of any selected day unless there is a scheduling conflict. The study plan must use ALL selected days equally and comprehensively.
+3. 🚨 ABSOLUTELY CRITICAL - USE ONLY THE VALID DATES LISTED ABOVE 🚨: You MUST pick dates ONLY from the list of ${validDates.length} valid dates provided above. Do NOT generate any dates that are not in that exact list. Every single "date" field in your JSON output must be one of the dates from the valid dates list. This is NON-NEGOTIABLE.
+4. ⚠️ ABSOLUTELY CRITICAL - COMPREHENSIVE COVERAGE ⚠️: You should use MOST or ALL of the ${validDates.length} valid dates provided above. Create study sessions for as many of these dates as possible to ensure comprehensive coverage. Do not skip dates unless there is a scheduling conflict.
 5. Each session should be ${study_duration_minutes} minutes long
 6. Schedule sessions during ${preferred_times.join(' or ')} time slots
 7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
 8. Include review sessions every few weeks
 9. Start with easier topics and progress to harder ones
 10. Add milestone checkpoints for assessments
-11. CRITICAL: ALL dates MUST be between ${start_date} and ${end_date} inclusive. Do not schedule anything before ${start_date} or after ${end_date}. The first session should start on or shortly after ${start_date}.
+11. CRITICAL: ALL dates MUST be from the valid dates list provided above. Do not use any other dates.
 12. For morning slots use 8:00-12:00, afternoon 13:00-17:00, evening 18:00-22:00
-13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next occurrence of that day of the week
+13. If a time slot is taken on a specific date, choose a different time on the same day, or skip to the next valid date
 14. IMPORTANT: When the syllabus PDF is attached, read it carefully and use it as the primary reference for planning topics and chapters. ${isChapterSpecific ? 'Focus ONLY on the chapters listed above from the PDF.' : `Read the ENTIRE PDF syllabus and extract ALL chapters and topics. Create study sessions covering the complete syllabus from beginning to end. Use the PDF content to understand the full scope and depth of each chapter.`}
 ${isChapterSpecific ? '15. Do NOT include any chapters that are not in the list above' : '15. CRITICAL: Ensure that by the end date, ALL chapters from the syllabus have been covered at least once. Plan the distribution of chapters to fit within the available time between start and end dates.'}
 
