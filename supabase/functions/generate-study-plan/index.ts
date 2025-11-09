@@ -360,6 +360,41 @@ Deno.serve(async (req) => {
       ? 'I have provided the chapter details below.'
       : 'No specific syllabus is available. Use your knowledge of the subject curriculum.';
 
+    // Generate list of ALL valid dates based on selected days
+    console.log("📅 Generating list of valid dates based on selected days...");
+    const dayNameToNumber: { [key: string]: number } = {
+      'sunday': 0,
+      'monday': 1,
+      'tuesday': 2,
+      'wednesday': 3,
+      'thursday': 4,
+      'friday': 5,
+      'saturday': 6
+    };
+
+    const selectedDayNumbers = selected_days.map(day => dayNameToNumber[day.toLowerCase()]);
+    const validDates: string[] = [];
+
+    // Parse dates in local timezone to avoid timezone issues
+    const startParts = start_date.split('-');
+    const endParts = end_date.split('-');
+    const currentDate = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]));
+    const endDate = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]));
+
+    while (currentDate <= endDate) {
+      const dayOfWeek = currentDate.getDay();
+      if (selectedDayNumbers.includes(dayOfWeek)) {
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        validDates.push(`${year}-${month}-${day}`);
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log(`✅ Generated ${validDates.length} valid dates for selected days`);
+    console.log(`📋 First 10 valid dates: ${validDates.slice(0, 10).join(', ')}`);
+
     // Calculate study planning metrics
     const startDateObj = new Date(start_date);
     const endDateObj = new Date(end_date);
@@ -412,41 +447,6 @@ RULES:
     const planningContext = !isChapterSpecific && chapters.length > 0
       ? `\n\nPLANNING CONTEXT: You need to cover ${chaptersTocover} chapters over ${totalDays} days (approximately ${weeksAvailable} weeks) with ${selected_days.length} study sessions per week. This means you have approximately ${weeksAvailable * selected_days.length} total study sessions available. Plan accordingly to ensure ALL chapters are covered.${chapterDistribution}`
       : chapterDistribution;
-
-    // Generate list of ALL valid dates based on selected days
-    console.log("📅 Generating list of valid dates based on selected days...");
-    const dayNameToNumber: { [key: string]: number } = {
-      'sunday': 0,
-      'monday': 1,
-      'tuesday': 2,
-      'wednesday': 3,
-      'thursday': 4,
-      'friday': 5,
-      'saturday': 6
-    };
-
-    const selectedDayNumbers = selected_days.map(day => dayNameToNumber[day.toLowerCase()]);
-    const validDates: string[] = [];
-
-    // Parse dates in local timezone to avoid timezone issues
-    const startParts = start_date.split('-');
-    const endParts = end_date.split('-');
-    const currentDate = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]));
-    const endDate = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]));
-
-    while (currentDate <= endDate) {
-      const dayOfWeek = currentDate.getDay();
-      if (selectedDayNumbers.includes(dayOfWeek)) {
-        const year = currentDate.getFullYear();
-        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-        const day = String(currentDate.getDate()).padStart(2, '0');
-        validDates.push(`${year}-${month}-${day}`);
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    console.log(`✅ Generated ${validDates.length} valid dates for selected days`);
-    console.log(`📋 First 10 valid dates: ${validDates.slice(0, 10).join(', ')}`);
 
     // Create a readable list of valid dates for the AI
     const validDatesFormatted = validDates.length > 50
