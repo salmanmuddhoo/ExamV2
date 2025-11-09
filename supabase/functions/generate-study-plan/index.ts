@@ -228,7 +228,13 @@ Deno.serve(async (req) => {
     console.log("🔍 Fetching existing events to check for conflicts...");
     const { data: existingEvents, error: eventsError } = await supabaseClient
       .from('study_plan_events')
-      .select('event_date, start_time, end_time, title')
+      .select(`
+        event_date,
+        start_time,
+        end_time,
+        title,
+        study_plan_schedules!inner(subject_id, grade_id)
+      `)
       .eq('user_id', user_id)
       .gte('event_date', start_date)
       .lte('event_date', end_date);
@@ -240,12 +246,47 @@ Deno.serve(async (req) => {
     }
 
     // Format busy time slots for AI
+    // Filter out events from the SAME subject and grade (can only have 1 active session per subject/grade)
     let busyTimeSlots = '';
+    let conflictingSessions: any[] = [];
+
     if (existingEvents && existingEvents.length > 0) {
-      busyTimeSlots = existingEvents.map(event =>
-        `${event.event_date} from ${event.start_time} to ${event.end_time} (${event.title})`
-      ).join('\n');
-      console.log("📅 Busy time slots:\n", busyTimeSlots);
+      console.log(`🔍 Checking for subject/grade conflicts...`);
+      console.log(`   Current session: Subject ${subject_id}, Grade ${grade_id}`);
+
+      existingEvents.forEach(event => {
+        const eventSubjectId = event.study_plan_schedules?.subject_id;
+        const eventGradeId = event.study_plan_schedules?.grade_id;
+
+        // If there's already a session for the same subject AND grade at this time, it's a conflict
+        if (eventSubjectId === subject_id && eventGradeId === grade_id) {
+          conflictingSessions.push(event);
+          console.log(`   ⚠️ Conflict found: ${event.event_date} ${event.start_time} - ${event.title} (same subject/grade)`);
+        }
+      });
+
+      // Only include NON-conflicting sessions in busy slots for AI
+      // Conflicting sessions will be replaced with the new schedule
+      const nonConflictingEvents = existingEvents.filter(event => {
+        const eventSubjectId = event.study_plan_schedules?.subject_id;
+        const eventGradeId = event.study_plan_schedules?.grade_id;
+        return !(eventSubjectId === subject_id && eventGradeId === grade_id);
+      });
+
+      if (nonConflictingEvents.length > 0) {
+        busyTimeSlots = nonConflictingEvents.map(event =>
+          `${event.event_date} from ${event.start_time} to ${event.end_time} (${event.title})`
+        ).join('\n');
+        console.log(`📅 Busy time slots (excluding ${conflictingSessions.length} conflicting sessions):`);
+        console.log(busyTimeSlots);
+      } else {
+        busyTimeSlots = 'No conflicting events - calendar is clear for this subject/grade';
+        console.log(`📅 No non-conflicting events found - calendar is clear`);
+      }
+
+      if (conflictingSessions.length > 0) {
+        console.log(`✅ ${conflictingSessions.length} conflicting sessions will be replaced with new schedule`);
+      }
     } else {
       busyTimeSlots = 'No existing events - calendar is clear';
       console.log("📅 No existing events found - calendar is clear");
@@ -369,11 +410,20 @@ End Date: ${end_date}
 You MUST ONLY use dates from this exact list. These are the ONLY valid dates for scheduling sessions:
 ${validDatesFormatted}
 
-DO NOT use any dates not in this list. These dates represent ALL occurrences of the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}) between ${start_date} and ${end_date}. You should use ALL or most of these ${validDates.length} dates to create your study plan.
+IMPORTANT INSTRUCTIONS:
+- DO NOT use any dates not in this list
+- These dates represent ALL occurrences of the selected days (${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}) between ${start_date} and ${end_date}
+- You MUST create a study session for EVERY SINGLE ONE of these ${validDates.length} dates
+- Your output should have EXACTLY ${validDates.length} study sessions (one per valid date)
+- Distribute the chapters/topics evenly across ALL ${validDates.length} dates
+- EVERY date in the list should appear EXACTLY ONCE in your study plan
+- Do NOT skip any dates unless there is a scheduling conflict
 
 CRITICAL - AVOID SCHEDULING CONFLICTS:
-The student already has the following events scheduled. YOU MUST NOT schedule any sessions that overlap with these existing events:
+The student already has the following events scheduled. YOU MUST NOT schedule any sessions that overlap with these existing events. If a date/time has a conflict, choose a different time slot on the same date:
 ${busyTimeSlots}
+
+NOTE: If an existing event is for a DIFFERENT subject or grade, you MUST avoid that time slot. Only schedule in available time slots.
 
 IMPORTANT - Chapter Selection:
 ${chapterScope}
@@ -398,7 +448,7 @@ Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
 3. 🚨 ABSOLUTELY CRITICAL - USE ONLY THE VALID DATES LISTED ABOVE 🚨: You MUST pick dates ONLY from the list of ${validDates.length} valid dates provided above. Do NOT generate any dates that are not in that exact list. Every single "date" field in your JSON output must be one of the dates from the valid dates list. This is NON-NEGOTIABLE.
-4. ⚠️ ABSOLUTELY CRITICAL - COMPREHENSIVE COVERAGE ⚠️: You should use MOST or ALL of the ${validDates.length} valid dates provided above. Create study sessions for as many of these dates as possible to ensure comprehensive coverage. Do not skip dates unless there is a scheduling conflict.
+4. ⚠️ ABSOLUTELY CRITICAL - USE ALL ${validDates.length} DATES ⚠️: You MUST create EXACTLY ${validDates.length} study sessions - ONE session for EACH valid date. Do NOT skip any dates. Your JSON array should contain exactly ${validDates.length} objects. Each valid date should appear EXACTLY ONCE in your study plan. If you skip dates, you will fail this task.
 5. Each session should be ${study_duration_minutes} minutes long
 6. Schedule sessions during ${preferred_times.join(' or ')} time slots
 7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
@@ -563,6 +613,22 @@ Return ONLY the JSON array, no additional text.`;
         if (studyEvents.length > 500) {
           console.warn(`⚠️ AI generated ${studyEvents.length} events, limiting to 500`);
           studyEvents = studyEvents.slice(0, 500);
+        }
+
+        // Check if AI generated the expected number of events
+        console.log(`\n📊 AI EVENT GENERATION CHECK:`);
+        console.log(`   Expected: ${validDates.length} events (one per valid date)`);
+        console.log(`   Generated: ${studyEvents.length} events`);
+        if (studyEvents.length < validDates.length) {
+          const missing = validDates.length - studyEvents.length;
+          console.warn(`   ⚠️ WARNING: AI generated ${missing} fewer events than expected!`);
+          console.warn(`   This means ${missing} dates will NOT have study sessions.`);
+        } else if (studyEvents.length > validDates.length) {
+          const extra = studyEvents.length - validDates.length;
+          console.warn(`   ⚠️ WARNING: AI generated ${extra} extra events!`);
+          console.warn(`   Some dates may have duplicate sessions (will be filtered).`);
+        } else {
+          console.log(`   ✅ Perfect! AI generated exactly the right number of events.`);
         }
 
         console.log("📋 First event:", JSON.stringify(studyEvents[0], null, 2));
