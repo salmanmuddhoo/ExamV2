@@ -352,10 +352,13 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 description="Perfect for trying out the platform"
                 icon={<BookOpen className="w-6 h-6" />}
                 features={[
-                  `Access Ai assistant for ${formatNumber(tiers.free.papers_limit)} exam paper${tiers.free.papers_limit !== 1 ? 's' : ''}`,
-                  `${formatTokenCount(tiers.free.token_limit)} AI tokens per month`,
-                  "Yearly practice",
-                  "No credit card required"
+                  { text: "View all exam papers", available: true },
+                  { text: "Demo AI assistant on 2 subjects (any grade)", available: true },
+                  { text: `${formatTokenCount(tiers.free.token_limit)} AI tokens per month`, available: true },
+                  { text: "Yearly practice only", available: true },
+                  { text: "Chapter-wise practice", available: false },
+                  { text: "Study Plan", available: false },
+                  { text: "No credit card required", available: true }
                 ]}
                 buttonText={tiers.free.coming_soon ? "Coming Soon" : "Get Started Free"}
                 onButtonClick={tiers.free.coming_soon ? undefined : onGetStarted}
@@ -373,11 +376,12 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 description="Affordable yearly exam focus"
                 icon={<Rocket className="w-6 h-6" />}
                 features={[
-                  "Choose 1 grade level",
-                  formatSubjects(tiers.student_lite.max_subjects),
-                  "Yearly & Chapter-wise practice",
-                  `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`,
-                  "Study Plan"
+                  { text: "View all exam papers", available: true },
+                  { text: "AI assistant on all papers for 1 subject (1 grade)", available: true },
+                  { text: `${formatTokenCount(tiers.student_lite.token_limit)} AI tokens per month`, available: true },
+                  { text: "Yearly practice", available: true },
+                  { text: "Chapter-wise practice", available: true },
+                  { text: "Study Plan", available: true }
                 ]}
                 buttonText={tiers.student_lite.coming_soon ? "Coming Soon" : "Start Learning"}
                 onButtonClick={tiers.student_lite.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
@@ -395,11 +399,12 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 description="Best for comprehensive learning"
                 icon={<Star className="w-6 h-6" />}
                 features={[
-                  "Choose 1 grade level",
-                  formatSubjects(tiers.student.max_subjects),
-                  "Yearly & Chapter-wise practice",
-                  `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`,
-                  "Study Plan"
+                  { text: "View all exam papers", available: true },
+                  { text: `AI assistant on all papers for ${formatSubjects(tiers.student.max_subjects)} (1 grade)`, available: true },
+                  { text: `${formatTokenCount(tiers.student.token_limit)} AI tokens per month`, available: true },
+                  { text: "Yearly practice", available: true },
+                  { text: "Chapter-wise practice", available: true },
+                  { text: "Study Plan", available: true }
                 ]}
                 buttonText={tiers.student.coming_soon ? "Coming Soon" : "Get Full Access"}
                 onButtonClick={tiers.student.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
@@ -417,10 +422,12 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 description="Everything you need to excel"
                 icon={<Crown className="w-6 h-6" />}
                 features={[
-                  "All grades & subjects",
-                  "Yearly & Chapter-wise practice",
-                  `${formatTokenCount(tiers.pro.token_limit)} AI tokens`,
-                  "Study Plan"
+                  { text: "View all exam papers", available: true },
+                  { text: "AI assistant on all exam papers", available: true },
+                  { text: `${formatTokenCount(tiers.pro.token_limit)} AI tokens per month`, available: true },
+                  { text: "Yearly practice", available: true },
+                  { text: "Chapter-wise practice", available: true },
+                  { text: "Study Plan", available: true }
                 ]}
                 buttonText={tiers.pro.coming_soon ? "Coming Soon" : "Go Premium"}
                 onButtonClick={tiers.pro.coming_soon ? undefined : (isLoggedIn && onOpenSubscriptions ? onOpenSubscriptions : onGetStarted)}
@@ -550,13 +557,18 @@ function Benefit({ text }: { text: string }) {
   );
 }
 
+interface PricingFeature {
+  text: string;
+  available: boolean;
+}
+
 interface PricingCardProps {
   name: string;
   price?: string; // Optional - for free tier
   period?: string; // Optional - for free tier
   description: string;
   icon: React.ReactNode;
-  features: string[];
+  features: (string | PricingFeature)[];
   buttonText: string;
   onButtonClick?: () => void; // Optional - for coming soon tiers
   popular?: boolean;
@@ -606,14 +618,28 @@ function PricingCard({
       </div>
 
       <div className="space-y-3 mb-6 flex-grow">
-        {features.map((feature, index) => (
-          <div key={index} className="flex items-start space-x-3">
-            <CheckCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-              popular ? 'text-blue-600' : 'text-gray-900'
-            }`} />
-            <span className="text-sm text-gray-700">{feature}</span>
-          </div>
-        ))}
+        {features.map((feature, index) => {
+          const isObject = typeof feature === 'object';
+          const text = isObject ? feature.text : feature;
+          const available = isObject ? feature.available : true;
+
+          return (
+            <div key={index} className="flex items-start space-x-3">
+              <CheckCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                !available
+                  ? 'text-gray-300'
+                  : popular
+                  ? 'text-blue-600'
+                  : 'text-gray-900'
+              }`} />
+              <span className={`text-sm ${
+                !available ? 'text-gray-400' : 'text-gray-700'
+              }`}>
+                {text}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       <button

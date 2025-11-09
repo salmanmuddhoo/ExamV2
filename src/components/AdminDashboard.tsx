@@ -307,6 +307,19 @@ export function AdminDashboard({
               isGroup(item) ? renderMenuGroup(item) : renderMenuItem(item)
             )}
           </nav>
+
+          {/* Desktop User Navigation - Only show on desktop */}
+          {onNavigateProfile && (
+            <div className="hidden lg:block border-t border-gray-200 p-4">
+              <button
+                onClick={onNavigateProfile}
+                className="w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <User className="w-4 h-4 flex-shrink-0" />
+                <span>My Profile</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Main content */}

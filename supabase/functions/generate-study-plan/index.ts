@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
     }
 
     const chapterScope = isChapterSpecific
-      ? `Focus ONLY on the following selected chapters (${chapters.length} chapter(s)). Do NOT include any other chapters from the syllabus.`
+      ? `ABSOLUTELY CRITICAL: Focus ONLY on the following ${chapters.length} selected chapters. You MUST create study sessions for EVERY SINGLE ONE of these ${chapters.length} chapters. Do NOT include any other chapters from the syllabus, and do NOT skip any of the selected chapters. Ensure that all ${chapters.length} chapters listed below are covered in the study plan.`
       : `IMPORTANT: Cover ALL ${chapters.length} chapters systematically from the syllabus. The study plan must include sessions for EVERY chapter from start to finish. Distribute the chapters across the entire date range (${start_date} to ${end_date}) to ensure comprehensive coverage.`;
 
     console.log("📝 Preparing AI prompt...");
@@ -351,11 +351,11 @@ Please generate a JSON array of study events with the following structure:
 Requirements:
 1. CRITICAL: DO NOT schedule any sessions that conflict with the existing events listed above. Check every date and time carefully to avoid overlaps.
 2. ALL titles MUST start with "${subjectName} - " followed by the chapter reference and descriptive title. For chapter-specific sessions, include the chapter number in the format "Ch X" or "Ch X.Y" for subtopics (e.g., "${subjectName} - Ch 1: Introduction", "${subjectName} - Ch 1.1: Basic Concepts", "${subjectName} - Ch 2.3: Advanced Topics"). For review or practice sessions, use descriptive titles (e.g., "${subjectName} - Review Session", "${subjectName} - Practice Problems")
-3. CRITICAL: Schedule sessions ONLY on these days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. Do NOT schedule sessions on other days.
-4. CRITICAL: Generate sessions for ALL occurrences of the selected days between ${start_date} and ${end_date}. For example, if the user selected Monday, Wednesday, and Friday, create sessions for EVERY Monday, Wednesday, and Friday within the date range. Do not skip weeks unless there are conflicts. Create a comprehensive study schedule that uses all available days.
+3. ⚠️ ABSOLUTELY CRITICAL - WEEKDAY RESTRICTION ⚠️: The user has selected ONLY these specific days of the week: ${selected_days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}. You MUST ONLY schedule sessions on these exact days. This is NON-NEGOTIABLE. Before adding any session, verify the day of the week matches one of the selected days. If the selected days are [Monday, Thursday, Sunday], you can ONLY create sessions that fall on Monday, Thursday, or Sunday. You CANNOT use Tuesday, Wednesday, Friday, or Saturday under any circumstances. Double-check EVERY date to ensure it matches one of the selected days of the week.
+4. ⚠️ ABSOLUTELY CRITICAL - COMPREHENSIVE COVERAGE OF SELECTED DAYS ⚠️: You MUST generate study sessions for EVERY SINGLE occurrence of EACH selected day between ${start_date} and ${end_date}. Count all occurrences of each selected day in the date range and create sessions for ALL of them. If Monday, Thursday, and Sunday are selected, count how many Mondays exist between the start and end dates, how many Thursdays, and how many Sundays - then create sessions for ALL of those dates. Do not skip any occurrence of any selected day unless there is a scheduling conflict. The study plan must use ALL selected days equally and comprehensively.
 5. Each session should be ${study_duration_minutes} minutes long
 6. Schedule sessions during ${preferred_times.join(' or ')} time slots
-7. ${isChapterSpecific ? 'Cover ONLY the selected chapters listed above systematically' : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
+7. ${isChapterSpecific ? `ABSOLUTELY CRITICAL - CHAPTER COVERAGE: You MUST create study sessions for ALL ${chapters.length} selected chapters listed above. Cover EVERY SINGLE chapter systematically. Do NOT skip any of the ${chapters.length} selected chapters. Ensure each chapter appears at least once in the study plan. Do NOT include any chapters not in the list above.` : `CRITICAL: Cover ALL ${chapters.length} chapters listed above. Create study sessions for EVERY chapter from Chapter 1 to the last chapter. Distribute these chapters across ALL available study days between ${start_date} and ${end_date}. Do not skip any chapters.`}
 8. Include review sessions every few weeks
 9. Start with easier topics and progress to harder ones
 10. Add milestone checkpoints for assessments
@@ -530,6 +530,66 @@ Return ONLY the JSON array, no additional text.`;
       console.error('Generated text (first 1000 chars):', generatedText.substring(0, 1000));
       console.error('Generated text (last 1000 chars):', generatedText.substring(Math.max(0, generatedText.length - 1000)));
       throw new Error(`Failed to parse AI-generated study plan: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+
+    // Validate and filter events for correct dates and days
+    console.log("🔍 Validating generated events...");
+
+    // Helper function to check if a date is valid
+    const isValidDate = (dateStr: string): boolean => {
+      const date = new Date(dateStr);
+      // Check if date is valid and matches the input string
+      // This catches invalid dates like Feb 29 on non-leap years
+      if (isNaN(date.getTime())) return false;
+
+      // Format back to YYYY-MM-DD and compare to catch invalid dates
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const formatted = `${year}-${month}-${day}`;
+
+      return formatted === dateStr;
+    };
+
+    // Helper function to get day of week from date string (parse in local timezone)
+    const getDayOfWeek = (dateStr: string): string => {
+      // Parse as local date to avoid timezone issues
+      // "2026-05-19" should be parsed as local May 19, 2026
+      const parts = dateStr.split('-');
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+      const day = parseInt(parts[2]);
+      const date = new Date(year, month, day);
+
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      return days[date.getDay()];
+    };
+
+    // Filter events: keep only those with valid dates on selected days
+    const initialEventCount = studyEvents.length;
+    studyEvents = studyEvents.filter(event => {
+      // Check if date is valid
+      if (!isValidDate(event.date)) {
+        console.warn(`⚠️ Filtered out event with invalid date: ${event.date} - ${event.title}`);
+        return false;
+      }
+
+      // Check if date is on a selected day
+      const dayOfWeek = getDayOfWeek(event.date);
+      if (!selected_days.includes(dayOfWeek)) {
+        console.warn(`⚠️ Filtered out event on non-selected day (${dayOfWeek}): ${event.date} - ${event.title}`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (initialEventCount !== studyEvents.length) {
+      console.log(`📊 Filtered events: ${initialEventCount} → ${studyEvents.length} (removed ${initialEventCount - studyEvents.length} invalid events)`);
+    }
+
+    if (studyEvents.length === 0) {
+      throw new Error('All generated events were invalid. Please try again.');
     }
 
     // Create a map of chapter titles to IDs

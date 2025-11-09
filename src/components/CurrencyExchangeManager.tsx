@@ -130,8 +130,8 @@ export function CurrencyExchangeManager() {
         </div>
       )}
 
-      {/* Exchange Rates Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Exchange Rates Table - Desktop */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -190,6 +190,57 @@ export function CurrencyExchangeManager() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Exchange Rates Cards - Mobile */}
+      <div className="md:hidden space-y-4">
+        {rates.map(rate => (
+          <div key={rate.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl font-semibold">{rate.currency_symbol}</span>
+                <div>
+                  <p className="font-medium text-gray-900">{rate.currency_name}</p>
+                  <p className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded font-mono inline-block">
+                    {rate.currency_code}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Rate (1 USD =)
+                </label>
+                {rate.currency_code === 'USD' ? (
+                  <p className="text-sm text-gray-600 italic">1.0000 (Base Currency)</p>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0.0001"
+                      value={getDisplayRate(rate)}
+                      onChange={(e) => handleRateChange(rate.currency_code, e.target.value)}
+                      className="w-28 px-2 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                    <span className="text-sm text-gray-500 flex-shrink-0">{rate.currency_symbol}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Last Updated
+                </label>
+                <p className="text-xs text-gray-500">
+                  {new Date(rate.updated_at).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Example Conversion */}

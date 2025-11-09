@@ -77,6 +77,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   });
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -84,6 +85,24 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       fetchGrades();
     }
   }, [isOpen]);
+
+  // Validate date range - maximum 4 months
+  useEffect(() => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Calculate 4 months from start date
+      const maxEnd = new Date(start);
+      maxEnd.setMonth(maxEnd.getMonth() + 4);
+
+      if (end > maxEnd) {
+        setDateRangeError('Study plan duration cannot exceed 4 months. Please select an earlier end date.');
+      } else {
+        setDateRangeError(null);
+      }
+    }
+  }, [startDate, endDate]);
 
   // Auto-select grade if only one is available (non-pro users)
   useEffect(() => {
@@ -242,6 +261,30 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
     try {
       setGenerating(true);
+
+      // Check if user already has 3 study plans for this subject/grade
+      const { data: existingPlans, error: countError } = await supabase
+        .from('study_plan_schedules')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('subject_id', selectedSubject)
+        .eq('grade_id', selectedGrade);
+
+      if (countError) {
+        console.error('Error checking existing plans:', countError);
+        throw new Error('Failed to check existing study plans');
+      }
+
+      if (existingPlans && existingPlans.length >= 3) {
+        setAlertConfig({
+          title: 'Study Plan Limit Reached',
+          message: 'You can only have a maximum of 3 study plans per subject per grade. Please delete an existing plan before creating a new one.',
+          type: 'warning'
+        });
+        setShowAlert(true);
+        setGenerating(false);
+        return;
+      }
 
       // Deactivate any existing active plans for the same subject/grade
       const { error: deactivateError } = await supabase
@@ -439,7 +482,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       case 2:
         return studyDuration > 0 && selectedDays.length > 0;
       case 3:
-        return preferredTimes.length > 0 && startDate && endDate;
+        return preferredTimes.length > 0 && startDate && endDate && !dateRangeError;
       default:
         return false;
     }
@@ -582,7 +625,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
               {selectedSubject && selectedGrade && !loading && syllabi.length === 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <p className="text-sm text-amber-900">
-                    <strong>⚠️ No syllabus available:</strong> A syllabus is required to create a study plan. Please contact your administrator to add a syllabus for this subject.
+                    <strong>⚠️ No chapters available:</strong> Chapters are required to create a study plan.
                   </p>
                 </div>
               )}
@@ -788,8 +831,19 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                    max={(() => {
+                      const maxEndDate = new Date(startDate);
+                      maxEndDate.setMonth(maxEndDate.getMonth() + 4);
+                      return maxEndDate.toISOString().split('T')[0];
+                    })()}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${
+                      dateRangeError ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   />
+                  {dateRangeError && (
+                    <p className="text-xs text-red-600 mt-1">{dateRangeError}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Maximum 4 months from start date</p>
                 </div>
               </div>
 

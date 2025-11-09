@@ -190,6 +190,14 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
   };
 
+  // Helper function to format date in local timezone (avoids UTC conversion issues)
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const fetchEvents = async () => {
     if (!user) return;
 
@@ -208,8 +216,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         `)
         .eq('user_id', user.id)
         .eq('study_plan_schedules.is_active', true)
-        .gte('event_date', startOfMonth.toISOString().split('T')[0])
-        .lte('event_date', endOfMonth.toISOString().split('T')[0])
+        .gte('event_date', formatDateLocal(startOfMonth))
+        .lte('event_date', formatDateLocal(endOfMonth))
         .order('event_date', { ascending: true });
 
       if (error) {
@@ -286,6 +294,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       // Calculate progress for each schedule and identify orphaned schedules
       const progressMap: Record<string, { total: number; completed: number; percentage: number }> = {};
       const orphanedScheduleIds: string[] = [];
+      const now = new Date();
 
       scheduleIds.forEach(scheduleId => {
         const scheduleEvents = allEvents?.filter(e => e.schedule_id === scheduleId) || [];
@@ -296,16 +305,26 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         progressMap[scheduleId] = { total, completed, percentage };
 
         // Track schedules with no events (orphaned from failed AI generation)
+        // Only mark as orphaned if created more than 10 minutes ago (to avoid deleting during active generation)
         if (total === 0) {
-          orphanedScheduleIds.push(scheduleId);
+          const schedule = schedules.find(s => s.id === scheduleId);
+          if (schedule) {
+            const createdAt = new Date(schedule.created_at);
+            const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+
+            // Only cleanup schedules older than 10 minutes with no events
+            if (minutesSinceCreation > 10) {
+              orphanedScheduleIds.push(scheduleId);
+            }
+          }
         }
       });
 
       setScheduleProgress(progressMap);
 
-      // Clean up orphaned schedules (schedules with no events)
+      // Clean up old orphaned schedules (schedules with no events created >10 minutes ago)
       if (orphanedScheduleIds.length > 0) {
-        console.log('Cleaning up orphaned schedules:', orphanedScheduleIds);
+        console.log('Cleaning up old orphaned schedules (>10 min old):', orphanedScheduleIds);
         const { error: deleteError } = await supabase
           .from('study_plan_schedules')
           .delete()
@@ -524,7 +543,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
   const getEventsForDate = (date: Date | null) => {
     if (!date) return [];
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateLocal(date);
     let filteredEvents = events.filter(event => event.event_date === dateStr);
 
     // Apply subject filter if selected
@@ -661,6 +680,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     return Array.from(grouped.values());
   };
 
+  // Helper function to parse date string in local timezone
+  const parseDateLocal = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Check if an event is overdue
   const isEventOverdue = (event: StudyPlanEvent) => {
     if (event.status === 'completed' || event.status === 'skipped') {
@@ -668,7 +693,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
-    const eventDate = new Date(event.event_date);
+    const eventDate = parseDateLocal(event.event_date);
     eventDate.setHours(0, 0, 0, 0);
     return eventDate < today;
   };
