@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Mail, ArrowRight, Loader } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 export function EmailVerification() {
-  const navigate = useNavigate();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [countdown, setCountdown] = useState(5);
 
