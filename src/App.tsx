@@ -7,7 +7,7 @@ import { ExamViewer } from './components/ExamViewer';
 import { ChatHub } from './components/ChatHub';
 import { Navbar } from './components/Navbar';
 import { ExamPapersBrowser } from './components/ExamPapersBrowser';
-import { WelcomeModal } from './components/WelcomeModal';
+import { WelcomeModal, shouldShowWelcomeModal } from './components/WelcomeModal';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { Modal } from './components/Modal';
 import { PaymentPage } from './components/PaymentPage';
@@ -370,6 +370,11 @@ function App() {
 
   const checkFirstTimeUser = async () => {
     if (!user) {
+      return;
+    }
+
+    // Check if user has opted to not show the welcome modal
+    if (!shouldShowWelcomeModal()) {
       return;
     }
 

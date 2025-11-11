@@ -10,8 +10,15 @@ interface WelcomeModalProps {
   onUpgrade?: () => void;
 }
 
+const DONT_SHOW_AGAIN_KEY = 'welcomeModalDontShowAgain';
+
+export function shouldShowWelcomeModal(): boolean {
+  return localStorage.getItem(DONT_SHOW_AGAIN_KEY) !== 'true';
+}
+
 export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining, onUpgrade }: WelcomeModalProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   if (!isOpen) return null;
 
@@ -189,8 +196,18 @@ export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
+      if (dontShowAgain) {
+        localStorage.setItem(DONT_SHOW_AGAIN_KEY, 'true');
+      }
       onClose();
     }
+  };
+
+  const handleClose = () => {
+    if (dontShowAgain) {
+      localStorage.setItem(DONT_SHOW_AGAIN_KEY, 'true');
+    }
+    onClose();
   };
 
   const handleBack = () => {
@@ -204,7 +221,7 @@ export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-slideIn relative max-h-[90vh] flex flex-col">
         {/* Close button */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-4 right-4 z-10 text-white hover:text-gray-200 transition-colors"
           aria-label="Close"
         >
@@ -246,26 +263,42 @@ export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining
         </div>
 
         {/* Footer - Navigation */}
-        <div className="border-t border-gray-200 p-4 flex items-center justify-between bg-white flex-shrink-0">
-          <button
-            onClick={handleBack}
-            disabled={currentStep === 0}
-            className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-0 disabled:cursor-default"
-          >
-            Back
-          </button>
-
-          <div className="text-xs text-gray-500">
-            {currentStep + 1} of {steps.length}
+        <div className="border-t border-gray-200 bg-white flex-shrink-0">
+          {/* Don't show again checkbox */}
+          <div className="px-4 pt-3 pb-2">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+                className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-2 focus:ring-gray-500"
+              />
+              <span className="text-xs text-gray-600">Don't show this tutorial again</span>
+            </label>
           </div>
 
-          <button
-            onClick={handleNext}
-            className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-1"
-          >
-            <span>{currentStep === steps.length - 1 ? 'Get Started' : 'Next'}</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
+          {/* Navigation buttons */}
+          <div className="px-4 pb-4 flex items-center justify-between">
+            <button
+              onClick={handleBack}
+              disabled={currentStep === 0}
+              className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-0 disabled:cursor-default"
+            >
+              Back
+            </button>
+
+            <div className="text-xs text-gray-500">
+              {currentStep + 1} of {steps.length}
+            </div>
+
+            <button
+              onClick={handleNext}
+              className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center space-x-1"
+            >
+              <span>{currentStep === steps.length - 1 ? 'Get Started' : 'Next'}</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
