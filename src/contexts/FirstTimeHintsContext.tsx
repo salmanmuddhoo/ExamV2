@@ -66,6 +66,11 @@ export function FirstTimeHintsProvider({ children }: { children: ReactNode }) {
     setHintsSeen(prev => ({ ...prev, [hint]: true }));
   };
 
+  // Mark a hint as skipped (for conditional hints that won't show)
+  const markHintAsSkipped = (hint: keyof HintStatus) => {
+    setHintsSeen(prev => ({ ...prev, [hint]: true }));
+  };
+
   const resetAllHints = () => {
     setHintsSeen(defaultHintStatus);
     localStorage.removeItem(STORAGE_KEY);
@@ -85,16 +90,25 @@ export function FirstTimeHintsProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    // Check if all previous hints in the sequence have been seen
+    // Check if all previous REQUIRED hints in the sequence have been seen
+    // Note: Some hints are conditional (e.g., mobileToggle only on mobile)
+    // We only block if a REQUIRED hint hasn't been seen
     for (let i = 0; i < hintIndex; i++) {
       const previousHint = HINT_ORDER[i];
-      if (!hintsSeen[previousHint]) {
-        // A previous hint hasn't been seen yet, so don't show this one
+
+      // Skip conditional hints that may not apply:
+      // - mobileToggle is only for mobile users
+      // - profileSubscription may not be implemented everywhere
+      // These should not block the sequence
+      const isConditionalHint = previousHint === 'mobileToggle' || previousHint === 'profileSubscription';
+
+      if (!isConditionalHint && !hintsSeen[previousHint]) {
+        // A previous required hint hasn't been seen yet, so don't show this one
         return false;
       }
     }
 
-    // All previous hints have been seen, show this one
+    // All previous required hints have been seen, show this one
     return true;
   };
 
