@@ -151,4 +151,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION get_user_paper_access_status(UUID) TO authenticated;
+
 COMMENT ON FUNCTION get_user_paper_access_status IS 'Returns all papers with their access status for a user. Fixed month type from TEXT to INTEGER to match exam_papers table.';

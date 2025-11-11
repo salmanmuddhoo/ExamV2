@@ -721,7 +721,7 @@ function App() {
     return (
       <>
         <Navbar
-          onNavigateHome={handleBackToHome}
+          onNavigateHome={handleNavigateToHomepage}
           onNavigateAdmin={handleNavigateToAdmin}
           onNavigateLogin={handleNavigateToLogin}
           onNavigateChatHub={handleNavigateToChatHub}
