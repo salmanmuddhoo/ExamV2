@@ -14,7 +14,7 @@ BEGIN
 END $$;
 
 -- Step 2: Check which migrations have been applied
-SELECT version, name, inserted_at
+SELECT version, name
 FROM supabase_migrations.schema_migrations
 WHERE version LIKE '202510250%' OR version LIKE '202511090%'
 ORDER BY version DESC;
