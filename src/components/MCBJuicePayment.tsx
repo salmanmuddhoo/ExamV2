@@ -58,13 +58,10 @@ export function MCBJuicePayment({
     const fetchMcbPhoneNumber = async () => {
       try {
         const { data, error } = await supabase
-          .from('system_settings')
-          .select('setting_value')
-          .eq('setting_key', 'mcb_juice_phone_number')
-          .single();
+          .rpc('get_system_setting', { p_setting_key: 'mcb_juice_phone_number' });
 
         if (!error && data) {
-          const phoneNumber = data.setting_value?.phone_number;
+          const phoneNumber = data?.phone_number;
           if (phoneNumber) {
             setMcbPhoneNumber(phoneNumber);
           }

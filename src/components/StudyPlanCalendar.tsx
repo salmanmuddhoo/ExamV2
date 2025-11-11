@@ -122,16 +122,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
     }
 
     try {
-      // Check if feature is enabled globally
+      // Check if feature is enabled globally using the helper function
       const { data: settingData, error: settingError } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'study_plan_enabled')
-        .single();
+        .rpc('get_system_setting', { p_setting_key: 'study_plan_enabled' });
 
       if (settingError) throw settingError;
 
-      const enabled = settingData?.setting_value?.enabled || false;
+      const enabled = settingData?.enabled || false;
       setFeatureEnabled(enabled);
 
       if (!enabled) {
