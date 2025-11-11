@@ -13,6 +13,7 @@ import { Modal } from './components/Modal';
 import { PaymentPage } from './components/PaymentPage';
 import { UnifiedPracticeViewer } from './components/UnifiedPracticeViewer';
 import { ResetPassword } from './components/ResetPassword';
+import { EmailVerification } from './components/EmailVerification';
 import { BlogList } from './components/BlogList';
 import { BlogPost } from './components/BlogPost';
 import { StudyPlanCalendar } from './components/StudyPlanCalendar';
@@ -20,7 +21,7 @@ import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'blog' | 'blog-post' | 'study-plan';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'email-verification' | 'blog' | 'blog-post' | 'study-plan';
 
 // Helper function to map URL pathname to view
 function getViewFromPathname(pathname: string): View {
@@ -33,6 +34,7 @@ function getViewFromPathname(pathname: string): View {
   if (path === '/study-plan' || path === '/my-study-plan') return 'study-plan';
   if (path === '/login') return 'login';
   if (path === '/payment' || path === '/pricing') return 'payment';
+  if (path === '/email-verification' || path === '/verify-email') return 'email-verification';
 
   // Map papers-related URLs to papers-browser
   if (path === '/papers' || path === '/papers-browser') return 'papers-browser';
@@ -656,6 +658,10 @@ function App() {
 
   if (view === 'reset-password') {
     return <ResetPassword />;
+  }
+
+  if (view === 'email-verification') {
+    return <EmailVerification />;
   }
 
   if (view === 'login') {
