@@ -42,6 +42,25 @@ supabase db push
 - **Cause**: User trying to access resources before email verification
 - **Solution**: This is expected behavior. Users must verify email before full access.
 
+**Function Does Not Exist Error During Migration**
+- **Error**: `ERROR: function get_user_paper_access_status(uuid) does not exist`
+- **Cause**: Migration files were reordered or database was reset
+- **Solution**:
+  1. Run the manual fix script: Copy contents of `supabase/migrations/MANUAL_FIX_check_and_create_function.sql`
+  2. Paste into Supabase SQL Editor
+  3. Execute the script
+  4. Then retry `supabase db push`
+
+**Migration Already Applied But Changes Not Reflected**
+- **Cause**: Migration file was modified after being applied to remote database
+- **Solution**: Migrations are tracked by filename. If you modify a migration file that was already applied, you need to either:
+  1. Create a new migration file with the changes
+  2. Remove the migration from tracking table:
+     ```sql
+     DELETE FROM supabase_migrations.schema_migrations WHERE version = '20251025000005';
+     ```
+  3. Then re-run `supabase db push`
+
 ### Verifying Migrations
 
 To check if migrations were applied:
