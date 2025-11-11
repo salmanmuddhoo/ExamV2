@@ -16,6 +16,19 @@ supabase link --project-ref your-project-ref
 
 # Apply all pending migrations
 supabase db push
+
+# If migrations have older timestamps than remote migrations, use:
+supabase db push --include-all
+```
+
+#### Option 1b: Using the Provided Script
+```bash
+# Set environment variables first
+export SUPABASE_PROJECT_ID="your-project-id"
+export SUPABASE_DB_PASSWORD="your-db-password"
+
+# Run the migration script
+./APPLY_MIGRATIONS.sh
 ```
 
 #### Option 2: Manual Application via Supabase Dashboard
@@ -60,6 +73,18 @@ supabase db push
      DELETE FROM supabase_migrations.schema_migrations WHERE version = '20251025000005';
      ```
   3. Then re-run `supabase db push`
+
+**Local Migration Has Older Timestamp Than Remote**
+- **Error**: "Found local migration files to be inserted before the last migration on remote database"
+- **Cause**: Remote database has migrations with newer timestamps than some local migration files
+- **Solution**: Use the `--include-all` flag:
+  ```bash
+  supabase db push --include-all
+  ```
+  Or simply run the provided script:
+  ```bash
+  ./APPLY_MIGRATIONS.sh
+  ```
 
 ### Verifying Migrations
 
