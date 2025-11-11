@@ -85,6 +85,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
+  const [useAgentMode, setUseAgentMode] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -402,7 +403,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           selected_days: selectedDays, // Selected days of the week
           preferred_times: preferredTimes,
           start_date: startDate,
-          end_date: endDate
+          end_date: endDate,
+          use_agent_mode: useAgentMode // Use AI agent with function calling for calendar-aware scheduling
         })
       });
 
@@ -912,6 +914,35 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                   )}
                   <p className="text-xs text-gray-500 mt-1">Maximum 4 months from start date</p>
                 </div>
+              </div>
+
+              <div className="border border-gray-300 rounded-lg p-4">
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useAgentMode}
+                    onChange={(e) => setUseAgentMode(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Zap className="w-4 h-4 text-black" />
+                      <span className="font-semibold text-gray-900">
+                        Use AI Agent Mode
+                      </span>
+                      <span className="text-xs bg-black text-white px-2 py-0.5 rounded-full">
+                        ADVANCED
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      The AI agent checks your calendar step-by-step for better conflict detection.
+                      Recommended if you have many existing study sessions or a busy schedule.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Note: Agent mode may take slightly longer but provides more accurate scheduling.
+                    </p>
+                  </div>
+                </label>
               </div>
 
               <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
