@@ -110,6 +110,11 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
         setSubjects(allSubjects.data || []);
 
+        // Handle RPC errors gracefully (might happen if user just signed up and migrations aren't applied)
+        if (accessiblePapers.error) {
+          console.warn('Could not fetch paper access status. User may need to verify email or migrations may need to be applied:', accessiblePapers.error.message);
+        }
+
         // Fetch all papers with year/month information
         const { data: allPapersData } = await supabase
           .from('exam_papers')
