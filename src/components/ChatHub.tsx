@@ -495,13 +495,23 @@ export function ChatHub({
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
-              <button
-                onClick={handleNewConversation}
-                className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors md:hidden"
-                title="New Conversation"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+              <div className="relative md:hidden">
+                <button
+                  onClick={handleNewConversation}
+                  className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  title="New Conversation"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+                <ContextualHint
+                  show={shouldShowHint('chatHubNewConversation') && !loading}
+                  onDismiss={() => markHintAsSeen('chatHubNewConversation')}
+                  title="Start Here!"
+                  message="Tap here to select an exam paper and start practicing with AI assistance."
+                  position="bottom"
+                  delay={1000}
+                />
+              </div>
             </div>
             <div className="relative hidden md:block">
               <button
