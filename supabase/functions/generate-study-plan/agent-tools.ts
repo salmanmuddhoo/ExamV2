@@ -58,8 +58,7 @@ export async function checkTimeSlot(
       study_plan_schedules!inner(subject_id, grade_id, subjects(name))
     `)
     .eq('user_id', userId)
-    .gte('start_time', `${slot.date}T00:00:00`)
-    .lte('end_time', `${slot.date}T23:59:59`);
+    .eq('event_date', slot.date);
 
   if (error) {
     console.error('Error checking time slot:', error);
@@ -73,8 +72,17 @@ export async function checkTimeSlot(
   // Check for time overlap using interval intersection
   const conflicts = (existingEvents || [])
     .filter(event => {
-      const eventStart = new Date(event.start_time).getTime();
-      const eventEnd = new Date(event.end_time).getTime();
+      // Convert TIME values to full timestamps for comparison
+      // start_time and end_time might be TIME type (e.g., "09:00:00") or TIMESTAMPTZ
+      const eventStartTime = typeof event.start_time === 'string' && event.start_time.includes('T')
+        ? event.start_time
+        : `${slot.date}T${event.start_time}`;
+      const eventEndTime = typeof event.end_time === 'string' && event.end_time.includes('T')
+        ? event.end_time
+        : `${slot.date}T${event.end_time}`;
+
+      const eventStart = new Date(eventStartTime).getTime();
+      const eventEnd = new Date(eventEndTime).getTime();
       const newStart = new Date(slotStart).getTime();
       const newEnd = new Date(slotEnd).getTime();
 
@@ -121,11 +129,12 @@ export async function getBusyPeriods(
 ): Promise<BusyPeriod[]> {
   const { data: events, error } = await supabaseClient
     .from('study_plan_events')
-    .select('start_time, end_time')
+    .select('event_date, start_time, end_time')
     .eq('user_id', userId)
-    .gte('start_time', startDate)
-    .lte('end_time', endDate)
-    .order('start_time');
+    .gte('event_date', startDate)
+    .lte('event_date', endDate)
+    .order('event_date', { ascending: true })
+    .order('start_time', { ascending: true });
 
   if (error || !events) {
     console.error('Error fetching busy periods:', error);
@@ -136,9 +145,15 @@ export async function getBusyPeriods(
   const eventsByDate = new Map<string, Array<{ start: string; end: string }>>();
 
   for (const event of events) {
-    const date = event.start_time.split('T')[0];
-    const startTime = event.start_time.split('T')[1].substring(0, 5);
-    const endTime = event.end_time.split('T')[1].substring(0, 5);
+    const date = event.event_date;
+    // start_time and end_time are either TIME or TIMESTAMPTZ
+    // Handle both formats
+    const startTime = typeof event.start_time === 'string' && event.start_time.includes('T')
+      ? event.start_time.split('T')[1].substring(0, 5)
+      : event.start_time.toString().substring(0, 5);
+    const endTime = typeof event.end_time === 'string' && event.end_time.includes('T')
+      ? event.end_time.split('T')[1].substring(0, 5)
+      : event.end_time.toString().substring(0, 5);
 
     if (!eventsByDate.has(date)) {
       eventsByDate.set(date, []);
@@ -191,13 +206,14 @@ export async function getConflictingSessions(
   // Need to join with study_plan_schedules to filter by subject_id and grade_id
   const { data, error } = await supabaseClient
     .from('study_plan_events')
-    .select('id, title, start_time, end_time, schedule_id, study_plan_schedules!inner(subject_id, grade_id)')
+    .select('id, title, start_time, end_time, schedule_id, event_date, study_plan_schedules!inner(subject_id, grade_id)')
     .eq('user_id', userId)
     .eq('study_plan_schedules.subject_id', subjectId)
     .eq('study_plan_schedules.grade_id', gradeId)
-    .gte('start_time', startDate)
-    .lte('end_time', endDate)
-    .order('start_time');
+    .gte('event_date', startDate)
+    .lte('event_date', endDate)
+    .order('event_date', { ascending: true })
+    .order('start_time', { ascending: true });
 
   if (error) {
     console.error('Error fetching conflicting sessions:', error);
