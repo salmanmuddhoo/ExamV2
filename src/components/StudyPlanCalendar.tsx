@@ -1624,7 +1624,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             {calendarView === 'day' ? day.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : day.getDate()}
                           </div>
                           {hasEvents && (
-                            <div className="space-y-0.5 overflow-y-auto" style={{ maxHeight: calendarView === 'month' ? '45px' : 'calc(100% - 30px)' }}>
+                            <div className="space-y-0.5 overflow-hidden">
                               {calendarView === 'month' ? (
                                 <>
                                   {dayEvents.slice(0, 2).map((event) => (

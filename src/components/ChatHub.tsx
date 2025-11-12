@@ -213,11 +213,15 @@ export function ChatHub({
         .select(`
           *,
           study_plan_schedules!inner(
-            subjects(name, id)
+            subjects(name, id),
+            is_active,
+            is_completed
           )
         `)
         .eq('user_id', user.id)
         .eq('event_date', today)
+        .eq('study_plan_schedules.is_active', true)
+        .eq('study_plan_schedules.is_completed', false)
         .order('start_time', { ascending: true });
 
       if (error) {
