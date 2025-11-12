@@ -218,13 +218,11 @@ export async function executeAgent(
         }
       } else if (config.provider === 'gemini' || config.provider === 'google') {
         // Gemini expects ALL function responses in ONE message with multiple parts
+        // Response should be the raw result, not wrapped in {name, content}
         const parts = functionResults.map(fr => ({
           functionResponse: {
             name: fr.name,
-            response: {
-              name: fr.name,
-              content: fr.result,
-            }
+            response: fr.result,  // Just the raw result
           }
         }));
 

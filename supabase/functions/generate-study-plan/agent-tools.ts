@@ -70,8 +70,19 @@ export async function checkTimeSlot(
   }
 
   // Check for time overlap using interval intersection
+  // IMPORTANT: Same subject/grade events are NOT conflicts (they will be replaced)
   const conflicts = (existingEvents || [])
     .filter(event => {
+      // First check if this is the same subject/grade - if so, NOT a conflict
+      const isSameSubjectGrade =
+        event.study_plan_schedules?.subject_id === subjectId &&
+        event.study_plan_schedules?.grade_id === gradeId;
+
+      if (isSameSubjectGrade) {
+        // This is from the same study plan - will be replaced, not a conflict
+        return false;
+      }
+
       // Convert TIME values to full timestamps for comparison
       // start_time and end_time might be TIME type (e.g., "09:00:00") or TIMESTAMPTZ
       const eventStartTime = typeof event.start_time === 'string' && event.start_time.includes('T')
@@ -95,17 +106,12 @@ export async function checkTimeSlot(
       start_time: event.start_time,
       end_time: event.end_time,
       subject: event.study_plan_schedules?.subjects?.name || 'Unknown',
-      is_same_subject: event.study_plan_schedules?.subject_id === subjectId && event.study_plan_schedules?.grade_id === gradeId,
+      is_same_subject: false,  // We already filtered out same subject/grade events above
     }));
 
   let suggestion = '';
   if (conflicts.length > 0) {
-    const sameSubject = conflicts.find(c => c.is_same_subject);
-    if (sameSubject) {
-      suggestion = 'Same subject session exists - consider replacing or rescheduling';
-    } else {
-      suggestion = 'Try a different time on this day or choose another day';
-    }
+    suggestion = 'Conflict with another subject - try a different time or day';
   }
 
   return {
@@ -305,8 +311,20 @@ export async function validateBulkSchedule(
     const plannedEnd = new Date(`${planned.date}T${planned.end_time}:00`).getTime();
 
     // Check for overlaps with existing events on the same date
+    // IMPORTANT: Same subject/grade sessions can be replaced (only 1 active study plan per subject/grade)
     const conflictingEvents = (existingEvents || []).filter(event => {
       if (event.event_date !== planned.date) return false;
+
+      // Check if this is the same subject and grade - if so, it's REPLACEABLE, not a conflict
+      const isSameSubjectGrade =
+        event.study_plan_schedules?.subject_id === subjectId &&
+        event.study_plan_schedules?.grade_id === gradeId;
+
+      if (isSameSubjectGrade) {
+        // This is from the same subject/grade study plan - will be replaced, not a conflict
+        console.log(`  ℹ️  Same subject/grade event found on ${planned.date}: ${event.title} (will be replaced)`);
+        return false;  // Don't treat as conflict
+      }
 
       const eventStartTime = typeof event.start_time === 'string' && event.start_time.includes('T')
         ? event.start_time
