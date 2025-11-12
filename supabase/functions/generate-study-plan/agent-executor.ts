@@ -529,7 +529,9 @@ async function callGeminiWithFunctions(
           console.log(`    Part ${pIdx + 1}: functionCall(${part.functionCall.name})`);
         } else if (part.functionResponse) {
           console.log(`    Part ${pIdx + 1}: functionResponse(${part.functionResponse.name})`);
-          console.log(`      Response structure:`, JSON.stringify(part.functionResponse).substring(0, 200));
+          console.log(`      Response structure:`, JSON.stringify(part.functionResponse).substring(0, 300));
+          console.log(`      Response keys:`, Object.keys(part.functionResponse));
+          console.log(`      Response.response type:`, typeof part.functionResponse.response);
         }
       });
     }
@@ -545,6 +547,12 @@ async function callGeminiWithFunctions(
   };
 
   console.log('📤 Gemini API Request body preview:', JSON.stringify(requestBody).substring(0, 500));
+
+  // If we have a function response, log iteration 2's full message structure
+  if (contents.length >= 3) {
+    console.log('🔬 Iteration 2 Message Structure (full):');
+    console.log('  Message 3 (function response):', JSON.stringify(contents[2]).substring(0, 800));
+  }
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`,
@@ -569,6 +577,18 @@ async function callGeminiWithFunctions(
     const candidate = data.candidates[0];
     console.log(`  Finish reason: ${candidate.finishReason || 'N/A'}`);
     console.log(`  Parts count: ${candidate.content?.parts?.length || 0}`);
+
+    // Log safety ratings if present
+    if (candidate.safetyRatings) {
+      console.log(`  Safety ratings:`, JSON.stringify(candidate.safetyRatings));
+    }
+
+    // If MALFORMED_FUNCTION_CALL, log the full candidate for debugging
+    if (candidate.finishReason === 'MALFORMED_FUNCTION_CALL') {
+      console.log(`  ❌ MALFORMED_FUNCTION_CALL detected. Full candidate:`, JSON.stringify(candidate).substring(0, 500));
+      console.log(`  Full Gemini response data:`, JSON.stringify(data).substring(0, 1000));
+    }
+
     if (candidate.content?.parts) {
       candidate.content.parts.forEach((part: any, idx: number) => {
         if (part.text) {
