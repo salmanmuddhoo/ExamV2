@@ -637,20 +637,6 @@ export function SubscriptionManager() {
                     ? 'Get Started'
                     : 'Select Plan'}
                 </button>
-
-                {/* Upgrade benefit note - Fixed height container */}
-                <div className="h-7 mt-2">
-                  {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
-                    <p className="text-xs text-green-600 text-center">
-                      ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
-                    </p>
-                  )}
-                  {canUp && tier.token_limit === null && currentSubscription && (
-                    <p className="text-xs text-green-600 text-center">
-                      ✓ Get unlimited tokens
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
           );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Brain, Save, RefreshCw, CheckCircle } from 'lucide-react';
+import { Brain, Save, RefreshCw, CheckCircle, Edit, X, DollarSign } from 'lucide-react';
 
 interface AIModel {
   id: string;
@@ -13,6 +13,8 @@ interface AIModel {
   supports_caching: boolean;
   is_active: boolean;
   is_default: boolean;
+  input_token_cost_per_million: number;
+  output_token_cost_per_million: number;
 }
 
 interface AllowedModelsConfig {
@@ -25,6 +27,8 @@ export function AIModelSettings() {
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [editingPrices, setEditingPrices] = useState<Record<string, boolean>>({});
+  const [priceChanges, setPriceChanges] = useState<Record<string, { input: number; output: number }>>({});
 
   useEffect(() => {
     fetchSettings();
@@ -85,6 +89,71 @@ export function AIModelSettings() {
         return [...prev, modelId];
       }
     });
+  };
+
+  const handleStartEditPrice = (modelId: string, model: AIModel) => {
+    setEditingPrices(prev => ({ ...prev, [modelId]: true }));
+    setPriceChanges(prev => ({
+      ...prev,
+      [modelId]: {
+        input: model.input_token_cost_per_million,
+        output: model.output_token_cost_per_million
+      }
+    }));
+  };
+
+  const handleCancelEditPrice = (modelId: string) => {
+    setEditingPrices(prev => ({ ...prev, [modelId]: false }));
+    setPriceChanges(prev => {
+      const updated = { ...prev };
+      delete updated[modelId];
+      return updated;
+    });
+  };
+
+  const handlePriceChange = (modelId: string, field: 'input' | 'output', value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setPriceChanges(prev => ({
+        ...prev,
+        [modelId]: {
+          ...prev[modelId],
+          [field]: numValue
+        }
+      }));
+    }
+  };
+
+  const handleSavePrices = async (modelId: string) => {
+    try {
+      const changes = priceChanges[modelId];
+      if (!changes) return;
+
+      const { error } = await supabase
+        .from('ai_models')
+        .update({
+          input_token_cost_per_million: changes.input,
+          output_token_cost_per_million: changes.output,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', modelId);
+
+      if (error) throw error;
+
+      // Update local state
+      setAiModels(prev => prev.map(model =>
+        model.id === modelId
+          ? { ...model, input_token_cost_per_million: changes.input, output_token_cost_per_million: changes.output }
+          : model
+      ));
+
+      setEditingPrices(prev => ({ ...prev, [modelId]: false }));
+      setMessage({ type: 'success', text: 'Prices updated successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Error updating prices:', error);
+      setMessage({ type: 'error', text: 'Failed to update prices' });
+    }
   };
 
   const handleSave = async () => {
@@ -210,18 +279,26 @@ export function AIModelSettings() {
                   const isSelected = selectedModelIds.includes(model.id);
                   const isDefault = model.is_default;
 
+                  const isEditing = editingPrices[model.id];
+                  const currentPrices = priceChanges[model.id] || {
+                    input: model.input_token_cost_per_million,
+                    output: model.output_token_cost_per_million
+                  };
+
                   return (
                     <div
                       key={model.id}
-                      className={`border-2 rounded-lg p-4 transition-all cursor-pointer ${
+                      className={`border-2 rounded-lg p-4 transition-all ${
                         isSelected
                           ? 'border-purple-500 bg-purple-50'
                           : 'border-gray-200 bg-white hover:border-gray-300'
                       }`}
-                      onClick={() => handleToggleModel(model.id)}
                     >
                       <div className="flex items-start space-x-3">
-                        <div className="flex-shrink-0 mt-1">
+                        <div
+                          className="flex-shrink-0 mt-1 cursor-pointer"
+                          onClick={() => handleToggleModel(model.id)}
+                        >
                           <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                             isSelected
                               ? 'bg-purple-600 border-purple-600'
@@ -246,7 +323,102 @@ export function AIModelSettings() {
                             )}
                           </div>
 
-                          <p className="text-xs sm:text-sm text-gray-600 mb-2">{model.description}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-3">{model.description}</p>
+
+                          {/* Pricing Section */}
+                          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-1 text-xs font-semibold text-gray-700">
+                                <DollarSign className="w-3 h-3" />
+                                <span>Pricing (per 1M tokens)</span>
+                              </div>
+                              {!isEditing ? (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStartEditPrice(model.id, model);
+                                  }}
+                                  className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-100 transition-colors"
+                                  title="Edit prices"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSavePrices(model.id);
+                                    }}
+                                    className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100 transition-colors"
+                                    title="Save prices"
+                                  >
+                                    <Save className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancelEditPrice(model.id);
+                                    }}
+                                    className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {!isEditing ? (
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                  <span className="text-gray-600">Input:</span>
+                                  <span className="ml-1 font-semibold text-gray-900">
+                                    ${model.input_token_cost_per_million.toFixed(4)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Output:</span>
+                                  <span className="ml-1 font-semibold text-gray-900">
+                                    ${model.output_token_cost_per_million.toFixed(4)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs text-gray-600 mb-1">Input:</label>
+                                  <input
+                                    type="number"
+                                    step="0.0001"
+                                    min="0"
+                                    value={currentPrices.input}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handlePriceChange(model.id, 'input', e.target.value);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-600 mb-1">Output:</label>
+                                  <input
+                                    type="number"
+                                    step="0.0001"
+                                    min="0"
+                                    value={currentPrices.output}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handlePriceChange(model.id, 'output', e.target.value);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
 
                           <div className="flex flex-wrap gap-2 text-xs text-gray-500">
                             {model.supports_vision && (

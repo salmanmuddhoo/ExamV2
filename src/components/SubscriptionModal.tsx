@@ -576,20 +576,6 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                         ? 'Get Started'
                         : 'Select Plan'}
                     </button>
-
-                    {/* Upgrade benefit note - Fixed height container */}
-                    <div className="h-6 mt-1.5">
-                      {canUp && currentSubscription && currentSubscription.subscription_tiers?.token_limit && (
-                        <p className="text-[10px] text-green-600 text-center">
-                          ✓ Get additional {formatTokens(tier.token_limit || 0)} tokens
-                        </p>
-                      )}
-                      {canUp && tier.token_limit === null && currentSubscription && (
-                        <p className="text-[10px] text-green-600 text-center">
-                          ✓ Get unlimited tokens
-                        </p>
-                      )}
-                    </div>
                   </div>
                 </div>
               );

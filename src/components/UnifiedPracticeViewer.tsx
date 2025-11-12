@@ -464,11 +464,16 @@ export function UnifiedPracticeViewer({
         .select(`
           *,
           study_plan_schedules!inner(
-            subjects(name, id)
+            subjects(name, id),
+            grade_levels(name),
+            is_active,
+            is_completed
           )
         `)
         .eq('user_id', user.id)
         .eq('event_date', today)
+        .eq('study_plan_schedules.is_active', true)
+        .eq('study_plan_schedules.is_completed', false)
         .order('start_time', { ascending: true });
 
       if (error) throw error;
@@ -904,7 +909,7 @@ export function UnifiedPracticeViewer({
         <div className="flex items-center">
           {/* Mobile View Toggle */}
           <div className="flex md:hidden relative">
-            <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
+            <div className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
                   mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
@@ -1205,7 +1210,7 @@ export function UnifiedPracticeViewer({
               <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
                 {/* Token Display with Upgrade button */}
                 {tokensLimit !== null && (
-                  <div className="mb-2 flex items-center justify-between px-1 relative">
+                  <div className="mb-2 flex items-center justify-between px-1 relative" data-hint="token-display">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-600">AI Tokens:</span>
                       <span className="text-xs font-semibold text-gray-900">
@@ -1257,6 +1262,7 @@ export function UnifiedPracticeViewer({
                   <div className="relative">
                     <form onSubmit={handleSendMessage} className="flex space-x-2">
                       <input
+                        data-hint="chat-input"
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}

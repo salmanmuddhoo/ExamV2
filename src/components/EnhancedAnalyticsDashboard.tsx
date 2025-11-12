@@ -588,6 +588,31 @@ export function EnhancedAnalyticsDashboard() {
                 </tr>
               ))}
             </tbody>
+            <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+              <tr>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-bold text-gray-900">Total</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                  {formatNumber(modelUsage.reduce((sum, model) => sum + model.totalRequests, 0))}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                  {formatNumber(modelUsage.reduce((sum, model) => sum + model.inputTokens, 0))}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                  {formatNumber(modelUsage.reduce((sum, model) => sum + model.outputTokens, 0))}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600 text-right">
+                  {formatCost(modelUsage.reduce((sum, model) => sum + model.totalCost, 0))}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-600 text-right">
+                  {formatCost(
+                    modelUsage.reduce((sum, model) => sum + model.totalCost, 0) /
+                    Math.max(modelUsage.reduce((sum, model) => sum + model.totalRequests, 0), 1)
+                  )}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

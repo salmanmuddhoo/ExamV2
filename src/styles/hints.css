@@ -1,0 +1,67 @@
+/* Hint Tutorial Styles */
+
+/* Highlight effect for target elements */
+.hint-highlight {
+  position: relative;
+  z-index: 9997 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3) !important;
+  border-radius: 8px !important;
+  animation: hint-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hint-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.3), 0 0 30px rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* Ensure highlighted elements are visible above overlay */
+.hint-highlight::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* Smooth transitions for hint tooltip */
+.hint-tooltip-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.hint-tooltip-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.hint-tooltip-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hint-tooltip-exit-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 200ms, transform 200ms;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .hint-highlight {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5), 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  }
+
+  @keyframes hint-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5), 0 0 15px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.4);
+    }
+  }
+}

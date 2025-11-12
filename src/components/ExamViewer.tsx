@@ -420,11 +420,16 @@ This helps me give you the most accurate and focused help! 😊`;
         .select(`
           *,
           study_plan_schedules!inner(
-            subjects(name, id)
+            subjects(name, id),
+            grade_levels(name),
+            is_active,
+            is_completed
           )
         `)
         .eq('user_id', user.id)
         .eq('event_date', today)
+        .eq('study_plan_schedules.is_active', true)
+        .eq('study_plan_schedules.is_completed', false)
         .order('start_time', { ascending: true });
 
       if (error) throw error;
@@ -1154,7 +1159,7 @@ You can still view and download this exam paper!`
         <div className="flex items-center">
           {/* Mobile View Toggle */}
           <div className="flex md:hidden relative">
-            <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
+            <div className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
                   mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
