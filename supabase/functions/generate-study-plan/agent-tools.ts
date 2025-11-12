@@ -47,6 +47,7 @@ export async function checkTimeSlot(
   const slotEnd = `${slot.date}T${slot.end_time}:00`;
 
   // Query events on this specific date
+  // Need to join with study_plan_schedules to get subject_id and grade_id
   const { data: existingEvents, error } = await supabaseClient
     .from('study_plan_events')
     .select(`
@@ -54,9 +55,7 @@ export async function checkTimeSlot(
       title,
       start_time,
       end_time,
-      subject_id,
-      grade_id,
-      subjects!inner(name)
+      study_plan_schedules!inner(subject_id, grade_id, subjects(name))
     `)
     .eq('user_id', userId)
     .gte('start_time', `${slot.date}T00:00:00`)
@@ -87,8 +86,8 @@ export async function checkTimeSlot(
       title: event.title,
       start_time: event.start_time,
       end_time: event.end_time,
-      subject: event.subjects?.name || 'Unknown',
-      is_same_subject: event.subject_id === subjectId && event.grade_id === gradeId,
+      subject: event.study_plan_schedules?.subjects?.name || 'Unknown',
+      is_same_subject: event.study_plan_schedules?.subject_id === subjectId && event.study_plan_schedules?.grade_id === gradeId,
     }));
 
   let suggestion = '';
@@ -189,12 +188,13 @@ export async function getConflictingSessions(
   end_time: string;
   schedule_id: string;
 }>> {
+  // Need to join with study_plan_schedules to filter by subject_id and grade_id
   const { data, error } = await supabaseClient
     .from('study_plan_events')
-    .select('id, title, start_time, end_time, schedule_id')
+    .select('id, title, start_time, end_time, schedule_id, study_plan_schedules!inner(subject_id, grade_id)')
     .eq('user_id', userId)
-    .eq('subject_id', subjectId)
-    .eq('grade_id', gradeId)
+    .eq('study_plan_schedules.subject_id', subjectId)
+    .eq('study_plan_schedules.grade_id', gradeId)
     .gte('start_time', startDate)
     .lte('end_time', endDate)
     .order('start_time');
