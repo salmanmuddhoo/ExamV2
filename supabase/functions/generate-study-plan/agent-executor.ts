@@ -146,7 +146,9 @@ export async function executeAgent(
 
     // Check if AI wants to call functions
     if (response.function_calls && response.function_calls.length > 0) {
-      // Execute all function calls
+      // Execute all function calls and collect results
+      const functionResults: Array<{ name: string; result: any; id?: string }> = [];
+
       for (const funcCall of response.function_calls) {
         console.log(`Executing function: ${funcCall.name}`, funcCall.arguments);
 
@@ -173,43 +175,56 @@ export async function executeAgent(
             console.log(`✅ Session ${sessions.length}/${totalSessions} scheduled: ${result.session.title}`);
           }
 
-          // Add function result to messages (format varies by provider)
-          if (config.provider === 'openai') {
-            messages.push({
-              role: 'function' as any,
-              name: funcCall.name,
-              content: JSON.stringify(result),
-              tool_call_id: funcCall.id,
-            });
-          } else if (config.provider === 'gemini' || config.provider === 'google') {
-            // Gemini expects function results in a specific format
-            // Response must have 'name' and 'content' fields
-            messages.push({
-              role: 'user',
-              content: JSON.stringify({
-                functionResponse: {
-                  name: funcCall.name,
-                  response: {
-                    name: funcCall.name,
-                    content: result,
-                  }
-                }
-              }),
-            } as any);
-          } else {
-            // Claude/Anthropic
-            messages.push({
-              role: 'function' as any,
-              name: funcCall.name,
-              content: JSON.stringify(result),
-            });
-          }
+          // Collect function result
+          functionResults.push({
+            name: funcCall.name,
+            result: result,
+            id: funcCall.id, // For OpenAI
+          });
         } catch (error) {
           console.error(`Error executing function ${funcCall.name}:`, error);
+          functionResults.push({
+            name: funcCall.name,
+            result: { error: error.message },
+            id: funcCall.id,
+          });
+        }
+      }
+
+      // Add all function results to messages in provider-specific format
+      if (config.provider === 'openai') {
+        // OpenAI expects separate messages for each function result
+        for (const fr of functionResults) {
           messages.push({
             role: 'function' as any,
-            name: funcCall.name,
-            content: JSON.stringify({ error: error.message }),
+            name: fr.name,
+            content: JSON.stringify(fr.result),
+            tool_call_id: fr.id,
+          });
+        }
+      } else if (config.provider === 'gemini' || config.provider === 'google') {
+        // Gemini expects ALL function responses in ONE message with multiple parts
+        const parts = functionResults.map(fr => ({
+          functionResponse: {
+            name: fr.name,
+            response: {
+              name: fr.name,
+              content: fr.result,
+            }
+          }
+        }));
+
+        messages.push({
+          role: 'user',
+          content: JSON.stringify({ parts }),
+        } as any);
+      } else {
+        // Claude/Anthropic - separate messages
+        for (const fr of functionResults) {
+          messages.push({
+            role: 'function' as any,
+            name: fr.name,
+            content: JSON.stringify(fr.result),
           });
         }
       }
@@ -459,19 +474,27 @@ async function callGeminiWithFunctions(
       try {
         const parsed = JSON.parse(msg.content);
 
-        // Check for function response (role should be 'function')
+        // Check for multiple function responses (parts array with functionResponse objects)
+        if (parsed.parts && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
+          // Check if these are function responses (not model function calls)
+          if (parsed.parts[0].functionResponse) {
+            return {
+              role: 'function',
+              parts: parsed.parts,
+            };
+          }
+          // Otherwise, these are model parts (function calls from model)
+          return {
+            role: 'model',
+            parts: parsed.parts,
+          };
+        }
+
+        // Check for single function response (legacy format)
         if (parsed.functionResponse) {
           return {
             role: 'function',
             parts: [parsed],
-          };
-        }
-
-        // Check for model response with parts (function calls from model)
-        if (parsed.parts && Array.isArray(parsed.parts)) {
-          return {
-            role: 'model',
-            parts: parsed.parts,
           };
         }
       } catch (e) {
