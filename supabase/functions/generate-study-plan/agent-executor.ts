@@ -528,6 +528,11 @@ async function callGeminiWithFunctions(
 
   // Debug logging for conversation structure
   console.log(`🔍 Sending ${contents.length} messages to Gemini`);
+  console.log(`🔧 Tools: ${tools[0].function_declarations.length} functions available`);
+  tools[0].function_declarations.forEach((func: any) => {
+    console.log(`  - ${func.name}: ${func.description.substring(0, 60)}...`);
+  });
+
   contents.forEach((msg, idx) => {
     console.log(`  Message ${idx + 1}: role=${msg.role}, parts=${msg.parts?.length || 0}`);
     if (msg.parts && msg.parts.length > 0) {
@@ -565,6 +570,24 @@ async function callGeminiWithFunctions(
   }
 
   const data = await response.json();
+
+  // Debug: Log the raw Gemini response
+  console.log('📨 Gemini API Response:');
+  console.log(`  Candidates: ${data.candidates?.length || 0}`);
+  if (data.candidates && data.candidates[0]) {
+    const candidate = data.candidates[0];
+    console.log(`  Finish reason: ${candidate.finishReason || 'N/A'}`);
+    console.log(`  Parts count: ${candidate.content?.parts?.length || 0}`);
+    if (candidate.content?.parts) {
+      candidate.content.parts.forEach((part: any, idx: number) => {
+        if (part.text) {
+          console.log(`    Part ${idx + 1}: text - "${part.text.substring(0, 100)}..."`);
+        } else if (part.functionCall) {
+          console.log(`    Part ${idx + 1}: functionCall - ${part.functionCall.name}`);
+        }
+      });
+    }
+  }
 
   // Extract content and function calls
   let content = '';
