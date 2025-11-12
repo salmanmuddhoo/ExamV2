@@ -421,6 +421,7 @@ This helps me give you the most accurate and focused help! 😊`;
           *,
           study_plan_schedules!inner(
             subjects(name, id),
+            grade_levels(name),
             is_active,
             is_completed
           )

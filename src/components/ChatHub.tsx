@@ -214,6 +214,7 @@ export function ChatHub({
           *,
           study_plan_schedules!inner(
             subjects(name, id),
+            grade_levels(name),
             is_active,
             is_completed
           )

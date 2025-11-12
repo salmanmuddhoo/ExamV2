@@ -13,6 +13,32 @@ interface ProcessRequest {
   markingSchemeImages?: Array<{ pageNumber: number; base64Image: string }>;
 }
 
+// Helper function to fetch AI model pricing from database
+async function getModelPricing(supabase: any, modelName: string): Promise<{ inputCost: number; outputCost: number }> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_models')
+      .select('input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', modelName)
+      .single();
+
+    if (error) {
+      console.error('Error fetching model pricing:', error);
+      // Fallback to Gemini 2.0 Flash default pricing
+      return { inputCost: 0.075, outputCost: 0.30 };
+    }
+
+    return {
+      inputCost: data.input_token_cost_per_million,
+      outputCost: data.output_token_cost_per_million
+    };
+  } catch (err) {
+    console.error('Error in getModelPricing:', err);
+    // Fallback to Gemini 2.0 Flash default pricing
+    return { inputCost: 0.075, outputCost: 0.30 };
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -39,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Analyzing ${pageImages.length} pages with Gemini...`);
 
-    const { questions, tokenUsage: extractTokens } = await extractAndSplitQuestions(pageImages, geminiApiKey);
+    const { questions, tokenUsage: extractTokens } = await extractAndSplitQuestions(pageImages, geminiApiKey, supabase);
 
     console.log(`Extracted ${questions.length} questions`);
 
@@ -68,7 +94,8 @@ Deno.serve(async (req: Request) => {
       const markingResult = await extractMarkingScheme(
         questions,
         markingSchemeImages,
-        geminiApiKey
+        geminiApiKey,
+        supabase
       );
       markingSchemeData = markingResult.markingScheme;
       markingSchemeTokens = markingResult.tokenUsage;
@@ -232,7 +259,8 @@ Deno.serve(async (req: Request) => {
 
 async function extractAndSplitQuestions(
   pageImages: Array<{ pageNumber: number; base64Image: string }>,
-  geminiApiKey: string
+  geminiApiKey: string,
+  supabase: any
 ) {
   
   const imageParts = pageImages.map(page => ({
@@ -323,9 +351,13 @@ Return ONLY the JSON array, nothing else.`;
     const completionTokens = usageMetadata.candidatesTokenCount || 0;
     const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
 
-    // Calculate cost (Gemini 2.0 Flash pricing)
-    const inputCost = (promptTokens / 1000000) * 0.075;
-    const outputCost = (completionTokens / 1000000) * 0.30;
+    // Fetch dynamic pricing from database
+    const modelName = 'gemini-2.0-flash-exp';
+    const pricing = await getModelPricing(supabase, modelName);
+
+    // Calculate cost using database pricing
+    const inputCost = (promptTokens / 1000000) * pricing.inputCost;
+    const outputCost = (completionTokens / 1000000) * pricing.outputCost;
     const totalCost = inputCost + outputCost;
     
     const finishReason = data?.candidates?.[0]?.finishReason;
@@ -502,7 +534,8 @@ async function saveQuestionImages(
 async function extractMarkingScheme(
   questions: any[],
   markingSchemeImages: Array<{ pageNumber: number; base64Image: string }>,
-  geminiApiKey: string
+  geminiApiKey: string,
+  supabase: any
 ): Promise<{ markingScheme: Map<string, string>; tokenUsage: any }> {
   
   const imageParts = markingSchemeImages.map(page => ({
@@ -609,9 +642,13 @@ Return ONLY the JSON object.`;
     const completionTokens = usageMetadata.candidatesTokenCount || 0;
     const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
 
-    // Calculate cost (Gemini 2.0 Flash pricing)
-    const inputCost = (promptTokens / 1000000) * 0.075;
-    const outputCost = (completionTokens / 1000000) * 0.30;
+    // Fetch dynamic pricing from database
+    const modelName = 'gemini-2.0-flash-exp';
+    const pricing = await getModelPricing(supabase, modelName);
+
+    // Calculate cost using database pricing
+    const inputCost = (promptTokens / 1000000) * pricing.inputCost;
+    const outputCost = (completionTokens / 1000000) * pricing.outputCost;
     const totalCost = inputCost + outputCost;
 
     let jsonText = rawText.trim();
