@@ -224,97 +224,328 @@ export async function getConflictingSessions(
 }
 
 /**
- * Generate function definitions for AI function calling
+ * NEW BULK ARCHITECTURE FUNCTIONS
+ */
+
+export interface PlannedSession {
+  date: string; // YYYY-MM-DD
+  start_time: string; // HH:MM
+  end_time: string; // HH:MM
+  title: string;
+  chapter_number: number;
+  session_number: number;
+  topics: string[];
+}
+
+export interface ConflictResult {
+  session_index: number;
+  date: string;
+  start_time: string;
+  end_time: string;
+  title: string;
+  conflict_with: string;
+}
+
+export interface BulkValidationResult {
+  valid_count: number;
+  total_count: number;
+  conflicts: ConflictResult[];
+  valid_sessions: PlannedSession[];
+}
+
+/**
+ * Validate an entire schedule plan at once (bulk validation)
+ * This is much more efficient than checking one slot at a time
+ */
+export async function validateBulkSchedule(
+  supabaseClient: SupabaseClient,
+  userId: string,
+  plannedSessions: PlannedSession[],
+  subjectId: string,
+  gradeId: string
+): Promise<BulkValidationResult> {
+  console.log(`🔍 Bulk validating ${plannedSessions.length} planned sessions...`);
+
+  // Get all existing events in the date range
+  const dates = plannedSessions.map(s => s.date);
+  const minDate = dates.reduce((min, date) => date < min ? date : min);
+  const maxDate = dates.reduce((max, date) => date > max ? date : max);
+
+  const { data: existingEvents, error } = await supabaseClient
+    .from('study_plan_events')
+    .select(`
+      id,
+      title,
+      event_date,
+      start_time,
+      end_time,
+      study_plan_schedules!inner(subject_id, grade_id, subjects(name))
+    `)
+    .eq('user_id', userId)
+    .gte('event_date', minDate)
+    .lte('event_date', maxDate);
+
+  if (error) {
+    console.error('Error fetching existing events:', error);
+    return {
+      valid_count: plannedSessions.length,
+      total_count: plannedSessions.length,
+      conflicts: [],
+      valid_sessions: plannedSessions,
+    };
+  }
+
+  // Check each planned session for conflicts
+  const conflicts: ConflictResult[] = [];
+  const validSessions: PlannedSession[] = [];
+
+  for (let i = 0; i < plannedSessions.length; i++) {
+    const planned = plannedSessions[i];
+    const plannedStart = new Date(`${planned.date}T${planned.start_time}:00`).getTime();
+    const plannedEnd = new Date(`${planned.date}T${planned.end_time}:00`).getTime();
+
+    // Check for overlaps with existing events on the same date
+    const conflictingEvents = (existingEvents || []).filter(event => {
+      if (event.event_date !== planned.date) return false;
+
+      const eventStartTime = typeof event.start_time === 'string' && event.start_time.includes('T')
+        ? event.start_time
+        : `${planned.date}T${event.start_time}`;
+      const eventEndTime = typeof event.end_time === 'string' && event.end_time.includes('T')
+        ? event.end_time
+        : `${planned.date}T${event.end_time}`;
+
+      const eventStart = new Date(eventStartTime).getTime();
+      const eventEnd = new Date(eventEndTime).getTime();
+
+      // Overlap if: plannedStart < eventEnd AND eventStart < plannedEnd
+      return plannedStart < eventEnd && eventStart < plannedEnd;
+    });
+
+    if (conflictingEvents.length > 0) {
+      const conflict = conflictingEvents[0];
+      conflicts.push({
+        session_index: i,
+        date: planned.date,
+        start_time: planned.start_time,
+        end_time: planned.end_time,
+        title: planned.title,
+        conflict_with: `${conflict.title} at ${conflict.start_time}-${conflict.end_time}`,
+      });
+    } else {
+      validSessions.push(planned);
+    }
+  }
+
+  console.log(`✅ Validation complete: ${validSessions.length} valid, ${conflicts.length} conflicts`);
+
+  return {
+    valid_count: validSessions.length,
+    total_count: plannedSessions.length,
+    conflicts,
+    valid_sessions: validSessions,
+  };
+}
+
+/**
+ * Find alternative time slots for conflicting sessions
+ * Tries to find available slots within the preferred time range
+ */
+export async function findAlternativeSlots(
+  supabaseClient: SupabaseClient,
+  userId: string,
+  conflicts: ConflictResult[],
+  plannedSessions: PlannedSession[],
+  preferredTimeStart: string, // e.g., "18:00"
+  preferredTimeEnd: string, // e.g., "23:00"
+  sessionDuration: number, // in minutes
+  preferredDays: number[], // 0=Sunday, 6=Saturday
+  startDate: string,
+  endDate: string,
+  subjectId: string,
+  gradeId: string
+): Promise<PlannedSession[]> {
+  console.log(`🔄 Finding alternatives for ${conflicts.length} conflicts...`);
+
+  const alternatives: PlannedSession[] = [];
+
+  // Parse time range
+  const [startHour, startMin] = preferredTimeStart.split(':').map(Number);
+  const [endHour, endMin] = preferredTimeEnd.split(':').map(Number);
+
+  for (const conflict of conflicts) {
+    const originalSession = plannedSessions[conflict.session_index];
+    let found = false;
+
+    // Try different times on the same day first
+    const currentDate = new Date(conflict.date);
+
+    for (let hour = startHour; hour < endHour && !found; hour++) {
+      for (let min = 0; min < 60 && !found; min += 30) {
+        if (hour === startHour && min < startMin) continue;
+        if (hour === endHour - 1 && min >= endMin) break;
+
+        const startTime = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+        const endHour2 = hour + Math.floor((min + sessionDuration) / 60);
+        const endMin2 = (min + sessionDuration) % 60;
+        const endTime = `${endHour2.toString().padStart(2, '0')}:${endMin2.toString().padStart(2, '0')}`;
+
+        // Skip if end time exceeds preferred range
+        if (endHour2 > endHour || (endHour2 === endHour && endMin2 > endMin)) continue;
+
+        // Check if this slot is free
+        const checkResult = await checkTimeSlot(
+          supabaseClient,
+          userId,
+          { date: conflict.date, start_time: startTime, end_time: endTime },
+          subjectId,
+          gradeId
+        );
+
+        if (!checkResult.has_conflict) {
+          alternatives.push({
+            ...originalSession,
+            date: conflict.date,
+            start_time: startTime,
+            end_time: endTime,
+          });
+          found = true;
+          console.log(`✅ Found alternative for session ${conflict.session_index}: ${conflict.date} ${startTime}-${endTime}`);
+        }
+      }
+    }
+
+    // If not found on same day, try next preferred days
+    if (!found) {
+      let daysChecked = 0;
+      const maxDaysToCheck = 14;
+
+      while (!found && daysChecked < maxDaysToCheck) {
+        currentDate.setDate(currentDate.getDate() + 1);
+        daysChecked++;
+
+        if (currentDate > new Date(endDate)) break;
+        if (!preferredDays.includes(currentDate.getDay())) continue;
+
+        const dateStr = currentDate.toISOString().split('T')[0];
+
+        // Try preferred start time first
+        const checkResult = await checkTimeSlot(
+          supabaseClient,
+          userId,
+          {
+            date: dateStr,
+            start_time: preferredTimeStart,
+            end_time: addMinutesToTime(preferredTimeStart, sessionDuration)
+          },
+          subjectId,
+          gradeId
+        );
+
+        if (!checkResult.has_conflict) {
+          alternatives.push({
+            ...originalSession,
+            date: dateStr,
+            start_time: preferredTimeStart,
+            end_time: addMinutesToTime(preferredTimeStart, sessionDuration),
+          });
+          found = true;
+          console.log(`✅ Found alternative on ${dateStr} for session ${conflict.session_index}`);
+        }
+      }
+    }
+
+    if (!found) {
+      console.warn(`⚠️ Could not find alternative for session ${conflict.session_index}`);
+    }
+  }
+
+  return alternatives;
+}
+
+/**
+ * Helper function to add minutes to a time string
+ */
+function addMinutesToTime(time: string, minutes: number): string {
+  const [hour, min] = time.split(':').map(Number);
+  const totalMinutes = hour * 60 + min + minutes;
+  const newHour = Math.floor(totalMinutes / 60);
+  const newMin = totalMinutes % 60;
+  return `${newHour.toString().padStart(2, '0')}:${newMin.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Generate function definitions for AI function calling (NEW BULK ARCHITECTURE)
  */
 export function getAgentFunctionDefinitions() {
   return [
     {
-      name: 'check_time_slot',
-      description: 'Check if a specific date and time slot has calendar conflicts. Use this before scheduling each session to ensure no overlaps.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: {
-            type: 'string',
-            description: 'Date in YYYY-MM-DD format',
-          },
-          start_time: {
-            type: 'string',
-            description: 'Start time in HH:MM format (24-hour)',
-          },
-          end_time: {
-            type: 'string',
-            description: 'End time in HH:MM format (24-hour)',
-          },
-        },
-        required: ['date', 'start_time', 'end_time'],
-      },
-    },
-    {
-      name: 'get_busy_periods',
-      description: 'Get a summary of busy periods within the date range. This helps identify days with fewer conflicts. Returns days sorted by event count (least busy first).',
+      name: 'get_calendar_overview',
+      description: 'Optional first step: Get a summary of busy periods to understand calendar density. This helps in planning distribution of sessions.',
       parameters: {
         type: 'object',
         properties: {
           limit: {
             type: 'number',
-            description: 'Maximum number of results to return (default: 20)',
+            description: 'Maximum number of busy periods to return (default: 20)',
           },
         },
       },
     },
     {
-      name: 'get_conflicting_sessions',
-      description: 'Get all existing study sessions for the same subject and grade. These can potentially be replaced or rescheduled if needed.',
-      parameters: {
-        type: 'object',
-        properties: {},
-      },
-    },
-    {
-      name: 'schedule_session',
-      description: 'Schedule a study session at a specific time. Only call this after checking that the time slot is free using check_time_slot.',
+      name: 'submit_complete_plan',
+      description: 'Submit your complete schedule plan for all sessions at once. This will be bulk-validated against the calendar. Return format: array of PlannedSession objects.',
       parameters: {
         type: 'object',
         properties: {
-          date: {
-            type: 'string',
-            description: 'Date in YYYY-MM-DD format',
-          },
-          start_time: {
-            type: 'string',
-            description: 'Start time in HH:MM format (24-hour)',
-          },
-          end_time: {
-            type: 'string',
-            description: 'End time in HH:MM format (24-hour)',
-          },
-          title: {
-            type: 'string',
-            description: 'Session title (e.g., "Mathematics - Chapter 1: Session 1")',
-          },
-          chapter_number: {
-            type: 'number',
-            description: 'Chapter number (1-based)',
-          },
-          session_number: {
-            type: 'number',
-            description: 'Session number within the chapter (1-based)',
-          },
-          topics: {
+          sessions: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'List of topics to cover in this session',
+            description: 'Complete array of ALL planned sessions',
+            items: {
+              type: 'object',
+              properties: {
+                date: {
+                  type: 'string',
+                  description: 'Date in YYYY-MM-DD format',
+                },
+                start_time: {
+                  type: 'string',
+                  description: 'Start time in HH:MM format (24-hour)',
+                },
+                end_time: {
+                  type: 'string',
+                  description: 'End time in HH:MM format (24-hour)',
+                },
+                title: {
+                  type: 'string',
+                  description: 'Session title (e.g., "Mathematics - Chapter 1: Session 1")',
+                },
+                chapter_number: {
+                  type: 'number',
+                  description: 'Chapter number (1-based)',
+                },
+                session_number: {
+                  type: 'number',
+                  description: 'Session number within the chapter (1-based)',
+                },
+                topics: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of topics to cover in this session',
+                },
+              },
+              required: ['date', 'start_time', 'end_time', 'title', 'chapter_number', 'session_number', 'topics'],
+            },
           },
         },
-        required: ['date', 'start_time', 'end_time', 'title', 'chapter_number', 'session_number', 'topics'],
+        required: ['sessions'],
       },
     },
   ];
 }
 
 /**
- * Execute agent function calls
+ * Execute agent function calls (NEW BULK ARCHITECTURE)
  */
 export async function executeAgentFunction(
   functionName: string,
@@ -327,23 +558,14 @@ export async function executeAgentFunction(
     startDate: string;
     endDate: string;
     preferredDays?: number[];
+    preferredStartTime?: string;
+    preferredEndTime?: string;
+    sessionDuration?: number;
   }
 ): Promise<any> {
   switch (functionName) {
-    case 'check_time_slot':
-      return await checkTimeSlot(
-        context.supabaseClient,
-        context.userId,
-        {
-          date: args.date,
-          start_time: args.start_time,
-          end_time: args.end_time,
-        },
-        context.subjectId,
-        context.gradeId
-      );
-
-    case 'get_busy_periods':
+    case 'get_calendar_overview':
+      // Get busy periods as calendar overview
       const busyPeriods = await getBusyPeriods(
         context.supabaseClient,
         context.userId,
@@ -351,24 +573,59 @@ export async function executeAgentFunction(
         context.endDate,
         context.preferredDays
       );
-      return busyPeriods.slice(0, args.limit || 20);
+      return {
+        busy_periods: busyPeriods.slice(0, args.limit || 20),
+        total_days_in_range: Math.ceil(
+          (new Date(context.endDate).getTime() - new Date(context.startDate).getTime()) / (1000 * 60 * 60 * 24)
+        ),
+      };
 
-    case 'get_conflicting_sessions':
-      return await getConflictingSessions(
+    case 'submit_complete_plan':
+      // Validate the complete plan and find alternatives for conflicts
+      console.log(`📥 Received complete plan with ${args.sessions.length} sessions`);
+
+      const validationResult = await validateBulkSchedule(
         context.supabaseClient,
         context.userId,
+        args.sessions,
         context.subjectId,
-        context.gradeId,
-        context.startDate,
-        context.endDate
+        context.gradeId
       );
 
-    case 'schedule_session':
-      // This will be handled by the main function to actually insert into DB
-      // For now, just return the session details for validation
+      // If there are conflicts, automatically find alternatives
+      let finalSessions = validationResult.valid_sessions;
+
+      if (validationResult.conflicts.length > 0) {
+        console.log(`🔄 Finding alternatives for ${validationResult.conflicts.length} conflicts...`);
+
+        const alternatives = await findAlternativeSlots(
+          context.supabaseClient,
+          context.userId,
+          validationResult.conflicts,
+          args.sessions,
+          context.preferredStartTime || '18:00',
+          context.preferredEndTime || '23:00',
+          context.sessionDuration || 60,
+          context.preferredDays || [1, 2, 3, 4, 5],
+          context.startDate,
+          context.endDate,
+          context.subjectId,
+          context.gradeId
+        );
+
+        finalSessions = [...validationResult.valid_sessions, ...alternatives];
+      }
+
       return {
         success: true,
-        session: args,
+        validation_result: {
+          total_planned: validationResult.total_count,
+          valid_count: validationResult.valid_count,
+          conflict_count: validationResult.conflicts.length,
+          alternatives_found: finalSessions.length - validationResult.valid_count,
+        },
+        final_sessions: finalSessions,
+        conflicts: validationResult.conflicts.slice(0, 5), // Only show first 5 conflicts for brevity
       };
 
     default:

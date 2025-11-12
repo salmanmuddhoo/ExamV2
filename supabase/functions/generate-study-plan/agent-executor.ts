@@ -171,15 +171,22 @@ export async function executeAgent(
               startDate: context.startDate,
               endDate: context.endDate,
               preferredDays: context.preferredDays,
+              preferredStartTime: context.preferredStartTime,
+              preferredEndTime: context.preferredEndTime,
+              sessionDuration: context.sessionDuration,
             }
           );
 
           console.log('Function result:', result);
 
-          // Handle schedule_session specially - collect the session
-          if (funcCall.name === 'schedule_session' && result.success) {
-            sessions.push(result.session);
-            console.log(`✅ Session ${sessions.length}/${totalSessions} scheduled: ${result.session.title}`);
+          // NEW BULK ARCHITECTURE: Handle submit_complete_plan
+          if (funcCall.name === 'submit_complete_plan' && result.success) {
+            // Extract final sessions from the bulk validation result
+            const finalSessions = result.final_sessions || [];
+            sessions.push(...finalSessions);
+            console.log(`✅ Bulk submission complete: ${finalSessions.length} sessions validated and finalized`);
+            console.log(`   - ${result.validation_result.valid_count} valid, ${result.validation_result.conflict_count} conflicts`);
+            console.log(`   - ${result.validation_result.alternatives_found} alternatives found`);
           }
 
           // Collect function result
@@ -242,16 +249,6 @@ export async function executeAgent(
       break;
     }
 
-    // Implement sliding window to prevent conversation history from growing too large
-    // Keep: system prompt (first message) + last 10 messages (5 turns)
-    if (messages.length > 11) {
-      const systemPromptMsg = messages[0]; // Always keep the system prompt
-      const recentMessages = messages.slice(-10); // Keep last 10 messages
-      messages.length = 0;
-      messages.push(systemPromptMsg, ...recentMessages);
-      console.log(`🔄 Trimmed conversation history to ${messages.length} messages (system prompt + last 10)`);
-    }
-
     // Safety check - ensure we scheduled the expected number of sessions
     if (sessions.length >= totalSessions) {
       console.log(`✅ All ${totalSessions} sessions scheduled successfully!`);
@@ -291,9 +288,9 @@ function buildSystemPrompt(context: StudyPlanContext): string {
     )
     .join('\n');
 
-  return `You are a study plan scheduling agent. You MUST schedule ${totalSessions} study sessions by calling functions.
+  return `You are a study plan scheduling AI. Your task: Create a complete schedule for ${totalSessions} sessions in ONE bulk submission.
 
-**IMPORTANT: You must CALL the provided functions - DO NOT write code or explanations. Use the actual function calling mechanism.**
+**NEW EFFICIENT PROCESS - Only 2 steps:**
 
 **Context:**
 - Subject: ${context.subjectName}, Grade: ${context.gradeName}
@@ -305,25 +302,43 @@ function buildSystemPrompt(context: StudyPlanContext): string {
 **Chapters:**
 ${chaptersInfo}
 
-**Your Task: Schedule ALL ${totalSessions} sessions**
+**STEP 1 (Optional):** Call get_calendar_overview() to see calendar density.
 
-**Step 1:** Call get_busy_periods() and get_conflicting_sessions() to understand the calendar.
+**STEP 2:** Generate complete schedule for ALL ${totalSessions} sessions, then call submit_complete_plan() with the full array.
 
-**Step 2:** For EACH of the ${totalSessions} sessions (going through chapters in order):
-  a. Pick a date (prefer less busy days from preferred days)
-  b. Calculate times (start = preferred start time, end = start + ${context.sessionDuration} min)
-  c. Call check_time_slot(date, start_time, end_time)
-  d. If free: Call schedule_session(date, start_time, end_time, title, chapter_number, session_number, topics)
-  e. If conflict: Try next day
-  f. Move to next session and REPEAT
-
-**Rules:**
-- ALWAYS check_time_slot BEFORE schedule_session
+**Planning Guidelines:**
+- Distribute sessions evenly across the date range
+- Use preferred days (${preferredDayNames}) and time (${context.preferredStartTime}-${context.preferredEndTime})
 - Title format: "${context.subjectName} - Chapter X: Session Y"
-- Follow chapter order strictly
-- Continue until you've scheduled ALL ${totalSessions} sessions
+- Follow chapter order (Chapter 1 all sessions, then Chapter 2, etc.)
+- Include relevant topics for each session
 
-**START NOW:** Call get_busy_periods() to begin.`;
+**Example session object:**
+{
+  "date": "2026-02-03",
+  "start_time": "${context.preferredStartTime}",
+  "end_time": "${addMinutes(context.preferredStartTime, context.sessionDuration)}",
+  "title": "${context.subjectName} - Chapter 1: Session 1",
+  "chapter_number": 1,
+  "session_number": 1,
+  "topics": ["Topic 1", "Topic 2"]
+}
+
+**IMPORTANT:** After you submit, the system will:
+1. Validate all ${totalSessions} sessions against the calendar in bulk
+2. Automatically find alternative times for ANY conflicts
+3. Return the final validated schedule
+
+**Generate the complete plan NOW and call submit_complete_plan() with all ${totalSessions} sessions.**`;
+}
+
+/**
+ * Helper to add minutes to time string for prompt
+ */
+function addMinutes(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + minutes;
+  return `${Math.floor(total / 60).toString().padStart(2, '0')}:${(total % 60).toString().padStart(2, '0')}`;
 }
 
 /**
