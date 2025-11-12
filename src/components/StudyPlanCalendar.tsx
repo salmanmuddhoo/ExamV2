@@ -849,12 +849,43 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
       {/* Calendar Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Active Schedules Section */}
+        {/* Mobile: Show/Hide button and Filter on same line */}
+        {schedules.length > 0 && schedules.filter(s => s.is_active).length > 0 && (
+          <div className="md:hidden mb-4 flex gap-2">
+            {/* Show/Hide Toggle Button */}
+            <button
+              onClick={() => setShowSchedules(!showSchedules)}
+              className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:text-gray-900 bg-white rounded-lg shadow-sm border border-gray-200 whitespace-nowrap"
+            >
+              <Eye className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>{showSchedules ? 'Hide' : 'Show'} Plans</span>
+            </button>
+
+            {/* Filter Dropdown */}
+            <select
+              value={selectedSubjectFilter || ''}
+              onChange={(e) => {
+                setSelectedSubjectFilter(e.target.value || null);
+                setSelectedScheduleFilter(null);
+              }}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-white"
+            >
+              <option value="">All Subjects</option>
+              {getUniqueSubjects().map(subject => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Desktop: Original layout for Show/Hide button */}
         {schedules.length > 0 && (
           <div className="mb-6">
             <button
               onClick={() => setShowSchedules(!showSchedules)}
-              className="flex items-center space-x-2 text-sm font-semibold text-gray-700 hover:text-gray-900 mb-3"
+              className="hidden md:flex items-center space-x-2 text-sm font-semibold text-gray-700 hover:text-gray-900 mb-3"
             >
               <Eye className="w-4 h-4" />
               <span>{showSchedules ? 'Hide' : 'Show'} Active Study Plans ({schedules.length})</span>
@@ -1099,9 +1130,9 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           </div>
         )}
 
-        {/* Filters */}
+        {/* Desktop: Filters */}
         {schedules.filter(s => s.is_active).length > 0 && (
-          <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="hidden md:block mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <label className="block text-sm font-semibold text-gray-700 mb-3">Filter by Study Plan</label>
 
             {/* Subject Dropdown */}
@@ -1154,6 +1185,38 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Mobile: Plan Selection Buttons */}
+        {selectedSubjectFilter && schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).length > 1 && (
+          <div className="md:hidden mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <label className="block text-xs font-medium text-gray-600 mb-2">Select Plan</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedScheduleFilter(null)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  !selectedScheduleFilter
+                    ? 'bg-black text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Plans
+              </button>
+              {schedules.filter(s => s.is_active && s.subject_id === selectedSubjectFilter).map((schedule, idx) => (
+                <button
+                  key={schedule.id}
+                  onClick={() => setSelectedScheduleFilter(schedule.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedScheduleFilter === schedule.id
+                      ? 'bg-black text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Plan #{idx + 1} ({schedule.grade_levels?.name})
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1385,7 +1448,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                               </div>
                             ))}
                             {dayEvents.length > (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20) && (
-                              <div className="text-xs text-gray-500 text-center">
+                              <div className="text-xs text-center font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                                 +{dayEvents.length - (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20)} more
                               </div>
                             )}
@@ -1577,8 +1640,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                     />
                                   ))}
                                   {dayEvents.length > 2 && (
-                                    <div className="text-[10px] text-gray-500 text-center font-medium">
-                                      +{dayEvents.length - 2}
+                                    <div className="text-[11px] text-center font-bold text-blue-700 bg-blue-100 px-1 py-0.5 rounded mt-0.5">
+                                      +{dayEvents.length - 2} more
                                     </div>
                                   )}
                                 </>
