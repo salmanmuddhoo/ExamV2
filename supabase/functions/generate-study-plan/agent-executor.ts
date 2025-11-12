@@ -289,6 +289,7 @@ async function callAIWithFunctions(
     case 'anthropic':
       return await callClaudeWithFunctions(config, messages, functions);
     case 'google':
+    case 'gemini':
       return await callGeminiWithFunctions(config, messages, functions);
     case 'openai':
       return await callOpenAIWithFunctions(config, messages, functions);
