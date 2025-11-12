@@ -95,9 +95,13 @@ export async function executeAgent(
   let totalOutputTokens = 0;
   let totalCostUsd = 0;
 
+  // Calculate total sessions for tracking
+  const totalSessions = context.chapters.reduce((sum, ch) => sum + ch.session_count, 0);
+
   // Agent loop
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    console.log(`\n=== Agent Iteration ${iteration + 1} ===`);
+    console.log(`\n=== Agent Iteration ${iteration + 1}/${maxIterations} ===`);
+    console.log(`📊 Progress: ${sessions.length}/${totalSessions} sessions scheduled`);
 
     // Call AI with function definitions
     const response = await callAIWithFunctions(config, messages);
@@ -145,9 +149,10 @@ export async function executeAgent(
           // Handle schedule_session specially - collect the session
           if (funcCall.name === 'schedule_session' && result.success) {
             sessions.push(result.session);
+            console.log(`✅ Session ${sessions.length}/${totalSessions} scheduled: ${result.session.title}`);
           }
 
-          // Add function result to messages
+          // Add function result to messages (format varies by provider)
           if (config.provider === 'openai') {
             messages.push({
               role: 'function' as any,
@@ -155,7 +160,19 @@ export async function executeAgent(
               content: JSON.stringify(result),
               tool_call_id: funcCall.id,
             });
+          } else if (config.provider === 'gemini' || config.provider === 'google') {
+            // Gemini expects function results in a specific format
+            messages.push({
+              role: 'user',
+              content: JSON.stringify({
+                functionResponse: {
+                  name: funcCall.name,
+                  response: result,
+                }
+              }),
+            } as any);
           } else {
+            // Claude/Anthropic
             messages.push({
               role: 'function' as any,
               name: funcCall.name,
@@ -173,16 +190,22 @@ export async function executeAgent(
       }
     } else {
       // No more function calls - agent is done
-      console.log('Agent completed planning');
+      console.log('Agent completed planning (no more function calls)');
+      console.log(`Final progress: ${sessions.length}/${totalSessions} sessions scheduled`);
       break;
     }
 
     // Safety check - ensure we scheduled the expected number of sessions
-    const totalSessions = context.chapters.reduce((sum, ch) => sum + ch.session_count, 0);
     if (sessions.length >= totalSessions) {
-      console.log('All sessions scheduled');
+      console.log(`✅ All ${totalSessions} sessions scheduled successfully!`);
       break;
     }
+  }
+
+  // Warn if we didn't schedule all sessions
+  if (sessions.length < totalSessions) {
+    console.warn(`⚠️ WARNING: Only scheduled ${sessions.length}/${totalSessions} sessions`);
+    console.warn(`Agent may have stopped early (reached max iterations: ${maxIterations})`);
   }
 
   return {
@@ -403,10 +426,31 @@ async function callGeminiWithFunctions(
   functions: any[]
 ): Promise<any> {
   // Convert to Gemini format
-  const contents = messages.map(msg => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
+  const contents = messages.map(msg => {
+    const role = msg.role === 'assistant' ? 'model' : 'user';
+
+    // Check if this is a function response
+    if (msg.content && typeof msg.content === 'string') {
+      try {
+        const parsed = JSON.parse(msg.content);
+        if (parsed.functionResponse) {
+          // This is a function response - use special format
+          return {
+            role: 'user',
+            parts: [parsed],
+          };
+        }
+      } catch (e) {
+        // Not JSON or not a function response, treat as text
+      }
+    }
+
+    // Regular text message
+    return {
+      role,
+      parts: [{ text: msg.content || '' }],
+    };
+  });
 
   const tools = [
     {

@@ -149,8 +149,14 @@ export async function generateStudyPlanWithAgent(
   // Get API key for the model
   const apiKey = getAPIKeyForProvider(aiModel.provider);
 
+  // Calculate max iterations based on sessions to schedule
+  // Each session typically needs: check_time_slot (1) + schedule_session (1) = 2 iterations minimum
+  // Add buffer for: initial calendar checks (2) + retries for conflicts (~20%)
+  const maxIterations = Math.max(30, totalSessions * 2 + 5);
+
+  console.log(`🚀 Launching AI agent (max ${maxIterations} iterations for ${totalSessions} sessions)...`);
+
   // Execute the agent
-  console.log('🚀 Launching AI agent...');
   const agentResult = await executeAgent(
     {
       provider: aiModel.provider,
@@ -158,7 +164,7 @@ export async function generateStudyPlanWithAgent(
       apiKey,
     },
     context,
-    20 // max iterations
+    maxIterations
   );
 
   console.log('✅ Agent completed successfully');
