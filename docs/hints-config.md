@@ -28,7 +28,7 @@ Each hint is defined with the following properties:
 - **Position**: center
 - **OffsetX**: 0
 - **OffsetY**: 0
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 1
 - **ShowOn**: both
 
@@ -40,7 +40,7 @@ Each hint is defined with the following properties:
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 2
 - **ShowOn**: both
 
@@ -52,9 +52,9 @@ Each hint is defined with the following properties:
 - **Position**: left
 - **OffsetX**: -10
 - **OffsetY**: 0
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 3
-- **ShowOn**: both
+- **ShowOn**: desktop
 
 ### Hint 4: AI Assistant
 - **ID**: `chat-assistant`
@@ -64,7 +64,7 @@ Each hint is defined with the following properties:
 - **Position**: top
 - **OffsetX**: 0
 - **OffsetY**: -10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 4
 - **ShowOn**: desktop
 
@@ -73,10 +73,10 @@ Each hint is defined with the following properties:
 - **Title**: Start a New Chat
 - **Description**: Tap here to start a new conversation with the AI assistant.
 - **Target**: `[data-hint="new-conversation-button"]`
-- **Position**: left
+- **Position**: right
 - **OffsetX**: 10
 - **OffsetY**: 0
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 5
 - **ShowOn**: mobile
 
@@ -88,7 +88,7 @@ Each hint is defined with the following properties:
 - **Position**: top
 - **OffsetX**: 0
 - **OffsetY**: -10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 6
 - **ShowOn**: mobile
 
@@ -100,7 +100,7 @@ Each hint is defined with the following properties:
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 7
 - **ShowOn**: both
 
@@ -108,7 +108,7 @@ Each hint is defined with the following properties:
 
 ## Exam Viewer Hints
 
-### Hint 8: Exam/Chat Toggle
+### Hint 8: Exam/Chat Toggle (Year Mode)
 - **ID**: `exam-toggle`
 - **Title**: Switch Between Views
 - **Description**: Toggle between viewing your exam paper and chatting with the AI assistant for help.
@@ -116,7 +116,19 @@ Each hint is defined with the following properties:
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /exam
+- **Page**: exam-viewer
+- **Order**: 1
+- **ShowOn**: mobile
+
+### Hint 9: Exam/Chat Toggle (Chapter Mode)
+- **ID**: `unified-toggle`
+- **Title**: Switch Between Views
+- **Description**: Toggle between viewing practice questions and chatting with the AI assistant for help.
+- **Target**: `[data-hint="exam-chat-toggle"]`
+- **Position**: bottom
+- **OffsetX**: 0
+- **OffsetY**: 10
+- **Page**: unified-viewer
 - **Order**: 1
 - **ShowOn**: mobile
 
@@ -124,7 +136,7 @@ Each hint is defined with the following properties:
 
 ## Study Plan Hints
 
-### Hint 9: Create Study Plan
+### Hint 10: Create Study Plan
 - **ID**: `study-plan-create`
 - **Title**: Create Your Study Plan
 - **Description**: Click here to create a personalized study plan. Choose your subjects, grade level, and study schedule.
@@ -132,11 +144,11 @@ Each hint is defined with the following properties:
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /study-plan
+- **Page**: study-plan
 - **Order**: 1
 - **ShowOn**: both
 
-### Hint 10: Calendar View
+### Hint 11: Calendar View
 - **ID**: `study-plan-calendar`
 - **Title**: Your Study Calendar
 - **Description**: View all your study sessions in calendar format. Click on any session to view details or update its status.
@@ -144,11 +156,11 @@ Each hint is defined with the following properties:
 - **Position**: top
 - **OffsetX**: 0
 - **OffsetY**: -10
-- **Page**: /study-plan
+- **Page**: study-plan
 - **Order**: 2
 - **ShowOn**: both
 
-### Hint 11: Filter Plans
+### Hint 12: Filter Plans
 - **ID**: `study-plan-filter`
 - **Title**: Filter Your Plans
 - **Description**: Filter study sessions by subject or specific study plan to focus on what matters.
@@ -156,7 +168,7 @@ Each hint is defined with the following properties:
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /study-plan
+- **Page**: study-plan
 - **Order**: 3
 - **ShowOn**: both
 
@@ -164,7 +176,7 @@ Each hint is defined with the following properties:
 
 ## Profile Settings Hints
 
-### Hint 12: Subscription
+### Hint 13: Subscription
 - **ID**: `profile-subscription`
 - **Title**: Manage Your Subscription
 - **Description**: View your current plan, token balance, and upgrade options. Track your usage here.
@@ -172,11 +184,11 @@ Each hint is defined with the following properties:
 - **Position**: right
 - **OffsetX**: 10
 - **OffsetY**: 0
-- **Page**: /profile
+- **Page**: profile
 - **Order**: 1
 - **ShowOn**: both
 
-### Hint 13: AI Model Selection
+### Hint 14: AI Model Selection
 - **ID**: `profile-ai-model`
 - **Title**: Choose Your AI Model
 - **Description**: Select from different AI models based on your needs. More powerful models use more tokens but provide better results.
@@ -184,7 +196,7 @@ Each hint is defined with the following properties:
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /profile
+- **Page**: profile
 - **Order**: 2
 - **ShowOn**: both
 
@@ -192,7 +204,7 @@ Each hint is defined with the following properties:
 
 ## Admin Dashboard Hints
 
-### Hint 14: Analytics Overview
+### Hint 15: Analytics Overview
 - **ID**: `admin-analytics`
 - **Title**: System Analytics
 - **Description**: Monitor token usage, costs, and user activity across the platform.
@@ -200,11 +212,11 @@ Each hint is defined with the following properties:
 - **Position**: right
 - **OffsetX**: 10
 - **OffsetY**: 0
-- **Page**: /admin
+- **Page**: admin
 - **Order**: 1
 - **ShowOn**: desktop
 
-### Hint 15: AI Model Settings
+### Hint 16: AI Model Settings
 - **ID**: `admin-ai-models`
 - **Title**: Configure AI Models
 - **Description**: Manage AI model pricing and availability. Update costs when providers change their pricing.
@@ -212,7 +224,7 @@ Each hint is defined with the following properties:
 - **Position**: right
 - **OffsetX**: 10
 - **OffsetY**: 0
-- **Page**: /admin
+- **Page**: admin
 - **Order**: 2
 - **ShowOn**: desktop
 

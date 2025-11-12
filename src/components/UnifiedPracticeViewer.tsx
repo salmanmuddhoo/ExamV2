@@ -909,7 +909,7 @@ export function UnifiedPracticeViewer({
         <div className="flex items-center">
           {/* Mobile View Toggle */}
           <div className="flex md:hidden relative">
-            <div className="relative bg-gray-200 rounded-full p-1 flex items-center">
+            <div className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
                   mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'

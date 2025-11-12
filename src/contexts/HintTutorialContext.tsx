@@ -93,7 +93,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 
 ## Exam Viewer Hints
 
-### Hint 8: Exam/Chat Toggle
+### Hint 8: Exam/Chat Toggle (Year Mode)
 - **ID**: exam-toggle
 - **Title**: Switch Between Views
 - **Description**: Toggle between viewing your exam paper and chatting with the AI assistant for help.
@@ -105,9 +105,21 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Order**: 1
 - **ShowOn**: mobile
 
+### Hint 9: Exam/Chat Toggle (Chapter Mode)
+- **ID**: unified-toggle
+- **Title**: Switch Between Views
+- **Description**: Toggle between viewing practice questions and chatting with the AI assistant for help.
+- **Target**: [data-hint="exam-chat-toggle"]
+- **Position**: bottom
+- **OffsetX**: 0
+- **OffsetY**: 10
+- **Page**: unified-viewer
+- **Order**: 1
+- **ShowOn**: mobile
+
 ## Study Plan Hints
 
-### Hint 9: Create Study Plan
+### Hint 10: Create Study Plan
 - **ID**: study-plan-create
 - **Title**: Create Your Study Plan
 - **Description**: Click here to create a personalized study plan. Choose your subjects, grade level, and study schedule.
@@ -119,7 +131,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Order**: 1
 - **ShowOn**: both
 
-### Hint 10: Calendar View
+### Hint 11: Calendar View
 - **ID**: study-plan-calendar
 - **Title**: Your Study Calendar
 - **Description**: View all your study sessions in calendar format. Click on any session to view details or update its status.
