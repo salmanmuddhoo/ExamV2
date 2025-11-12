@@ -340,190 +340,208 @@ Deno.serve(async (req) => {
       console.log("📊 Using multi-step reasoning with incremental calendar checks");
       console.log("=".repeat(80) + "\n");
 
-      // Use agent-based generation
-      const agentResult = await generateStudyPlanWithAgent(
-        supabaseClient,
-        user_id,
-        subject_id,
-        grade_id,
-        subjectName,
-        gradeName,
-        start_date,
-        end_date,
-        selected_days,
-        preferred_times,
-        study_duration_minutes,
-        chapters,
-        aiModel
-      );
+      let agentResult;
+      let promptTokenCount = 0;
+      let candidatesTokenCount = 0;
+      let totalTokenCount = 0;
+      let totalCost = 0;
 
-      console.log("\n" + "=".repeat(80));
-      console.log("✅ AGENT GENERATION COMPLETED");
-      console.log("=".repeat(80));
-      console.log(`📝 Sessions generated: ${agentResult.events.length}`);
-      console.log(`💬 Reasoning steps: ${agentResult.reasoning.length}`);
-      console.log(`🪙 Token usage: ${agentResult.token_usage.input} input + ${agentResult.token_usage.output} output`);
-      console.log(`💰 Cost: $${agentResult.cost_usd.toFixed(6)}`);
-      console.log("=".repeat(80) + "\n");
+      try {
+        // Use agent-based generation
+        agentResult = await generateStudyPlanWithAgent(
+          supabaseClient,
+          user_id,
+          subject_id,
+          grade_id,
+          subjectName,
+          gradeName,
+          start_date,
+          end_date,
+          selected_days,
+          preferred_times,
+          study_duration_minutes,
+          chapters,
+          aiModel
+        );
 
-      // Convert agent events to the format expected by the rest of the function
-      const studyEvents = agentResult.events;
-      const promptTokenCount = agentResult.token_usage.input;
-      const candidatesTokenCount = agentResult.token_usage.output;
-      const totalTokenCount = promptTokenCount + candidatesTokenCount;
-      const totalCost = agentResult.cost_usd;
+        console.log("\n" + "=".repeat(80));
+        console.log("✅ AGENT GENERATION COMPLETED");
+        console.log("=".repeat(80));
+        console.log(`📝 Sessions generated: ${agentResult.events.length}`);
+        console.log(`💬 Reasoning steps: ${agentResult.reasoning.length}`);
+        console.log(`🪙 Token usage: ${agentResult.token_usage.input} input + ${agentResult.token_usage.output} output`);
+        console.log(`💰 Cost: $${agentResult.cost_usd.toFixed(6)}`);
+        console.log("=".repeat(80) + "\n");
 
-      // Skip to the event insertion logic
-      // We'll continue with the normal flow from here
-      console.log("📊 Agent generated events:", JSON.stringify(studyEvents, null, 2));
+        // Extract token usage for deduction (will happen in finally block)
+        promptTokenCount = agentResult.token_usage.input;
+        candidatesTokenCount = agentResult.token_usage.output;
+        totalTokenCount = promptTokenCount + candidatesTokenCount;
+        totalCost = agentResult.cost_usd;
 
-      // Jump to event insertion (we'll extract this into a separate section below)
-      // For now, we need to process the events...
+        // Convert agent events to the format expected by the rest of the function
+        const studyEvents = agentResult.events;
+        console.log("📊 Agent generated events:", JSON.stringify(studyEvents, null, 2));
 
-      // Parse and validate events (same as legacy code)
-      if (!studyEvents || !Array.isArray(studyEvents)) {
-        throw new Error('AI agent did not return a valid array of study events');
-      }
+        // Parse and validate events (same as legacy code)
+        if (!studyEvents || !Array.isArray(studyEvents)) {
+          throw new Error('AI agent did not return a valid array of study events');
+        }
 
-      console.log(`✅ Agent generated ${studyEvents.length} study events`);
+        console.log(`✅ Agent generated ${studyEvents.length} study events`);
 
-      // Validate event count
-      if (studyEvents.length === 0) {
-        throw new Error('AI agent generated 0 sessions. This may be due to calendar conflicts or date range constraints. Please adjust your parameters and try again.');
-      }
+        // Validate event count
+        if (studyEvents.length === 0) {
+          throw new Error('AI agent generated 0 sessions. This may be due to calendar conflicts or date range constraints. Please adjust your parameters and try again.');
+        }
 
-      // Create chapter mapping (chapter_number -> chapter_id)
-      console.log("🗺️ Creating chapter mapping for agent events...");
-      const chapterMap = new Map(
-        chapters?.map(ch => [ch.chapter_number, ch.id]) || []
-      );
-      console.log(`✅ Chapter map created with ${chapterMap.size} entries`);
+        // Create chapter mapping (chapter_number -> chapter_id)
+        console.log("🗺️ Creating chapter mapping for agent events...");
+        const chapterMap = new Map(
+          chapters?.map(ch => [ch.chapter_number, ch.id]) || []
+        );
+        console.log(`✅ Chapter map created with ${chapterMap.size} entries`);
 
-      // Convert to database format and insert
-      const eventsToInsert = studyEvents.map((event: any) => ({
-        schedule_id: schedule_id,
-        user_id: user_id,
-        title: event.title,
-        description: event.description || '',
-        event_date: event.date,
-        start_time: event.start_time,
-        end_time: event.end_time,
-        chapter_id: event.chapter_number ? chapterMap.get(event.chapter_number) : null,
-        topics: event.topics || [],
-        status: 'pending'
-      }));
+        // Convert to database format and insert
+        const eventsToInsert = studyEvents.map((event: any) => ({
+          schedule_id: schedule_id,
+          user_id: user_id,
+          title: event.title,
+          description: event.description || '',
+          event_date: event.date,
+          start_time: event.start_time,
+          end_time: event.end_time,
+          chapter_id: event.chapter_number ? chapterMap.get(event.chapter_number) : null,
+          topics: event.topics || [],
+          status: 'pending'
+        }));
 
-      // Insert events in batches
-      const BATCH_SIZE = 50;
-      const batches = [];
-      for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
-        batches.push(eventsToInsert.slice(i, i + BATCH_SIZE));
-      }
+        // Insert events in batches
+        const BATCH_SIZE = 50;
+        const batches = [];
+        for (let i = 0; i < eventsToInsert.length; i += BATCH_SIZE) {
+          batches.push(eventsToInsert.slice(i, i + BATCH_SIZE));
+        }
 
-      console.log(`📦 Inserting ${eventsToInsert.length} events in ${batches.length} batches`);
+        console.log(`📦 Inserting ${eventsToInsert.length} events in ${batches.length} batches`);
 
-      const insertedEvents: any[] = [];
-      const MAX_RETRIES = 3;
+        const insertedEvents: any[] = [];
+        const MAX_RETRIES = 3;
 
-      for (let i = 0; i < batches.length; i++) {
-        let retryCount = 0;
-        while (retryCount <= MAX_RETRIES) {
-          try {
-            const { data: batchData, error: batchError } = await supabaseClient
-              .from('study_plan_events')
-              .insert(batches[i])
-              .select();
+        for (let i = 0; i < batches.length; i++) {
+          let retryCount = 0;
+          while (retryCount <= MAX_RETRIES) {
+            try {
+              const { data: batchData, error: batchError } = await supabaseClient
+                .from('study_plan_events')
+                .insert(batches[i])
+                .select();
 
-            if (batchError) throw batchError;
+              if (batchError) throw batchError;
 
-            insertedEvents.push(...(batchData || []));
-            console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
-            break;
-          } catch (error) {
-            retryCount++;
-            if (retryCount < MAX_RETRIES) {
-              console.log(`⚠️ Batch ${i + 1} failed, retrying (${retryCount}/${MAX_RETRIES})...`);
-              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-            } else {
-              console.error(`❌ Failed to insert batch ${i + 1} after ${MAX_RETRIES} retries:`, error);
-              throw error;
+              insertedEvents.push(...(batchData || []));
+              console.log(`✅ Batch ${i + 1}/${batches.length} inserted successfully (${batchData?.length || 0} events)`);
+              break;
+            } catch (error) {
+              retryCount++;
+              if (retryCount < MAX_RETRIES) {
+                console.log(`⚠️ Batch ${i + 1} failed, retrying (${retryCount}/${MAX_RETRIES})...`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+              } else {
+                console.error(`❌ Failed to insert batch ${i + 1} after ${MAX_RETRIES} retries:`, error);
+                throw error;
+              }
             }
           }
         }
-      }
 
-      console.log(`✅ Successfully inserted ${insertedEvents.length} events`);
+        console.log(`✅ Successfully inserted ${insertedEvents.length} events`);
 
-      // Log token usage
-      console.log("💾 Logging token usage to database...");
+        // Return successful response
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Successfully generated ${insertedEvents.length} study sessions using AI agent`,
+            schedule_id: schedule_id,
+            events_count: insertedEvents.length,
+            token_usage: {
+              prompt_tokens: promptTokenCount,
+              completion_tokens: candidatesTokenCount,
+              total_tokens: totalTokenCount,
+              cost_adjusted_tokens: 0  // Will be calculated in finally block
+            },
+            cost_usd: totalCost,
+            agent_mode: true,
+            reasoning_steps: agentResult?.reasoning.length || 0
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (error) {
+        console.error('❌ Agent mode error:', error);
+        // Error will be rethrown after token deduction in finally block
+        throw error;
+      } finally {
+        // CRITICAL: Deduct tokens even if generation or insertion failed
+        if (totalCost > 0 || totalTokenCount > 0) {
+          console.log("\n💾 Logging token usage to database (even on failure)...");
 
-      const { data: aiModelData } = await supabaseClient
-        .from('ai_models')
-        .select('id')
-        .eq('model_name', aiModel.model_name)
-        .single();
+          try {
+            const { data: aiModelData } = await supabaseClient
+              .from('ai_models')
+              .select('id')
+              .eq('model_name', aiModel.model_name)
+              .single();
 
-      await supabaseClient.from('token_usage_logs').insert({
-        user_id: user_id,
-        model: aiModel.model_name,
-        provider: aiModel.provider,
-        prompt_tokens: promptTokenCount,
-        completion_tokens: candidatesTokenCount,
-        total_tokens: totalTokenCount,
-        estimated_cost: totalCost,
-        purpose: 'study_plan_generation_agent',
-        ai_model_id: aiModelData?.id || null,
-        metadata: {
-          schedule_id: schedule_id,
-          subject_id: subject_id,
-          grade_id: grade_id,
-          events_generated: insertedEvents.length,
-          chapters_included: chapters.length,
-          agent_mode: true,
-          reasoning_steps: agentResult.reasoning.length,
-          date_range: `${start_date} to ${end_date}`
+            await supabaseClient.from('token_usage_logs').insert({
+              user_id: user_id,
+              model: aiModel.model_name,
+              provider: aiModel.provider,
+              prompt_tokens: promptTokenCount,
+              completion_tokens: candidatesTokenCount,
+              total_tokens: totalTokenCount,
+              estimated_cost: totalCost,
+              purpose: 'study_plan_generation_agent',
+              ai_model_id: aiModelData?.id || null,
+              metadata: {
+                schedule_id: schedule_id,
+                subject_id: subject_id,
+                grade_id: grade_id,
+                events_generated: agentResult?.events?.length || 0,
+                chapters_included: chapters.length,
+                agent_mode: true,
+                reasoning_steps: agentResult?.reasoning?.length || 0,
+                date_range: `${start_date} to ${end_date}`,
+                generation_failed: !agentResult  // Track if generation failed
+              }
+            });
+
+            console.log('✅ Token usage logged to database');
+
+            // Update user subscription token usage
+            const { data: adjustedTokenData } = await supabaseClient
+              .rpc('calculate_cost_based_token_consumption', {
+                p_actual_prompt_tokens: promptTokenCount,
+                p_actual_completion_tokens: candidatesTokenCount,
+                p_actual_cost: totalCost
+              });
+
+            const tokensToDeduct = adjustedTokenData || totalTokenCount;
+
+            await supabaseClient
+              .rpc('increment_user_token_usage', {
+                p_user_id: user_id,
+                p_tokens: tokensToDeduct
+              });
+
+            console.log(`✅ Deducted ${tokensToDeduct} tokens from user subscription`);
+          } catch (tokenError) {
+            console.error('❌ Failed to log/deduct tokens (but continuing):', tokenError);
+            // Don't throw - we want the original error to propagate
+          }
+        } else {
+          console.log('⏭️ No tokens to deduct (no AI calls were made)');
         }
-      });
-
-      console.log('✅ Token usage logged to database');
-
-      // Update user subscription token usage
-      const { data: adjustedTokenData } = await supabaseClient
-        .rpc('calculate_cost_based_token_consumption', {
-          p_actual_prompt_tokens: promptTokenCount,
-          p_actual_completion_tokens: candidatesTokenCount,
-          p_actual_cost: totalCost
-        });
-
-      const tokensToDeduct = adjustedTokenData || totalTokenCount;
-
-      await supabaseClient
-        .rpc('increment_user_token_usage', {
-          p_user_id: user_id,
-          p_tokens: tokensToDeduct
-        });
-
-      console.log(`✅ Deducted ${tokensToDeduct} tokens from user subscription`);
-
-      // Return successful response
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Successfully generated ${insertedEvents.length} study sessions using AI agent`,
-          schedule_id: schedule_id,
-          events_count: insertedEvents.length,
-          token_usage: {
-            prompt_tokens: promptTokenCount,
-            completion_tokens: candidatesTokenCount,
-            total_tokens: totalTokenCount,
-            cost_adjusted_tokens: tokensToDeduct
-          },
-          cost_usd: totalCost,
-          agent_mode: true,
-          reasoning_steps: agentResult.reasoning.length
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      }
     }
 
     // LEGACY MODE: Continue with traditional single-prompt generation
