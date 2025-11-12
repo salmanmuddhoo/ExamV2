@@ -218,11 +218,14 @@ export async function executeAgent(
         }
       } else if (config.provider === 'gemini' || config.provider === 'google') {
         // Gemini expects ALL function responses in ONE message with multiple parts
-        // Response should be the raw result, not wrapped in {name, content}
+        // Per Gemini API docs, response needs {name, content} structure
         const parts = functionResults.map(fr => ({
           functionResponse: {
             name: fr.name,
-            response: fr.result,  // Just the raw result
+            response: {
+              name: fr.name,
+              content: fr.result,
+            }
           }
         }));
 
@@ -537,24 +540,29 @@ async function callGeminiWithFunctions(
           console.log(`    Part ${pIdx + 1}: functionCall(${part.functionCall.name})`);
         } else if (part.functionResponse) {
           console.log(`    Part ${pIdx + 1}: functionResponse(${part.functionResponse.name})`);
+          console.log(`      Response structure:`, JSON.stringify(part.functionResponse).substring(0, 200));
         }
       });
     }
   });
+
+  const requestBody = {
+    contents,
+    tools,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 4096,
+    },
+  };
+
+  console.log('📤 Gemini API Request body preview:', JSON.stringify(requestBody).substring(0, 500));
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        tools,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4096,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     }
   );
 
