@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { useHintTutorial } from './contexts/HintTutorialContext';
 import { LoginForm } from './components/LoginForm';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Homepage } from './components/Homepage';
@@ -18,6 +19,7 @@ import { BlogList } from './components/BlogList';
 import { BlogPost } from './components/BlogPost';
 import { StudyPlanCalendar } from './components/StudyPlanCalendar';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { HintTutorialManager } from './components/HintTutorialManager';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
@@ -60,6 +62,7 @@ function getPathnameFromView(view: View): string {
 
 function App() {
   const { user, profile, loading, signOut } = useAuth();
+  const { setCurrentView } = useHintTutorial();
   const [view, setView] = useState<View>(() => {
     // First, check if there's a saved view in sessionStorage
     const savedView = sessionStorage.getItem('currentView');
@@ -128,6 +131,11 @@ function App() {
     // Save current view to sessionStorage
     sessionStorage.setItem('currentView', view);
   }, [view]);
+
+  // Sync view with hint tutorial context
+  useEffect(() => {
+    setCurrentView(view);
+  }, [view, setCurrentView]);
 
   // Browser back button handler - Handle URL-based navigation
   useEffect(() => {
@@ -949,6 +957,9 @@ function App() {
 
       {/* PWA Install Banner */}
       <PWAInstallBanner variant="floating" />
+
+      {/* Hint Tutorial Manager */}
+      <HintTutorialManager />
     </>
   );
 }

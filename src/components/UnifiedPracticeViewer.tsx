@@ -1262,6 +1262,7 @@ export function UnifiedPracticeViewer({
                   <div className="relative">
                     <form onSubmit={handleSendMessage} className="flex space-x-2">
                       <input
+                        data-hint="chat-input"
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}

@@ -540,7 +540,7 @@ export function ChatHub({
 
           {/* Today's Study Plan Summary - Mobile */}
           {!loadingTodayEvents && filteredTodayEvents.length > 0 && (
-            <div className="md:hidden border-b border-gray-200 bg-gray-50">
+            <div className="md:hidden border-b border-gray-200 bg-gray-50" data-hint="today-study-plan">
               <button
                 onClick={() => setTodayPlanCollapsed(!todayPlanCollapsed)}
                 className="w-full flex items-center justify-between p-4 hover:bg-gray-100 transition-colors"
@@ -881,7 +881,7 @@ export function ChatHub({
             <div className="h-full p-6">
               {/* Today's Study Plan Summary - Desktop */}
               {!loadingTodayEvents && filteredTodayEvents.length > 0 && (
-                <div className="hidden md:block mb-6 bg-white border border-gray-200 rounded-lg p-4">
+                <div className="hidden md:block mb-6 bg-white border border-gray-200 rounded-lg p-4" data-hint="today-study-plan">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-700" />

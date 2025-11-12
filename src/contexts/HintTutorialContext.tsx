@@ -15,7 +15,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: center
 - **OffsetX**: 0
 - **OffsetY**: 0
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 1
 - **ShowOn**: both
 
@@ -27,7 +27,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 2
 - **ShowOn**: both
 
@@ -39,7 +39,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: left
 - **OffsetX**: -10
 - **OffsetY**: 0
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 3
 - **ShowOn**: desktop
 
@@ -51,7 +51,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: top
 - **OffsetX**: 0
 - **OffsetY**: -10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 4
 - **ShowOn**: desktop
 
@@ -63,7 +63,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: right
 - **OffsetX**: 10
 - **OffsetY**: 0
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 5
 - **ShowOn**: mobile
 
@@ -75,7 +75,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: top
 - **OffsetX**: 0
 - **OffsetY**: -10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 6
 - **ShowOn**: mobile
 
@@ -87,7 +87,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /chat
+- **Page**: chat-hub
 - **Order**: 7
 - **ShowOn**: both
 
@@ -101,7 +101,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /exam
+- **Page**: exam-viewer
 - **Order**: 1
 - **ShowOn**: mobile
 
@@ -115,7 +115,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: bottom
 - **OffsetX**: 0
 - **OffsetY**: 10
-- **Page**: /study-plan
+- **Page**: study-plan
 - **Order**: 1
 - **ShowOn**: both
 
@@ -127,7 +127,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Position**: top
 - **OffsetX**: 0
 - **OffsetY**: -10
-- **Page**: /study-plan
+- **Page**: study-plan
 - **Order**: 2
 - **ShowOn**: both
 `;
@@ -138,6 +138,8 @@ interface HintTutorialContextType {
   currentHintIndex: number;
   isShowingHints: boolean;
   progress: HintProgress;
+  currentView: string;
+  setCurrentView: (view: string) => void;
   startTutorial: (page: string) => void;
   nextHint: () => void;
   previousHint: () => void;
@@ -155,6 +157,7 @@ export function HintTutorialProvider({ children }: { children: ReactNode }) {
   const [currentHints, setCurrentHints] = useState<Hint[]>([]);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
   const [isShowingHints, setIsShowingHints] = useState(false);
+  const [currentView, setCurrentView] = useState('');
   const [progress, setProgress] = useState<HintProgress>({
     seenHints: [],
     currentHintIndex: 0,
@@ -283,6 +286,8 @@ export function HintTutorialProvider({ children }: { children: ReactNode }) {
         currentHintIndex,
         isShowingHints,
         progress,
+        currentView,
+        setCurrentView,
         startTutorial,
         nextHint,
         previousHint,

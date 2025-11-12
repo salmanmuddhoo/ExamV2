@@ -845,6 +845,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
               </div>
             </div>
             <button
+              data-hint="create-plan-button"
               onClick={() => setShowCreateModal(true)}
               className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all flex items-center space-x-2"
             >
@@ -871,6 +872,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
             {/* Filter Dropdown */}
             <select
+              data-hint="plan-filter"
               value={selectedSubjectFilter || ''}
               onChange={(e) => {
                 setSelectedSubjectFilter(e.target.value || null);
@@ -1390,7 +1392,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           </div>
 
           {/* Desktop Calendar Grid with Right Panel */}
-          <div className="hidden md:flex p-6 gap-6 max-w-full overflow-x-hidden">
+          <div className="hidden md:flex p-6 gap-6 max-w-full overflow-x-hidden" data-hint="calendar-view">
             {/* Calendar Grid */}
             <div className="w-2/3 transition-all min-w-0">
               {calendarView === 'month' && (

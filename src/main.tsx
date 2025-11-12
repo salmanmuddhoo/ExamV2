@@ -4,6 +4,7 @@ import App from './App.tsx';
 import { AuthProvider } from './contexts/AuthContext';
 import { FirstTimeHintsProvider } from './contexts/FirstTimeHintsContext';
 import { PWAProvider } from './contexts/PWAContext';
+import { HintTutorialProvider } from './contexts/HintTutorialContext';
 import './index.css';
 
 // Register service worker for PWA
@@ -24,7 +25,9 @@ createRoot(document.getElementById('root')!).render(
     <AuthProvider>
       <FirstTimeHintsProvider>
         <PWAProvider>
-          <App />
+          <HintTutorialProvider>
+            <App />
+          </HintTutorialProvider>
         </PWAProvider>
       </FirstTimeHintsProvider>
     </AuthProvider>
