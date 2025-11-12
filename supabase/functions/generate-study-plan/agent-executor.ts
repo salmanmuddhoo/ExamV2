@@ -485,8 +485,9 @@ async function callGeminiWithFunctions(
         if (parsed.parts && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
           // Check if these are function responses (not model function calls)
           if (parsed.parts[0].functionResponse) {
+            // Gemini REST API expects function responses with role 'user', not 'function'
             return {
-              role: 'function',
+              role: 'user',
               parts: parsed.parts,
             };
           }
@@ -499,8 +500,9 @@ async function callGeminiWithFunctions(
 
         // Check for single function response (legacy format)
         if (parsed.functionResponse) {
+          // Gemini REST API expects function responses with role 'user', not 'function'
           return {
-            role: 'function',
+            role: 'user',
             parts: [parsed],
           };
         }
