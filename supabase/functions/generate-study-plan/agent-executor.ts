@@ -281,70 +281,39 @@ function buildSystemPrompt(context: StudyPlanContext): string {
     )
     .join('\n');
 
-  return `You are an intelligent study plan scheduling assistant. Your task is to schedule ${totalSessions} study sessions for a student while avoiding calendar conflicts.
+  return `You are a study plan scheduling agent. You MUST schedule ${totalSessions} study sessions by calling functions.
 
-**Student Information:**
-- Subject: ${context.subjectName}
-- Grade: ${context.gradeName}
+**IMPORTANT: You must CALL the provided functions - DO NOT write code or explanations. Use the actual function calling mechanism.**
+
+**Context:**
+- Subject: ${context.subjectName}, Grade: ${context.gradeName}
 - Date Range: ${context.startDate} to ${context.endDate}
 - Preferred Days: ${preferredDayNames}
 - Preferred Time: ${context.preferredStartTime} - ${context.preferredEndTime}
 - Session Duration: ${context.sessionDuration} minutes
 
-**Chapters to Cover:**
+**Chapters:**
 ${chaptersInfo}
 
-**CRITICAL: You MUST schedule exactly ${totalSessions} sessions total.**
+**Your Task: Schedule ALL ${totalSessions} sessions**
 
-**Your Tools:**
-You have access to the following functions to help you schedule intelligently:
+**Step 1:** Call get_busy_periods() and get_conflicting_sessions() to understand the calendar.
 
-1. **get_busy_periods()** - Get days with existing events (sorted by least busy first)
-2. **check_time_slot(date, start_time, end_time)** - Check if a specific time has conflicts
-3. **get_conflicting_sessions()** - Get existing sessions for this same subject/grade
-4. **schedule_session(...)** - Schedule a session (only after checking it's free)
+**Step 2:** For EACH of the ${totalSessions} sessions (going through chapters in order):
+  a. Pick a date (prefer less busy days from preferred days)
+  b. Calculate times (start = preferred start time, end = start + ${context.sessionDuration} min)
+  c. Call check_time_slot(date, start_time, end_time)
+  d. If free: Call schedule_session(date, start_time, end_time, title, chapter_number, session_number, topics)
+  e. If conflict: Try next day
+  f. Move to next session and REPEAT
 
-**Instructions:**
+**Rules:**
+- ALWAYS check_time_slot BEFORE schedule_session
+- Title format: "${context.subjectName} - Chapter X: Session Y"
+- Follow chapter order strictly
+- Continue until you've scheduled ALL ${totalSessions} sessions
 
-1. **Start by understanding the calendar:**
-   - Call get_busy_periods() to see which days have fewer events
-   - Call get_conflicting_sessions() to see if there are existing sessions for this subject
-
-2. **Then, schedule ALL ${totalSessions} sessions one by one:**
-   - You MUST schedule sessions in a loop until you've scheduled all ${totalSessions} sessions
-   - Keep track: After scheduling session N, immediately schedule session N+1
-   - Continue until you've scheduled session ${totalSessions}
-
-3. **For EACH of the ${totalSessions} sessions:**
-   a. Determine the best date (prefer less busy days, prefer preferred days)
-   b. Calculate start/end times based on preferred time and session duration
-   c. **ALWAYS call check_time_slot() BEFORE scheduling**
-   d. If conflict exists:
-      - Try a different time on the same day
-      - Or try the next preferred day
-   e. Once you find a free slot, call schedule_session()
-   f. **REPEAT for the next session** - don't stop until all ${totalSessions} are scheduled
-
-4. **Chapter and session ordering:**
-   - MUST follow chapter order (Chapter 1 sessions before Chapter 2)
-   - MUST follow session order within each chapter (Session 1 before Session 2)
-   - Session titles: "${context.subjectName} - Chapter X: Session Y"
-   - Distribute sessions evenly across the date range
-   - Include relevant topics for each session
-
-5. **Completion:**
-   - You are NOT done until you have scheduled ALL ${totalSessions} sessions
-   - After scheduling each session, continue to the next one
-   - When you've scheduled all ${totalSessions} sessions, explain your final scheduling strategy
-
-**Important Rules:**
-- NEVER schedule a session without checking the time slot first
-- MUST maintain chapter and session order
-- Try to space sessions evenly (avoid clustering)
-- Respect preferred days and times as much as possible
-- DO NOT STOP until you've called schedule_session() exactly ${totalSessions} times
-
-Begin by calling get_busy_periods() to understand the calendar, then systematically schedule all ${totalSessions} sessions one after another.`;
+**START NOW:** Call get_busy_periods() to begin.`;
 }
 
 /**
