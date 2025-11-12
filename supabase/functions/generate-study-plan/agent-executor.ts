@@ -115,11 +115,28 @@ export async function executeAgent(
     totalCostUsd += response.cost_usd;
 
     // Add assistant response to message history
-    messages.push({
-      role: 'assistant',
-      content: response.content || '',
-      ...response.function_data,
-    });
+    // For Gemini, if we have parts (function calls), we need to store them properly
+    if (config.provider === 'gemini' || config.provider === 'google') {
+      if (response.function_data?.parts && response.function_data.parts.length > 0) {
+        // Store Gemini's parts structure for proper conversation history
+        messages.push({
+          role: 'assistant',
+          content: JSON.stringify({ parts: response.function_data.parts }),
+        });
+      } else {
+        messages.push({
+          role: 'assistant',
+          content: response.content || '',
+        });
+      }
+    } else {
+      // For other providers, use standard format
+      messages.push({
+        role: 'assistant',
+        content: response.content || '',
+        ...response.function_data,
+      });
+    }
 
     // Log reasoning
     if (response.content) {
@@ -437,19 +454,28 @@ async function callGeminiWithFunctions(
   const contents = messages.map(msg => {
     const role = msg.role === 'assistant' ? 'model' : 'user';
 
-    // Check if this is a function response
+    // Check if message content is a JSON structure (function response or model parts)
     if (msg.content && typeof msg.content === 'string') {
       try {
         const parsed = JSON.parse(msg.content);
+
+        // Check for function response (role should be 'function')
         if (parsed.functionResponse) {
-          // This is a function response - use special format
           return {
-            role: 'user',
+            role: 'function',
             parts: [parsed],
           };
         }
+
+        // Check for model response with parts (function calls from model)
+        if (parsed.parts && Array.isArray(parsed.parts)) {
+          return {
+            role: 'model',
+            parts: parsed.parts,
+          };
+        }
       } catch (e) {
-        // Not JSON or not a function response, treat as text
+        // Not JSON, treat as regular text
       }
     }
 
@@ -517,10 +543,28 @@ async function callGeminiWithFunctions(
   const inputCost = (inputTokens / 1_000_000) * 0.075; // Gemini 1.5 Pro pricing
   const outputCost = (outputTokens / 1_000_000) * 0.30;
 
+  // For Gemini, we need to preserve the original parts structure for conversation history
+  const parts: any[] = [];
+  if (content) {
+    parts.push({ text: content });
+  }
+  if (function_calls.length > 0) {
+    for (const fc of function_calls) {
+      parts.push({
+        functionCall: {
+          name: fc.name,
+          args: fc.arguments,
+        },
+      });
+    }
+  }
+
   return {
     content: content || null,
     function_calls,
-    function_data: {},
+    function_data: {
+      parts, // Include Gemini-formatted parts for conversation history
+    },
     usage: {
       input_tokens: inputTokens,
       output_tokens: outputTokens,
