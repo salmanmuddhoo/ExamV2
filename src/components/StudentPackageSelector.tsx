@@ -440,7 +440,7 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
           <p className="text-xs sm:text-sm text-gray-600">
             <strong>Note:</strong> You'll have access to exam papers from <strong>{grades.find(g => g.id === selectedGradeId)?.name}</strong> for the{' '}
             <strong>{selectedSubjectIds.length} subject{selectedSubjectIds.length !== 1 ? 's' : ''}</strong> you've selected.
-            You can change your selection after purchase from your account settings.
+            You cant change your selection after your purchase.
           </p>
         </div>
       )}

@@ -1437,15 +1437,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   setSelectedEvent(event);
                                   setShowEventModal(true);
                                 }}
-                                className={`text-xs p-1 rounded border ${getStatusColor(event.status, isEventOverdue(event))} ${calendarView === 'month' ? 'truncate' : ''} cursor-pointer hover:shadow-md transition-shadow`}
+                                className={`text-xs p-1 rounded border ${getStatusColor(event.status, isEventOverdue(event))} truncate cursor-pointer hover:shadow-md transition-shadow`}
                               >
                                 <div className="flex items-center space-x-1">
                                   {getStatusIcon(event.status, isEventOverdue(event))}
-                                  <span className={calendarView === 'month' ? 'truncate' : ''}>{formatEventTitle(event)}</span>
+                                  <span className="truncate">{formatEventTitle(event)}</span>
                                 </div>
-                                {calendarView !== 'month' && event.description && (
-                                  <p className="text-[10px] text-gray-600 mt-0.5 line-clamp-2">{event.description}</p>
-                                )}
                               </div>
                             ))}
                             {dayEvents.length > (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20) && (
