@@ -218,20 +218,18 @@ export async function executeAgent(
         }
       } else if (config.provider === 'gemini' || config.provider === 'google') {
         // Gemini expects ALL function responses in ONE message with multiple parts
-        // Per Gemini API docs, response needs {name, content} structure
-        const parts = functionResults.map(fr => ({
+        // Store the raw parts structure (will be converted in callGeminiWithFunctions)
+        const geminiParts = functionResults.map(fr => ({
           functionResponse: {
             name: fr.name,
-            response: {
-              name: fr.name,
-              content: fr.result,
-            }
+            response: fr.result,  // Just the raw result - Gemini doesn't need {name, content} wrapper
           }
         }));
 
+        // Store as a special marker that will be recognized and converted
         messages.push({
           role: 'user',
-          content: JSON.stringify({ parts }),
+          content: JSON.stringify({ gemini_function_responses: geminiParts }),
         } as any);
       } else {
         // Claude/Anthropic - separate messages
@@ -476,29 +474,20 @@ async function callGeminiWithFunctions(
       try {
         const parsed = JSON.parse(msg.content);
 
-        // Check for multiple function responses (parts array with functionResponse objects)
-        if (parsed.parts && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
-          // Check if these are function responses (not model function calls)
-          if (parsed.parts[0].functionResponse) {
-            // Gemini REST API expects function responses with role 'user', not 'function'
-            return {
-              role: 'user',
-              parts: parsed.parts,
-            };
-          }
-          // Otherwise, these are model parts (function calls from model)
+        // NEW: Check for our gemini_function_responses marker
+        if (parsed.gemini_function_responses && Array.isArray(parsed.gemini_function_responses)) {
           return {
-            role: 'model',
-            parts: parsed.parts,
+            role: 'user',
+            parts: parsed.gemini_function_responses,
           };
         }
 
-        // Check for single function response (legacy format)
-        if (parsed.functionResponse) {
-          // Gemini REST API expects function responses with role 'user', not 'function'
+        // Check for model parts with function calls
+        if (parsed.parts && Array.isArray(parsed.parts) && parsed.parts.length > 0) {
+          // These are model parts (function calls from model)
           return {
-            role: 'user',
-            parts: [parsed],
+            role: 'model',
+            parts: parsed.parts,
           };
         }
       } catch (e) {
