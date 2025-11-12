@@ -242,6 +242,16 @@ export async function executeAgent(
       break;
     }
 
+    // Implement sliding window to prevent conversation history from growing too large
+    // Keep: system prompt (first message) + last 10 messages (5 turns)
+    if (messages.length > 11) {
+      const systemPromptMsg = messages[0]; // Always keep the system prompt
+      const recentMessages = messages.slice(-10); // Keep last 10 messages
+      messages.length = 0;
+      messages.push(systemPromptMsg, ...recentMessages);
+      console.log(`🔄 Trimmed conversation history to ${messages.length} messages (system prompt + last 10)`);
+    }
+
     // Safety check - ensure we scheduled the expected number of sessions
     if (sessions.length >= totalSessions) {
       console.log(`✅ All ${totalSessions} sessions scheduled successfully!`);
