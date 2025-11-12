@@ -66,13 +66,65 @@ Each hint is defined with the following properties:
 - **OffsetY**: -10
 - **Page**: /chat
 - **Order**: 4
+- **ShowOn**: desktop
+
+### Hint 5: New Conversation (Mobile)
+- **ID**: `chat-new-conversation-mobile`
+- **Title**: Start a New Chat
+- **Description**: Tap here to start a new conversation with the AI assistant.
+- **Target**: `[data-hint="new-conversation-button"]`
+- **Position**: right
+- **OffsetX**: 10
+- **OffsetY**: 0
+- **Page**: /chat
+- **Order**: 5
+- **ShowOn**: mobile
+
+### Hint 6: Question Input (Mobile)
+- **ID**: `chat-input-mobile`
+- **Title**: Ask Your Question
+- **Description**: Type your question here and the AI will help you understand any topic or concept.
+- **Target**: `[data-hint="chat-input"]`
+- **Position**: top
+- **OffsetX**: 0
+- **OffsetY**: -10
+- **Page**: /chat
+- **Order**: 6
+- **ShowOn**: mobile
+
+### Hint 7: Token Balance
+- **ID**: `chat-token-balance`
+- **Title**: Your Token Balance
+- **Description**: Keep track of your remaining tokens here. Each question uses tokens based on the AI model you've selected.
+- **Target**: `[data-hint="token-display"]`
+- **Position**: bottom
+- **OffsetX**: 0
+- **OffsetY**: 10
+- **Page**: /chat
+- **Order**: 7
 - **ShowOn**: both
+
+---
+
+## Exam Viewer Hints
+
+### Hint 8: Exam/Chat Toggle
+- **ID**: `exam-toggle`
+- **Title**: Switch Between Views
+- **Description**: Toggle between viewing your exam paper and chatting with the AI assistant for help.
+- **Target**: `[data-hint="exam-chat-toggle"]`
+- **Position**: bottom
+- **OffsetX**: 0
+- **OffsetY**: 10
+- **Page**: /exam
+- **Order**: 1
+- **ShowOn**: mobile
 
 ---
 
 ## Study Plan Hints
 
-### Hint 5: Create Study Plan
+### Hint 9: Create Study Plan
 - **ID**: `study-plan-create`
 - **Title**: Create Your Study Plan
 - **Description**: Click here to create a personalized study plan. Choose your subjects, grade level, and study schedule.
@@ -84,7 +136,7 @@ Each hint is defined with the following properties:
 - **Order**: 1
 - **ShowOn**: both
 
-### Hint 6: Calendar View
+### Hint 10: Calendar View
 - **ID**: `study-plan-calendar`
 - **Title**: Your Study Calendar
 - **Description**: View all your study sessions in calendar format. Click on any session to view details or update its status.
@@ -96,7 +148,7 @@ Each hint is defined with the following properties:
 - **Order**: 2
 - **ShowOn**: both
 
-### Hint 7: Filter Plans
+### Hint 11: Filter Plans
 - **ID**: `study-plan-filter`
 - **Title**: Filter Your Plans
 - **Description**: Filter study sessions by subject or specific study plan to focus on what matters.
@@ -112,7 +164,7 @@ Each hint is defined with the following properties:
 
 ## Profile Settings Hints
 
-### Hint 8: Subscription
+### Hint 12: Subscription
 - **ID**: `profile-subscription`
 - **Title**: Manage Your Subscription
 - **Description**: View your current plan, token balance, and upgrade options. Track your usage here.
@@ -124,7 +176,7 @@ Each hint is defined with the following properties:
 - **Order**: 1
 - **ShowOn**: both
 
-### Hint 9: AI Model Selection
+### Hint 13: AI Model Selection
 - **ID**: `profile-ai-model`
 - **Title**: Choose Your AI Model
 - **Description**: Select from different AI models based on your needs. More powerful models use more tokens but provide better results.
@@ -140,7 +192,7 @@ Each hint is defined with the following properties:
 
 ## Admin Dashboard Hints
 
-### Hint 10: Analytics Overview
+### Hint 14: Analytics Overview
 - **ID**: `admin-analytics`
 - **Title**: System Analytics
 - **Description**: Monitor token usage, costs, and user activity across the platform.
@@ -152,7 +204,7 @@ Each hint is defined with the following properties:
 - **Order**: 1
 - **ShowOn**: desktop
 
-### Hint 11: AI Model Settings
+### Hint 15: AI Model Settings
 - **ID**: `admin-ai-models`
 - **Title**: Configure AI Models
 - **Description**: Manage AI model pricing and availability. Update costs when providers change their pricing.

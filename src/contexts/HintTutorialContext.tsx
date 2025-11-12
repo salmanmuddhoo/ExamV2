@@ -53,11 +53,61 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **OffsetY**: -10
 - **Page**: /chat
 - **Order**: 4
+- **ShowOn**: desktop
+
+### Hint 5: New Conversation (Mobile)
+- **ID**: chat-new-conversation-mobile
+- **Title**: Start a New Chat
+- **Description**: Tap here to start a new conversation with the AI assistant.
+- **Target**: [data-hint="new-conversation-button"]
+- **Position**: right
+- **OffsetX**: 10
+- **OffsetY**: 0
+- **Page**: /chat
+- **Order**: 5
+- **ShowOn**: mobile
+
+### Hint 6: Question Input (Mobile)
+- **ID**: chat-input-mobile
+- **Title**: Ask Your Question
+- **Description**: Type your question here and the AI will help you understand any topic or concept.
+- **Target**: [data-hint="chat-input"]
+- **Position**: top
+- **OffsetX**: 0
+- **OffsetY**: -10
+- **Page**: /chat
+- **Order**: 6
+- **ShowOn**: mobile
+
+### Hint 7: Token Balance
+- **ID**: chat-token-balance
+- **Title**: Your Token Balance
+- **Description**: Keep track of your remaining tokens here. Each question uses tokens based on the AI model you've selected.
+- **Target**: [data-hint="token-display"]
+- **Position**: bottom
+- **OffsetX**: 0
+- **OffsetY**: 10
+- **Page**: /chat
+- **Order**: 7
 - **ShowOn**: both
+
+## Exam Viewer Hints
+
+### Hint 8: Exam/Chat Toggle
+- **ID**: exam-toggle
+- **Title**: Switch Between Views
+- **Description**: Toggle between viewing your exam paper and chatting with the AI assistant for help.
+- **Target**: [data-hint="exam-chat-toggle"]
+- **Position**: bottom
+- **OffsetX**: 0
+- **OffsetY**: 10
+- **Page**: /exam
+- **Order**: 1
+- **ShowOn**: mobile
 
 ## Study Plan Hints
 
-### Hint 5: Create Study Plan
+### Hint 9: Create Study Plan
 - **ID**: study-plan-create
 - **Title**: Create Your Study Plan
 - **Description**: Click here to create a personalized study plan. Choose your subjects, grade level, and study schedule.
@@ -69,7 +119,7 @@ const HINTS_CONFIG = `# Hint Tutorial Configuration
 - **Order**: 1
 - **ShowOn**: both
 
-### Hint 6: Calendar View
+### Hint 10: Calendar View
 - **ID**: study-plan-calendar
 - **Title**: Your Study Calendar
 - **Description**: View all your study sessions in calendar format. Click on any session to view details or update its status.

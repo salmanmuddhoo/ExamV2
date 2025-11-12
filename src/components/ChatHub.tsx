@@ -502,6 +502,7 @@ export function ChatHub({
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
               <div className="relative md:hidden">
                 <button
+                  data-hint="new-conversation-button"
                   onClick={handleNewConversation}
                   className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
                   title="New Conversation"

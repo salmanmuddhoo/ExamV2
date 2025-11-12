@@ -573,6 +573,13 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       });
     }
 
+    // Sort by start_time (chronological order)
+    filteredEvents.sort((a, b) => {
+      const timeA = a.start_time || '';
+      const timeB = b.start_time || '';
+      return timeA.localeCompare(timeB);
+    });
+
     return filteredEvents;
   };
 

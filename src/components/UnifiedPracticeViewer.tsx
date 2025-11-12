@@ -1210,7 +1210,7 @@ export function UnifiedPracticeViewer({
               <div className="px-4 pt-4 pb-20 md:pb-4 border-t border-gray-200 bg-white flex-shrink-0">
                 {/* Token Display with Upgrade button */}
                 {tokensLimit !== null && (
-                  <div className="mb-2 flex items-center justify-between px-1 relative">
+                  <div className="mb-2 flex items-center justify-between px-1 relative" data-hint="token-display">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-600">AI Tokens:</span>
                       <span className="text-xs font-semibold text-gray-900">
