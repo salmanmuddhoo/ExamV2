@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign, Brain } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -16,6 +16,7 @@ import { QuestionBankByChapter } from './QuestionBankByChapter';
 import { SystemSettings } from './SystemSettings';
 import { CouponCodeManager } from './CouponCodeManager';
 import { CurrencyExchangeManager } from './CurrencyExchangeManager';
+import { AIModelSettings } from './AIModelSettings';
 
 interface AdminDashboardProps {
   onNavigateHome?: () => void;
@@ -25,7 +26,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'syllabus' | 'question-bank' | 'users' | 'system-settings';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings';
 
 interface MenuItem {
   id: Tab;
@@ -95,6 +96,7 @@ export function AdminDashboard({
       items: [
         { id: 'tier-config' as Tab, label: 'Tier Config', icon: TrendingUp },
         { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
+        { id: 'ai-model-settings' as Tab, label: 'AI Model Settings', icon: Brain },
         { id: 'system-settings' as Tab, label: 'System Settings', icon: Settings },
       ],
     },
@@ -331,6 +333,7 @@ export function AdminDashboard({
             {activeTab === 'syllabus' && <SyllabusManager />}
             {activeTab === 'question-bank' && <QuestionBankByChapter />}
             {activeTab === 'prompts' && <AIPromptManager />}
+            {activeTab === 'ai-model-settings' && <AIModelSettings />}
             {activeTab === 'system-settings' && <SystemSettings />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}

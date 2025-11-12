@@ -211,6 +211,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           *,
           study_plan_schedules!inner(
             subjects(name, id),
+            grade_levels(name),
             is_active
           )
         `)
@@ -1449,7 +1450,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                             ))}
                             {dayEvents.length > (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20) && (
                               <div className="text-xs text-center font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                +{dayEvents.length - (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20)} more
+                                +{dayEvents.length - (calendarView === 'month' ? 2 : calendarView === 'week' ? 8 : 20)}
                               </div>
                             )}
                           </div>
@@ -1641,7 +1642,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                                   ))}
                                   {dayEvents.length > 2 && (
                                     <div className="text-[11px] text-center font-bold text-blue-700 bg-blue-100 px-1 py-0.5 rounded mt-0.5">
-                                      +{dayEvents.length - 2} more
+                                      +{dayEvents.length - 2}
                                     </div>
                                   )}
                                 </>

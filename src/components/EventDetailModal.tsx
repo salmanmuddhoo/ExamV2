@@ -161,6 +161,25 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
       return;
     }
 
+    // Validate end time is after start time
+    const timeToMinutes = (timeStr: string) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const startMinutes = timeToMinutes(editStartTime);
+    const endMinutes = timeToMinutes(editEndTime);
+
+    if (endMinutes <= startMinutes) {
+      setAlertConfig({
+        title: 'Invalid Time Range',
+        message: 'End time must be after start time',
+        type: 'error'
+      });
+      setShowAlert(true);
+      return;
+    }
+
     // Check if anything changed
     const titleChanged = editTitle !== event.title;
     const descriptionChanged = editDescription !== (event.description || '');
@@ -184,11 +203,6 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
           .neq('id', event.id);
 
         if (fetchError) throw fetchError;
-
-        const timeToMinutes = (timeStr: string) => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          return hours * 60 + minutes;
-        };
 
         const newStartMinutes = timeToMinutes(editStartTime);
         const newEndMinutes = timeToMinutes(editEndTime);
@@ -416,15 +430,24 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
           {/* Subject Badge with Edit Button (Desktop) */}
           {(() => {
             const subjectName = (event as any).study_plan_schedules?.subjects?.name;
+            const gradeName = (event as any).study_plan_schedules?.grade_levels?.name;
             if (subjectName) {
               return (
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
-                    <BookOpen className="w-4 h-4 mr-1.5" />
-                    {subjectName}
-                  </span>
-                  {/* Desktop only: Edit button next to subject badge */}
-                  <div className="hidden md:flex items-center space-x-2">
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                        <BookOpen className="w-4 h-4 mr-1.5" />
+                        {subjectName}
+                      </span>
+                      {gradeName && (
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm">
+                          {gradeName}
+                        </span>
+                      )}
+                    </div>
+                    {/* Desktop only: Edit button next to subject badge */}
+                    <div className="hidden md:flex items-center space-x-2">
                     {!isEditingDetails ? (
                       <button
                         onClick={() => setIsEditingDetails(true)}
@@ -443,6 +466,7 @@ export function EventDetailModal({ event, isOpen, onClose, onUpdate, onDelete }:
                         {saving ? 'Saving...' : 'Save'}
                       </button>
                     )}
+                  </div>
                   </div>
                 </div>
               );
