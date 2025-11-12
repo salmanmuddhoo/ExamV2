@@ -65,6 +65,10 @@ interface AgentMessage {
   }>;
   name?: string; // For function results
   tool_call_id?: string; // For function results in OpenAI
+  functionResponse?: {  // For Gemini function results
+    name: string;
+    response: any;
+  };
 }
 
 /**
@@ -162,12 +166,16 @@ export async function executeAgent(
             });
           } else if (config.provider === 'gemini' || config.provider === 'google') {
             // Gemini expects function results in a specific format
+            // Response must have 'name' and 'content' fields
             messages.push({
               role: 'user',
               content: JSON.stringify({
                 functionResponse: {
                   name: funcCall.name,
-                  response: result,
+                  response: {
+                    name: funcCall.name,
+                    content: result,
+                  }
                 }
               }),
             } as any);
