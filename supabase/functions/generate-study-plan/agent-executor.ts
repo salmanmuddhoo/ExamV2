@@ -114,6 +114,13 @@ export async function executeAgent(
     totalOutputTokens += response.usage.output_tokens;
     totalCostUsd += response.cost_usd;
 
+    // Log detailed response info
+    console.log(`📝 Response content length: ${response.content?.length || 0}`);
+    console.log(`🔧 Function calls count: ${response.function_calls?.length || 0}`);
+    if (response.function_calls && response.function_calls.length > 0) {
+      console.log(`🔧 Function names: ${response.function_calls.map(fc => fc.name).join(', ')}`);
+    }
+
     // Add assistant response to message history
     // For Gemini, if we have parts (function calls), we need to store them properly
     if (config.provider === 'gemini' || config.provider === 'google') {
@@ -518,6 +525,23 @@ async function callGeminiWithFunctions(
       })),
     },
   ];
+
+  // Debug logging for conversation structure
+  console.log(`🔍 Sending ${contents.length} messages to Gemini`);
+  contents.forEach((msg, idx) => {
+    console.log(`  Message ${idx + 1}: role=${msg.role}, parts=${msg.parts?.length || 0}`);
+    if (msg.parts && msg.parts.length > 0) {
+      msg.parts.forEach((part, pIdx) => {
+        if (part.text) {
+          console.log(`    Part ${pIdx + 1}: text (${part.text.substring(0, 50)}...)`);
+        } else if (part.functionCall) {
+          console.log(`    Part ${pIdx + 1}: functionCall(${part.functionCall.name})`);
+        } else if (part.functionResponse) {
+          console.log(`    Part ${pIdx + 1}: functionResponse(${part.functionResponse.name})`);
+        }
+      });
+    }
+  });
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`,
