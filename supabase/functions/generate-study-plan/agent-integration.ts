@@ -103,6 +103,15 @@ export async function generateStudyPlanWithAgent(
 
   console.log(`✅ Generated ${validDates.length} valid dates`);
 
+  // Validate that we have dates to work with
+  if (validDates.length === 0) {
+    throw new Error(`No valid dates found between ${startDate} and ${endDate} for the selected days: ${selectedDays.join(', ')}. Please adjust your date range or selected days.`);
+  }
+
+  if (chapters.length === 0) {
+    throw new Error('No chapters available to create a study plan. Please select a subject with available syllabus chapters.');
+  }
+
   // Distribute sessions evenly across chapters
   const totalSessions = validDates.length;
   const sessionsPerChapter = Math.floor(totalSessions / chapters.length);
@@ -186,7 +195,7 @@ function getAPIKeyForProvider(provider: string): string {
       return Deno.env.get('ANTHROPIC_API_KEY') || '';
     case 'google':
     case 'gemini':
-      return Deno.env.get('GOOGLE_AI_API_KEY') || '';
+      return Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI_ASSISTANT_API_KEY') || Deno.env.get('GOOGLE_AI_API_KEY') || '';
     case 'openai':
       return Deno.env.get('OPENAI_API_KEY') || '';
     default:

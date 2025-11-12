@@ -387,6 +387,11 @@ Deno.serve(async (req) => {
 
       console.log(`✅ Agent generated ${studyEvents.length} study events`);
 
+      // Validate event count
+      if (studyEvents.length === 0) {
+        throw new Error('AI agent generated 0 sessions. This may be due to calendar conflicts or date range constraints. Please adjust your parameters and try again.');
+      }
+
       // Convert to database format and insert
       const eventsToInsert = studyEvents.map((event: any) => ({
         schedule_id: schedule_id,
