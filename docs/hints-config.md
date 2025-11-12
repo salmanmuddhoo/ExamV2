@@ -73,7 +73,7 @@ Each hint is defined with the following properties:
 - **Title**: Start a New Chat
 - **Description**: Tap here to start a new conversation with the AI assistant.
 - **Target**: `[data-hint="new-conversation-button"]`
-- **Position**: right
+- **Position**: left
 - **OffsetX**: 10
 - **OffsetY**: 0
 - **Page**: /chat
