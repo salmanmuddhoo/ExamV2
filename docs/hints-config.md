@@ -54,7 +54,7 @@ Each hint is defined with the following properties:
 - **OffsetY**: 0
 - **Page**: /chat
 - **Order**: 3
-- **ShowOn**: desktop
+- **ShowOn**: both
 
 ### Hint 4: AI Assistant
 - **ID**: `chat-assistant`
@@ -106,7 +106,7 @@ Each hint is defined with the following properties:
 - **OffsetY**: 10
 - **Page**: /study-plan
 - **Order**: 3
-- **ShowOn**: desktop
+- **ShowOn**: both
 
 ---
 
@@ -122,7 +122,7 @@ Each hint is defined with the following properties:
 - **OffsetY**: 0
 - **Page**: /profile
 - **Order**: 1
-- **ShowOn**: desktop
+- **ShowOn**: both
 
 ### Hint 9: AI Model Selection
 - **ID**: `profile-ai-model`
