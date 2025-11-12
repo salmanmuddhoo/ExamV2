@@ -392,18 +392,23 @@ Deno.serve(async (req) => {
         throw new Error('AI agent generated 0 sessions. This may be due to calendar conflicts or date range constraints. Please adjust your parameters and try again.');
       }
 
+      // Create chapter mapping (chapter_number -> chapter_id)
+      console.log("🗺️ Creating chapter mapping for agent events...");
+      const chapterMap = new Map(
+        chapters?.map(ch => [ch.chapter_number, ch.id]) || []
+      );
+      console.log(`✅ Chapter map created with ${chapterMap.size} entries`);
+
       // Convert to database format and insert
       const eventsToInsert = studyEvents.map((event: any) => ({
         schedule_id: schedule_id,
         user_id: user_id,
-        subject_id: subject_id,
-        grade_id: grade_id,
         title: event.title,
         description: event.description || '',
         event_date: event.date,
-        start_time: `${event.date}T${event.start_time}:00`,
-        end_time: `${event.date}T${event.end_time}:00`,
-        chapter_number: event.chapter_number,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        chapter_id: event.chapter_number ? chapterMap.get(event.chapter_number) : null,
         topics: event.topics || [],
         status: 'pending'
       }));
