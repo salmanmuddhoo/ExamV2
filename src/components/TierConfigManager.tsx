@@ -16,6 +16,7 @@ interface TierConfig {
   max_subjects: number | null;
   chapter_wise_access: boolean;
   can_access_study_plan: boolean;
+  max_study_plans: number | null;
   is_active: boolean;
   coming_soon: boolean;
   display_order: number;
@@ -415,6 +416,31 @@ export function TierConfigManager() {
                 <p className="text-xs text-gray-500 mt-1">
                   {tier.can_access_study_plan ? 'Users can create AI-powered study plans' : 'Study plan feature disabled'}
                 </p>
+
+                {/* Max Study Plans Limit */}
+                {tier.can_access_study_plan && (
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <label className="text-xs font-medium text-gray-700 block mb-1">
+                      Max Study Plans
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Unlimited"
+                      value={tier.max_study_plans ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? null : parseInt(e.target.value);
+                        handleFieldChange(tier.id, 'max_study_plans', value);
+                      }}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {tier.max_study_plans
+                        ? `Users can create up to ${tier.max_study_plans} study plan${tier.max_study_plans > 1 ? 's' : ''}`
+                        : 'No limit on study plan creation'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Active Status */}

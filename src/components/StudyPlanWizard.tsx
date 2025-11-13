@@ -99,29 +99,53 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (!user || !selectedSubject || !selectedGrade) return;
 
       try {
+        // First, get the user's tier max_study_plans limit
+        const { data: subscription, error: subError } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            subscription_tiers!inner(
+              max_study_plans
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .single();
+
+        if (subError) {
+          console.error('Error fetching subscription:', subError);
+          return;
+        }
+
+        const tierLimit = subscription?.subscription_tiers?.max_study_plans;
+
+        // If no limit (null), user can create unlimited plans
+        if (tierLimit === null || tierLimit === undefined) {
+          return;
+        }
+
+        // Count ALL study plans ever created by this user (not filtered by subject/grade)
+        // This includes active, completed, and inactive plans
+        // Deleted plans are already removed from the database, so they won't be counted
         const { data: existingPlans, error } = await supabase
           .from('study_plan_schedules')
-          .select('id, is_completed')
-          .eq('user_id', user.id)
-          .eq('subject_id', selectedSubject)
-          .eq('grade_id', selectedGrade);
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
 
         if (error) {
           console.error('Error checking study plan limit:', error);
           return;
         }
 
-        // Only count active (non-completed) plans toward the limit
-        const activePlans = existingPlans?.filter(plan => !plan.is_completed) || [];
+        const totalPlansCreated = existingPlans || 0;
 
-        if (activePlans.length >= 3) {
+        if (totalPlansCreated >= tierLimit) {
           setAlertConfig({
             title: 'Study Plan Limit Reached',
-            message: 'You already have 3 active study plans for this subject and grade. You cannot create more until you complete or delete an existing plan.',
+            message: `You have reached your tier's limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. You cannot create more study plans with your current subscription. Please upgrade your plan to create more.`,
             type: 'warning'
           });
           setShowAlert(true);
-          // Don't proceed - user needs to address this first
+          // Don't proceed - user needs to upgrade
         }
       } catch (error) {
         console.error('Error checking study plan limit:', error);
@@ -317,31 +341,48 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
-      // Check if user already has 3 ACTIVE (non-completed) study plans for this subject/grade
-      const { data: existingPlans, error: countError } = await supabase
-        .from('study_plan_schedules')
-        .select('id, is_completed')
+      // Re-check tier limit before creating (in case it changed)
+      const { data: subscription, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          subscription_tiers!inner(
+            max_study_plans
+          )
+        `)
         .eq('user_id', user.id)
-        .eq('subject_id', selectedSubject)
-        .eq('grade_id', selectedGrade);
+        .eq('status', 'active')
+        .single();
 
-      if (countError) {
-        console.error('Error checking existing plans:', countError);
-        throw new Error('Failed to check existing study plans');
+      if (subError) {
+        console.error('Error fetching subscription:', subError);
+        throw new Error('Failed to verify subscription');
       }
 
-      // Only count active (non-completed) plans toward the limit
-      const activePlans = existingPlans?.filter(plan => !plan.is_completed) || [];
+      const tierLimit = subscription?.subscription_tiers?.max_study_plans;
 
-      if (activePlans.length >= 3) {
-        setAlertConfig({
-          title: 'Study Plan Limit Reached',
-          message: 'You can only have a maximum of 3 active study plans per subject per grade. Complete or delete an existing plan before creating a new one.',
-          type: 'warning'
-        });
-        setShowAlert(true);
-        setGenerating(false);
-        return;
+      // If there's a limit, check it
+      if (tierLimit !== null && tierLimit !== undefined) {
+        // Count ALL study plans created by this user
+        const { count, error: countError } = await supabase
+          .from('study_plan_schedules')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (countError) {
+          console.error('Error checking existing plans:', countError);
+          throw new Error('Failed to check existing study plans');
+        }
+
+        if (count !== null && count >= tierLimit) {
+          setAlertConfig({
+            title: 'Study Plan Limit Reached',
+            message: `You have reached your tier's limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. You cannot create more study plans with your current subscription. Please upgrade your plan to create more.`,
+            type: 'warning'
+          });
+          setShowAlert(true);
+          setGenerating(false);
+          return;
+        }
       }
 
       // Deactivate any existing active plans for the same subject/grade
