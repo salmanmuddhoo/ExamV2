@@ -315,9 +315,61 @@ export function SyllabusManager() {
   };
 
   const deleteSyllabus = async (syllabusId: string, fileUrl: string) => {
-    if (!confirm('Are you sure you want to delete this syllabus and all its chapters?')) return;
-
     try {
+      // First, check if this syllabus has any question tags
+      const { data: chaptersData } = await supabase
+        .from('syllabus_chapters')
+        .select('id')
+        .eq('syllabus_id', syllabusId);
+
+      if (chaptersData && chaptersData.length > 0) {
+        const chapterIds = chaptersData.map(ch => ch.id);
+
+        // Check if any of these chapters have question tags
+        const { data: tagsData, count } = await supabase
+          .from('question_chapter_tags')
+          .select('id', { count: 'exact', head: true })
+          .in('chapter_id', chapterIds);
+
+        if (count && count > 0) {
+          alert(
+            `⚠️ Cannot delete this syllabus!\n\n` +
+            `This syllabus has ${count} question${count > 1 ? 's' : ''} tagged to its chapters.\n\n` +
+            `Deleting it would break the chapter-wise practice feature.\n\n` +
+            `To delete this syllabus:\n` +
+            `1. First, upload a new syllabus for this subject-grade\n` +
+            `2. Re-tag all exam questions to the new syllabus chapters\n` +
+            `3. Then you can safely delete this old syllabus`
+          );
+          return;
+        }
+      }
+
+      // Check if this is the active syllabus
+      const { data: syllabusInfo } = await supabase
+        .from('syllabus')
+        .select('is_active, subjects(name), grade_levels(name)')
+        .eq('id', syllabusId)
+        .single();
+
+      if (syllabusInfo?.is_active) {
+        const subjectName = (syllabusInfo.subjects as any)?.name || 'this subject';
+        const gradeName = (syllabusInfo.grade_levels as any)?.name || 'this grade';
+
+        if (!confirm(
+          `⚠️ This is the ACTIVE syllabus for ${gradeName} - ${subjectName}!\n\n` +
+          `Deleting it will prevent students from accessing chapter-wise practice ` +
+          `until you upload and activate a new syllabus.\n\n` +
+          `Are you sure you want to continue?`
+        )) {
+          return;
+        }
+      } else {
+        if (!confirm('Are you sure you want to delete this syllabus and all its chapters?')) {
+          return;
+        }
+      }
+
       // Delete from database (will cascade delete chapters)
       const { error: dbError } = await supabase
         .from('syllabus')
@@ -334,9 +386,12 @@ export function SyllabusManager() {
           .remove([filePath]);
       }
 
+      alert('✅ Syllabus deleted successfully');
+
       // Refresh list
       fetchData();
     } catch (error) {
+      console.error('Delete error:', error);
       alert('Failed to delete syllabus');
     }
   };

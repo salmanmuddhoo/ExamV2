@@ -343,18 +343,43 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setLoading(true);
 
       // First, get the active syllabus for this grade/subject
-      const { data: syllabusData } = await supabase
+      // Use maybeSingle() to handle cases where there's no active syllabus
+      const { data: syllabusData, error: syllabusError } = await supabase
         .from('syllabus')
         .select('id')
         .eq('subject_id', selectedSubject.id)
         .eq('grade_id', selectedGrade.id)
         .eq('processing_status', 'completed')
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
+      // If no active syllabus found, try to get any completed syllabus and use the most recent one
       if (!syllabusData) {
-        setChapters([]);
-        return;
+        console.warn(
+          `⚠️ No active syllabus found for ${selectedSubject.name} (${selectedGrade.name}). ` +
+          `Using most recent syllabus as fallback. ` +
+          `Note: Questions may not be properly tagged to this syllabus's chapters.`
+        );
+
+        const { data: anySyllabus } = await supabase
+          .from('syllabus')
+          .select('id')
+          .eq('subject_id', selectedSubject.id)
+          .eq('grade_id', selectedGrade.id)
+          .eq('processing_status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!anySyllabus) {
+          setChapters([]);
+          return;
+        }
+
+        // Use the fallback syllabus (may not have properly tagged questions)
+        var activeSyllabusId = anySyllabus.id;
+      } else {
+        var activeSyllabusId = syllabusData.id;
       }
 
       // Query from question_chapter_tags and join with chapters
@@ -370,7 +395,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
             syllabus_id
           )
         `)
-        .eq('syllabus_chapters.syllabus_id', syllabusData.id);
+        .eq('syllabus_chapters.syllabus_id', activeSyllabusId);
 
       if (error) {
         setChapters([]);
