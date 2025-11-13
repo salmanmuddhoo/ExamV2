@@ -51,7 +51,7 @@ export function AdminDashboard({
   onSignOut
 }: AdminDashboardProps = {}) {
   const [activeTab, setActiveTab] = useState<Tab>('payments');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['payment-mgmt', 'config']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['payment-mgmt']));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { profile } = useAuth();
 
