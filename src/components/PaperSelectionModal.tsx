@@ -355,6 +355,12 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       // If no active syllabus found, try to get any completed syllabus and use the most recent one
       if (!syllabusData) {
+        console.warn(
+          `⚠️ No active syllabus found for ${selectedSubject.name} (${selectedGrade.name}). ` +
+          `Using most recent syllabus as fallback. ` +
+          `Note: Questions may not be properly tagged to this syllabus's chapters.`
+        );
+
         const { data: anySyllabus } = await supabase
           .from('syllabus')
           .select('id')
@@ -370,7 +376,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
           return;
         }
 
-        // Use the fallback syllabus
+        // Use the fallback syllabus (may not have properly tagged questions)
         var activeSyllabusId = anySyllabus.id;
       } else {
         var activeSyllabusId = syllabusData.id;
