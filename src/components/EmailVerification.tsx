@@ -34,12 +34,15 @@ export function EmailVerification() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (status === 'success' && countdown === 0) {
-      // Redirect to login page
+      // Redirect to login page and clean up URL
+      window.history.replaceState({}, document.title, '/');
       window.location.href = '/';
     }
   }, [status, countdown]);
 
   const handleGoToLogin = () => {
+    // Clean up URL before redirect
+    window.history.replaceState({}, document.title, '/');
     window.location.href = '/';
   };
 
