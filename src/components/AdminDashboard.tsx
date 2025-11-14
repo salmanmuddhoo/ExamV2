@@ -105,10 +105,10 @@ export function AdminDashboard({
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
+      const newSet = new Set<string>();
+      // If the group is currently expanded, collapse it (empty set)
+      // Otherwise, expand only this group (replacing all others)
+      if (!prev.has(groupId)) {
         newSet.add(groupId);
       }
       return newSet;
@@ -119,7 +119,7 @@ export function AdminDashboard({
     return 'items' in item;
   };
 
-  const renderMenuItem = (item: MenuItem, isSubItem = false) => {
+  const renderMenuItem = (item: MenuItem, isSubItem = false, parentGroupId?: string) => {
     const Icon = item.icon;
     const isActive = activeTab === item.id;
 
@@ -129,6 +129,10 @@ export function AdminDashboard({
         onClick={() => {
           setActiveTab(item.id);
           setMobileMenuOpen(false);
+          // If this is a sub-item, auto-expand its parent group and collapse others
+          if (isSubItem && parentGroupId) {
+            setExpandedGroups(new Set([parentGroupId]));
+          }
         }}
         className={`w-full flex items-center space-x-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
           isActive
@@ -169,7 +173,7 @@ export function AdminDashboard({
         </button>
         {isExpanded && (
           <div className="space-y-1">
-            {group.items.map(item => renderMenuItem(item, true))}
+            {group.items.map(item => renderMenuItem(item, true, group.id))}
           </div>
         )}
       </div>

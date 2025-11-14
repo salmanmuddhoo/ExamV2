@@ -69,6 +69,13 @@ export function SyllabusManager() {
   // Subject folder expansion state
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
+  // Upload form visibility state
+  const [showUploadForm, setShowUploadForm] = useState(false);
+
+  // Syllabus editing state
+  const [editingSyllabus, setEditingSyllabus] = useState<string | null>(null);
+  const [editedSyllabusData, setEditedSyllabusData] = useState<Partial<Syllabus>>({});
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -179,6 +186,9 @@ export function SyllabusManager() {
       setDescription('');
       setAcademicYear('');
       setRegion('');
+
+      // Hide upload form
+      setShowUploadForm(false);
 
       // Refresh list
       fetchData();
@@ -298,8 +308,62 @@ export function SyllabusManager() {
     }
   };
 
+  const saveSyllabusEdit = async () => {
+    if (!editingSyllabus) return;
+
+    try {
+      const { error } = await supabase
+        .from('syllabus')
+        .update({
+          title: editedSyllabusData.title,
+          description: editedSyllabusData.description,
+          academic_year: editedSyllabusData.academic_year,
+          region: editedSyllabusData.region,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingSyllabus);
+
+      if (error) throw error;
+
+      // Reset editing state
+      setEditingSyllabus(null);
+      setEditedSyllabusData({});
+
+      // Refresh data
+      await fetchData();
+
+      alert('✅ Syllabus updated successfully');
+    } catch (error) {
+      console.error('Error updating syllabus:', error);
+      alert('Failed to update syllabus');
+    }
+  };
+
   const toggleActive = async (syllabusId: string, currentStatus: boolean) => {
     try {
+      // If activating (currentStatus is false, so new status will be true)
+      if (!currentStatus) {
+        // Get the subject_id and grade_id of the syllabus being activated
+        const { data: syllabusData, error: fetchError } = await supabase
+          .from('syllabus')
+          .select('subject_id, grade_id')
+          .eq('id', syllabusId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        // Deactivate all other syllabuses for the same subject/grade
+        const { error: deactivateError } = await supabase
+          .from('syllabus')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq('subject_id', syllabusData.subject_id)
+          .eq('grade_id', syllabusData.grade_id)
+          .neq('id', syllabusId);
+
+        if (deactivateError) throw deactivateError;
+      }
+
+      // Toggle the selected syllabus status
       const { error } = await supabase
         .from('syllabus')
         .update({ is_active: !currentStatus, updated_at: new Date().toISOString() })
@@ -549,17 +613,29 @@ export function SyllabusManager() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Syllabus Management</h2>
-        <p className="text-sm text-gray-600">
-          Upload syllabus PDFs and let AI extract chapters automatically
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Syllabus Management</h2>
+          <p className="text-sm text-gray-600">
+            Upload syllabus PDFs and let AI extract chapters automatically
+          </p>
+        </div>
+        {!showUploadForm && (
+          <button
+            onClick={() => setShowUploadForm(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Upload Syllabus</span>
+          </button>
+        )}
       </div>
 
       {/* Upload Form */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Syllabus</h3>
-        <form onSubmit={handleUpload} className="space-y-4">
+      {showUploadForm && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Syllabus</h3>
+          <form onSubmit={handleUpload} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -708,6 +784,7 @@ export function SyllabusManager() {
           </button>
         </form>
       </div>
+      )}
 
       {/* Syllabus List - Grouped by Subject */}
       <div>
@@ -777,37 +854,110 @@ export function SyllabusManager() {
                               key={syllabus.id}
                               className="p-4 bg-white hover:bg-gray-50 transition-colors"
                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-start space-x-3 flex-1">
-                                  <FileText className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-2 mb-1">
-                                      <h4 className="font-semibold text-gray-900">
-                                        {syllabus.title || syllabus.file_name}
-                                      </h4>
-                                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
-                                        {syllabus.grade?.name}
-                                      </span>
+                              {editingSyllabus === syllabus.id ? (
+                                /* Edit Mode */
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Title
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editedSyllabusData.title || ''}
+                                        onChange={(e) => setEditedSyllabusData({ ...editedSyllabusData, title: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                      />
                                     </div>
-                                    <div className="text-sm text-gray-600 space-y-1">
-                                      {(syllabus.region || syllabus.academic_year) && (
-                                        <p>
-                                          {syllabus.region && `${syllabus.region}`}
-                                          {syllabus.region && syllabus.academic_year && ' • '}
-                                          {syllabus.academic_year && `${syllabus.academic_year}`}
-                                        </p>
-                                      )}
-                                      {syllabus.description && (
-                                        <p className="text-gray-500">{syllabus.description}</p>
-                                      )}
-                                      <p className="text-xs text-gray-500">
-                                        Uploaded {new Date(syllabus.created_at).toLocaleDateString()}
-                                      </p>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Region / Exam Board
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editedSyllabusData.region || ''}
+                                        onChange={(e) => setEditedSyllabusData({ ...editedSyllabusData, region: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                      />
                                     </div>
                                   </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Academic Year
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editedSyllabusData.academic_year || ''}
+                                        onChange={(e) => setEditedSyllabusData({ ...editedSyllabusData, academic_year: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Description
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editedSyllabusData.description || ''}
+                                        onChange={(e) => setEditedSyllabusData({ ...editedSyllabusData, description: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-2 justify-end">
+                                    <button
+                                      onClick={() => {
+                                        setEditingSyllabus(null);
+                                        setEditedSyllabusData({});
+                                      }}
+                                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                    >
+                                      <X className="w-4 h-4 inline mr-1" />
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={saveSyllabusEdit}
+                                      className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+                                    >
+                                      <Save className="w-4 h-4 inline mr-1" />
+                                      Save
+                                    </button>
+                                  </div>
                                 </div>
+                              ) : (
+                                /* Display Mode */
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start space-x-3 flex-1">
+                                    <FileText className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-2 mb-1">
+                                        <h4 className="font-semibold text-gray-900">
+                                          {syllabus.title || syllabus.file_name}
+                                        </h4>
+                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                                          {syllabus.grade?.name}
+                                        </span>
+                                      </div>
+                                      <div className="text-sm text-gray-600 space-y-1">
+                                        {(syllabus.region || syllabus.academic_year) && (
+                                          <p>
+                                            {syllabus.region && `${syllabus.region}`}
+                                            {syllabus.region && syllabus.academic_year && ' • '}
+                                            {syllabus.academic_year && `${syllabus.academic_year}`}
+                                          </p>
+                                        )}
+                                        {syllabus.description && (
+                                          <p className="text-gray-500">{syllabus.description}</p>
+                                        )}
+                                        <p className="text-xs text-gray-500">
+                                          Uploaded {new Date(syllabus.created_at).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
 
-                                <div className="flex items-center space-x-3 ml-4">
+                                  <div className="flex items-center space-x-3 ml-4">
                                   {/* Status Badge */}
                                   {syllabus.processing_status === 'completed' && (
                                     <div className="flex items-center text-green-600 text-sm">
@@ -864,6 +1014,21 @@ export function SyllabusManager() {
                                     View PDF
                                   </a>
                                   <button
+                                    onClick={() => {
+                                      setEditingSyllabus(syllabus.id);
+                                      setEditedSyllabusData({
+                                        title: syllabus.title,
+                                        description: syllabus.description,
+                                        academic_year: syllabus.academic_year,
+                                        region: syllabus.region
+                                      });
+                                    }}
+                                    className="p-2 text-gray-600 hover:bg-gray-100 rounded"
+                                    title="Edit syllabus details"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
                                     onClick={() => deleteSyllabus(syllabus.id, syllabus.file_url)}
                                     className="p-2 text-red-600 hover:bg-red-50 rounded"
                                   >
@@ -871,6 +1036,7 @@ export function SyllabusManager() {
                                   </button>
                                 </div>
                               </div>
+                              )}
                             </div>
                           ))}
                         </div>

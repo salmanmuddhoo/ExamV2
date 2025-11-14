@@ -85,13 +85,63 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
+  const [studyPlanCount, setStudyPlanCount] = useState<number>(0);
+  const [studyPlanLimit, setStudyPlanLimit] = useState<number | null>(null);
+  const [loadingPlanInfo, setLoadingPlanInfo] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchSubjects();
       fetchGrades();
+      fetchStudyPlanUsage();
     }
   }, [isOpen]);
+
+  // Fetch study plan usage information
+  const fetchStudyPlanUsage = async () => {
+    if (!user) return;
+
+    try {
+      setLoadingPlanInfo(true);
+
+      // Get user's tier limit
+      const { data: subscription, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          subscription_tiers!inner(
+            max_study_plans
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subError) {
+        console.error('Error fetching subscription:', subError);
+        setStudyPlanLimit(null);
+      } else {
+        const tierLimit = subscription?.subscription_tiers?.max_study_plans;
+        setStudyPlanLimit(tierLimit ?? null);
+      }
+
+      // Count ALL study plans created by this user
+      const { count, error: countError } = await supabase
+        .from('study_plan_schedules')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (countError) {
+        console.error('Error counting study plans:', countError);
+        setStudyPlanCount(0);
+      } else {
+        setStudyPlanCount(count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching study plan usage:', error);
+    } finally {
+      setLoadingPlanInfo(false);
+    }
+  };
 
   // Check study plan limit early when subject and grade are selected
   useEffect(() => {
@@ -99,29 +149,53 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (!user || !selectedSubject || !selectedGrade) return;
 
       try {
+        // First, get the user's tier max_study_plans limit
+        const { data: subscription, error: subError } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            subscription_tiers!inner(
+              max_study_plans
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .single();
+
+        if (subError) {
+          console.error('Error fetching subscription:', subError);
+          return;
+        }
+
+        const tierLimit = subscription?.subscription_tiers?.max_study_plans;
+
+        // If no limit (null), user can create unlimited plans
+        if (tierLimit === null || tierLimit === undefined) {
+          return;
+        }
+
+        // Count ALL study plans ever created by this user (not filtered by subject/grade)
+        // This includes active, completed, and inactive plans
+        // Deleted plans are already removed from the database, so they won't be counted
         const { data: existingPlans, error } = await supabase
           .from('study_plan_schedules')
-          .select('id, is_completed')
-          .eq('user_id', user.id)
-          .eq('subject_id', selectedSubject)
-          .eq('grade_id', selectedGrade);
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
 
         if (error) {
           console.error('Error checking study plan limit:', error);
           return;
         }
 
-        // Only count active (non-completed) plans toward the limit
-        const activePlans = existingPlans?.filter(plan => !plan.is_completed) || [];
+        const totalPlansCreated = existingPlans || 0;
 
-        if (activePlans.length >= 3) {
+        if (totalPlansCreated >= tierLimit) {
           setAlertConfig({
             title: 'Study Plan Limit Reached',
-            message: 'You already have 3 active study plans for this subject and grade. You cannot create more until you complete or delete an existing plan.',
+            message: `You have reached your tier's limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. You cannot create more study plans with your current subscription. Please upgrade your plan to create more.`,
             type: 'warning'
           });
           setShowAlert(true);
-          // Don't proceed - user needs to address this first
+          // Don't proceed - user needs to upgrade
         }
       } catch (error) {
         console.error('Error checking study plan limit:', error);
@@ -317,31 +391,48 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
-      // Check if user already has 3 ACTIVE (non-completed) study plans for this subject/grade
-      const { data: existingPlans, error: countError } = await supabase
-        .from('study_plan_schedules')
-        .select('id, is_completed')
+      // Re-check tier limit before creating (in case it changed)
+      const { data: subscription, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          subscription_tiers!inner(
+            max_study_plans
+          )
+        `)
         .eq('user_id', user.id)
-        .eq('subject_id', selectedSubject)
-        .eq('grade_id', selectedGrade);
+        .eq('status', 'active')
+        .single();
 
-      if (countError) {
-        console.error('Error checking existing plans:', countError);
-        throw new Error('Failed to check existing study plans');
+      if (subError) {
+        console.error('Error fetching subscription:', subError);
+        throw new Error('Failed to verify subscription');
       }
 
-      // Only count active (non-completed) plans toward the limit
-      const activePlans = existingPlans?.filter(plan => !plan.is_completed) || [];
+      const tierLimit = subscription?.subscription_tiers?.max_study_plans;
 
-      if (activePlans.length >= 3) {
-        setAlertConfig({
-          title: 'Study Plan Limit Reached',
-          message: 'You can only have a maximum of 3 active study plans per subject per grade. Complete or delete an existing plan before creating a new one.',
-          type: 'warning'
-        });
-        setShowAlert(true);
-        setGenerating(false);
-        return;
+      // If there's a limit, check it
+      if (tierLimit !== null && tierLimit !== undefined) {
+        // Count ALL study plans created by this user
+        const { count, error: countError } = await supabase
+          .from('study_plan_schedules')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (countError) {
+          console.error('Error checking existing plans:', countError);
+          throw new Error('Failed to check existing study plans');
+        }
+
+        if (count !== null && count >= tierLimit) {
+          setAlertConfig({
+            title: 'Study Plan Limit Reached',
+            message: `You have reached your tier's limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. You cannot create more study plans with your current subscription. Please upgrade your plan to create more.`,
+            type: 'warning'
+          });
+          setShowAlert(true);
+          setGenerating(false);
+          return;
+        }
       }
 
       // Deactivate any existing active plans for the same subject/grade
@@ -535,6 +626,10 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const canProceed = () => {
     switch (step) {
       case 1:
+        // Check if study plan limit is reached
+        if (studyPlanLimit !== null && studyPlanCount >= studyPlanLimit) {
+          return false;
+        }
         // Syllabus and chapters are required (1-3 chapters mandatory)
         return selectedSubject && selectedGrade && selectedSyllabus && selectedChapters.length > 0 && selectedChapters.length <= 3;
       case 2:
@@ -636,6 +731,54 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           {/* Step 1: Grade, Subject, Syllabus & Chapters */}
           {step === 1 && (
             <div className="space-y-6">
+              {/* Study Plan Usage Display */}
+              <div className={`px-3 py-2 rounded-lg border ${
+                studyPlanLimit !== null && studyPlanCount >= studyPlanLimit
+                  ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-300'
+                  : studyPlanLimit !== null && studyPlanCount >= studyPlanLimit * 0.8
+                  ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300'
+                  : 'bg-gradient-to-r from-green-50 to-blue-50 border-green-200'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <BookOpen className={`w-4 h-4 flex-shrink-0 ${
+                    studyPlanLimit !== null && studyPlanCount >= studyPlanLimit
+                      ? 'text-red-600'
+                      : studyPlanLimit !== null && studyPlanCount >= studyPlanLimit * 0.8
+                      ? 'text-yellow-600'
+                      : 'text-green-600'
+                  }`} />
+                  <div className="text-xs flex-1">
+                    <span className="text-gray-600">Study Plans: </span>
+                    <span className="font-semibold text-gray-900">
+                      {loadingPlanInfo ? (
+                        'Loading...'
+                      ) : studyPlanLimit === null ? (
+                        `${studyPlanCount} created (Unlimited)`
+                      ) : (
+                        `${Math.min(studyPlanCount, studyPlanLimit)} / ${studyPlanLimit}`
+                      )}
+                    </span>
+                  </div>
+                </div>
+                {!loadingPlanInfo && studyPlanLimit !== null && (
+                  <div className="text-xs mt-1.5 ml-6">
+                    {studyPlanCount >= studyPlanLimit ? (
+                      <span className="text-red-700 font-medium">
+                        Limit reached. Please upgrade to create more study plans.
+                      </span>
+                    ) : studyPlanCount >= studyPlanLimit * 0.8 ? (
+                      <span className="text-yellow-700">
+                        {studyPlanLimit - studyPlanCount} study plan{studyPlanLimit - studyPlanCount > 1 ? 's' : ''} remaining
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">
+                        {studyPlanLimit - studyPlanCount} study plan{studyPlanLimit - studyPlanCount > 1 ? 's' : ''} remaining
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Select Grade Level

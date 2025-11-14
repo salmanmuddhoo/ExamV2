@@ -19,6 +19,7 @@ interface ExamPaper {
   ai_prompt_id: string | null;
   subjects: { name: string };
   grade_levels: { name: string };
+  syllabus: { id: string; title: string | null; region: string | null } | null;
   marking_schemes: { id: string; pdf_url: string } | null;
   ai_prompts: { name: string } | null;
 }
@@ -124,6 +125,7 @@ export function ExamPaperManager() {
             *,
             subjects (name),
             grade_levels (name),
+            syllabus (id, title, region),
             marking_schemes (id, pdf_url),
             ai_prompts (name)
           `)
@@ -990,6 +992,11 @@ export function ExamPaperManager() {
                                       {paper.ai_prompts && (
                                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
                                           AI: {paper.ai_prompts.name}
+                                        </span>
+                                      )}
+                                      {paper.syllabus && (
+                                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded" title={paper.syllabus.region ? `Region: ${paper.syllabus.region}` : undefined}>
+                                          Syllabus: {paper.syllabus.title || 'Untitled'}
                                         </span>
                                       )}
                                     </div>

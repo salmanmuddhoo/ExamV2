@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize, Calendar, X, Clock, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize, Calendar, X, Clock, CheckCircle2, Circle, List } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
 import { ChatMessage } from './ChatMessage';
 import { ContextualHint } from './ContextualHint';
 import { formatTokenCount } from '../lib/formatUtils';
+import { ChapterQuestionSummary } from './ChapterQuestionSummary';
 
 interface Props {
   mode: 'year' | 'chapter';
@@ -120,6 +121,9 @@ export function UnifiedPracticeViewer({
   const [todayEvents, setTodayEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [hasStudyPlanAccess, setHasStudyPlanAccess] = useState(false);
+
+  // Chapter Summary state
+  const [showChapterSummary, setShowChapterSummary] = useState(false);
 
   // Question/Paper change animation state
   const [questionChangeAnimation, setQuestionChangeAnimation] = useState(false);
@@ -907,6 +911,17 @@ export function UnifiedPracticeViewer({
 
         {/* Right side controls */}
         <div className="flex items-center">
+          {/* Chapter Summary - Mobile (only for chapter mode) */}
+          {mode === 'chapter' && chapterInfo && (
+            <button
+              onClick={() => setShowChapterSummary(true)}
+              className="md:hidden p-2 hover:bg-gray-100 rounded transition-colors mr-2"
+              title="Chapter Question Summary"
+            >
+              <List className="w-5 h-5 text-gray-700" />
+            </button>
+          )}
+
           {/* Mobile View Toggle */}
           <div className="flex md:hidden relative">
             <div className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
@@ -942,6 +957,17 @@ export function UnifiedPracticeViewer({
               delay={1500}
             />
           </div>
+
+          {/* Chapter Summary - Desktop (only for chapter mode) */}
+          {mode === 'chapter' && chapterInfo && (
+            <button
+              onClick={() => setShowChapterSummary(true)}
+              className="hidden md:flex p-2 hover:bg-gray-100 rounded transition-colors"
+              title="Chapter Question Summary"
+            >
+              <List className="w-5 h-5 text-gray-700" />
+            </button>
+          )}
 
           {/* Study Plan Calendar - Desktop Only */}
           {hasStudyPlanAccess && (
@@ -1408,6 +1434,17 @@ export function UnifiedPracticeViewer({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Chapter Question Summary Modal */}
+      {mode === 'chapter' && chapterInfo && (
+        <ChapterQuestionSummary
+          chapterId={chapterInfo.id}
+          chapterNumber={chapterInfo.chapter_number}
+          chapterTitle={chapterInfo.chapter_title}
+          isOpen={showChapterSummary}
+          onClose={() => setShowChapterSummary(false)}
+        />
       )}
     </div>
   );
