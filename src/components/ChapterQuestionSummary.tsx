@@ -11,9 +11,9 @@ interface ChapterQuestionSummaryProps {
 }
 
 interface QuestionTag {
-  id: string;
-  question_number: string;
+  question_id: string;
   exam_questions: {
+    question_number: string;
     exam_papers: {
       year: number;
       month: number | null;
@@ -57,10 +57,10 @@ export function ChapterQuestionSummary({
       const { data, error } = await supabase
         .from('question_chapter_tags')
         .select(`
-          id,
-          question_number,
-          exam_questions(
-            exam_papers(
+          question_id,
+          exam_questions!inner(
+            question_number,
+            exam_papers!inner(
               year,
               month,
               variant
@@ -77,15 +77,11 @@ export function ChapterQuestionSummary({
         throw error;
       }
 
-      // Filter out records where exam_questions or exam_papers is null
-      const validData = (data || []).filter((q: any) =>
-        q.exam_questions !== null && q.exam_questions.exam_papers !== null
-      );
-
-      console.log('Valid data after filtering:', validData);
+      console.log('Valid data:', data);
 
       // Sort in JavaScript instead of Supabase
-      const sortedData = validData.sort((a: any, b: any) => {
+      // !inner join already filters out nulls, so no need for additional filtering
+      const sortedData = (data || []).sort((a: any, b: any) => {
         const aYear = a.exam_questions.exam_papers.year;
         const bYear = b.exam_questions.exam_papers.year;
         const aMonth = a.exam_questions.exam_papers.month || 0;
@@ -123,7 +119,7 @@ export function ChapterQuestionSummary({
         questions: []
       };
     }
-    acc[key].questions.push(q.question_number);
+    acc[key].questions.push(q.exam_questions.question_number);
     return acc;
   }, {} as Record<string, { year: number; month: number | null; monthName: string; variant: string; questions: string[] }>);
 
