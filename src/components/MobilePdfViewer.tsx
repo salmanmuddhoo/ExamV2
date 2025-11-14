@@ -4,8 +4,8 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Configure PDF.js worker - use newer CDN URL with HTTPS
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface MobilePdfViewerProps {
   pdfUrl: string;
@@ -32,6 +32,7 @@ export function MobilePdfViewer({ pdfUrl, onLoadSuccess, onLoadError }: MobilePd
   }, []);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
+    console.log('PDF loaded successfully with', numPages, 'pages');
     setNumPages(numPages);
     setIsLoading(false);
     setError(null);
@@ -42,6 +43,7 @@ export function MobilePdfViewer({ pdfUrl, onLoadSuccess, onLoadError }: MobilePd
 
   function onDocumentLoadError(error: Error) {
     console.error('Error loading PDF:', error);
+    console.error('PDF URL:', pdfUrl);
     setError('Failed to load PDF. Please try again.');
     setIsLoading(false);
     if (onLoadError) {
@@ -73,7 +75,16 @@ export function MobilePdfViewer({ pdfUrl, onLoadSuccess, onLoadError }: MobilePd
       )}
 
       <Document
-        file={pdfUrl}
+        file={{
+          url: pdfUrl,
+          httpHeaders: {},
+          withCredentials: false,
+        }}
+        options={{
+          cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/`,
+          cMapPacked: true,
+          standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+        }}
         onLoadSuccess={onDocumentLoadSuccess}
         onLoadError={onDocumentLoadError}
         loading={
