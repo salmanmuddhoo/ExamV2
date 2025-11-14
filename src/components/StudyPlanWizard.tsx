@@ -85,13 +85,63 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
+  const [studyPlanCount, setStudyPlanCount] = useState<number>(0);
+  const [studyPlanLimit, setStudyPlanLimit] = useState<number | null>(null);
+  const [loadingPlanInfo, setLoadingPlanInfo] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchSubjects();
       fetchGrades();
+      fetchStudyPlanUsage();
     }
   }, [isOpen]);
+
+  // Fetch study plan usage information
+  const fetchStudyPlanUsage = async () => {
+    if (!user) return;
+
+    try {
+      setLoadingPlanInfo(true);
+
+      // Get user's tier limit
+      const { data: subscription, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          subscription_tiers!inner(
+            max_study_plans
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subError) {
+        console.error('Error fetching subscription:', subError);
+        setStudyPlanLimit(null);
+      } else {
+        const tierLimit = subscription?.subscription_tiers?.max_study_plans;
+        setStudyPlanLimit(tierLimit ?? null);
+      }
+
+      // Count ALL study plans created by this user
+      const { count, error: countError } = await supabase
+        .from('study_plan_schedules')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (countError) {
+        console.error('Error counting study plans:', countError);
+        setStudyPlanCount(0);
+      } else {
+        setStudyPlanCount(count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching study plan usage:', error);
+    } finally {
+      setLoadingPlanInfo(false);
+    }
+  };
 
   // Check study plan limit early when subject and grade are selected
   useEffect(() => {
@@ -677,6 +727,54 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           {/* Step 1: Grade, Subject, Syllabus & Chapters */}
           {step === 1 && (
             <div className="space-y-6">
+              {/* Study Plan Usage Display */}
+              <div className={`px-3 py-2 rounded-lg border ${
+                studyPlanLimit !== null && studyPlanCount >= studyPlanLimit
+                  ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-300'
+                  : studyPlanLimit !== null && studyPlanCount >= studyPlanLimit * 0.8
+                  ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300'
+                  : 'bg-gradient-to-r from-green-50 to-blue-50 border-green-200'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <BookOpen className={`w-4 h-4 flex-shrink-0 ${
+                    studyPlanLimit !== null && studyPlanCount >= studyPlanLimit
+                      ? 'text-red-600'
+                      : studyPlanLimit !== null && studyPlanCount >= studyPlanLimit * 0.8
+                      ? 'text-yellow-600'
+                      : 'text-green-600'
+                  }`} />
+                  <div className="text-xs flex-1">
+                    <span className="text-gray-600">Study Plans: </span>
+                    <span className="font-semibold text-gray-900">
+                      {loadingPlanInfo ? (
+                        'Loading...'
+                      ) : studyPlanLimit === null ? (
+                        `${studyPlanCount} created (Unlimited)`
+                      ) : (
+                        `${studyPlanCount} / ${studyPlanLimit}`
+                      )}
+                    </span>
+                  </div>
+                </div>
+                {!loadingPlanInfo && studyPlanLimit !== null && (
+                  <div className="text-xs mt-1.5 ml-6">
+                    {studyPlanCount >= studyPlanLimit ? (
+                      <span className="text-red-700 font-medium">
+                        Limit reached. Please upgrade to create more study plans.
+                      </span>
+                    ) : studyPlanCount >= studyPlanLimit * 0.8 ? (
+                      <span className="text-yellow-700">
+                        {studyPlanLimit - studyPlanCount} study plan{studyPlanLimit - studyPlanCount > 1 ? 's' : ''} remaining
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">
+                        {studyPlanLimit - studyPlanCount} study plan{studyPlanLimit - studyPlanCount > 1 ? 's' : ''} remaining
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Select Grade Level

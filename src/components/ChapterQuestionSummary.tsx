@@ -13,12 +13,17 @@ interface ChapterQuestionSummaryProps {
 interface QuestionTag {
   id: string;
   question_number: string;
-  exam_paper: {
+  exam_papers: {
     year: number;
-    month: string;
+    month: number | null;
     variant: string;
   };
 }
+
+const MONTH_NAMES = [
+  '', 'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 export function ChapterQuestionSummary({
   chapterId,
@@ -29,6 +34,11 @@ export function ChapterQuestionSummary({
 }: ChapterQuestionSummaryProps) {
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<QuestionTag[]>([]);
+
+  const getMonthName = (monthNumber: number | null): string => {
+    if (!monthNumber) return 'N/A';
+    return MONTH_NAMES[monthNumber] || 'N/A';
+  };
 
   useEffect(() => {
     if (isOpen && chapterId) {
@@ -51,13 +61,22 @@ export function ChapterQuestionSummary({
             variant
           )
         `)
-        .eq('chapter_id', chapterId)
-        .order('exam_papers(year)', { ascending: false })
-        .order('exam_papers(month)', { ascending: true });
+        .eq('chapter_id', chapterId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching chapter questions:', error);
+        throw error;
+      }
 
-      setQuestions(data || []);
+      // Sort in JavaScript instead of Supabase
+      const sortedData = (data || []).sort((a: any, b: any) => {
+        if (a.exam_papers.year !== b.exam_papers.year) {
+          return b.exam_papers.year - a.exam_papers.year; // Descending
+        }
+        return (a.exam_papers.month || 0) - (b.exam_papers.month || 0); // Ascending
+      });
+
+      setQuestions(sortedData);
     } catch (error) {
       console.error('Error fetching chapter questions:', error);
       setQuestions([]);
@@ -70,23 +89,24 @@ export function ChapterQuestionSummary({
 
   // Group questions by year/month
   const groupedQuestions = questions.reduce((acc, q) => {
-    const paper = q.exam_paper;
-    const key = `${paper.year}-${paper.month}`;
+    const paper = q.exam_papers;
+    const key = `${paper.year}-${paper.month || 0}`;
     if (!acc[key]) {
       acc[key] = {
         year: paper.year,
         month: paper.month,
+        monthName: getMonthName(paper.month),
         variant: paper.variant,
         questions: []
       };
     }
     acc[key].questions.push(q.question_number);
     return acc;
-  }, {} as Record<string, { year: number; month: string; variant: string; questions: string[] }>);
+  }, {} as Record<string, { year: number; month: number | null; monthName: string; variant: string; questions: string[] }>);
 
   const sortedGroups = Object.values(groupedQuestions).sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year;
-    return a.month.localeCompare(b.month);
+    return (a.month || 0) - (b.month || 0);
   });
 
   return (
@@ -163,7 +183,7 @@ export function ChapterQuestionSummary({
                               <div className="flex items-center space-x-2">
                                 <Calendar className="w-4 h-4 text-gray-400" />
                                 <span className="text-sm font-medium text-gray-900">
-                                  {group.year} / {group.month}
+                                  {group.year} / {group.monthName}
                                 </span>
                               </div>
                             </td>
@@ -199,7 +219,7 @@ export function ChapterQuestionSummary({
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             <span className="text-sm font-semibold text-gray-900">
-                              {group.year} / {group.month}
+                              {group.year} / {group.monthName}
                             </span>
                           </div>
                           <span className="text-xs text-gray-600">{group.variant}</span>
