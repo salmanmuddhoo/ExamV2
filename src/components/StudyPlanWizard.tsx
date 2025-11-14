@@ -137,12 +137,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setLoadingPlanInfo(true);
 
-      // Get user's tier limit, billing cycle, and subscription created date
+      // Get user's tier limit and period start date
       const { data: subscription, error: subError } = await supabase
         .from('user_subscriptions')
         .select(`
-          created_at,
-          billing_cycle,
+          period_start_date,
           subscription_tiers!inner(
             max_study_plans
           )
@@ -159,18 +158,12 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         setStudyPlanLimit(tierLimit ?? null);
 
         // If there's a limit, count study plans created in current billing period
-        if (tierLimit !== null && subscription?.created_at && subscription?.billing_cycle) {
-          // Calculate the current billing period start date
-          const currentPeriodStart = getCurrentPeriodStartDate(
-            subscription.created_at,
-            subscription.billing_cycle
-          );
-
+        if (tierLimit !== null && subscription?.period_start_date) {
           const { count, error: countError } = await supabase
             .from('study_plan_schedules')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', user.id)
-            .gte('created_at', currentPeriodStart); // Only count plans created since current period started
+            .gte('created_at', subscription.period_start_date); // Only count plans created since current period started
 
           if (countError) {
             console.error('Error counting study plans:', countError);
@@ -196,12 +189,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (!user || !selectedSubject || !selectedGrade) return;
 
       try {
-        // Get the user's tier max_study_plans limit, billing cycle, and subscription created date
+        // Get the user's tier max_study_plans limit and period start date
         const { data: subscription, error: subError } = await supabase
           .from('user_subscriptions')
           .select(`
-            created_at,
-            billing_cycle,
+            period_start_date,
             subscription_tiers!inner(
               max_study_plans
             )
@@ -222,18 +214,17 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           return;
         }
 
-        // Calculate the current billing period start date
-        const currentPeriodStart = getCurrentPeriodStartDate(
-          subscription.created_at,
-          subscription.billing_cycle
-        );
+        if (!subscription?.period_start_date) {
+          console.error('No period_start_date found');
+          return;
+        }
 
         // Count study plans created in the current billing period
         const { count, error } = await supabase
           .from('study_plan_schedules')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
-          .gte('created_at', currentPeriodStart); // Only count plans created since current period started
+          .gte('created_at', subscription.period_start_date); // Only count plans created since current period started
 
         if (error) {
           console.error('Error checking study plan limit:', error);
@@ -449,8 +440,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       const { data: subscription, error: subError } = await supabase
         .from('user_subscriptions')
         .select(`
-          created_at,
-          billing_cycle,
+          period_start_date,
           subscription_tiers!inner(
             max_study_plans
           )
@@ -467,19 +457,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       const tierLimit = subscription?.subscription_tiers?.max_study_plans;
 
       // If there's a limit, check it
-      if (tierLimit !== null && tierLimit !== undefined) {
-        // Calculate the current billing period start date
-        const currentPeriodStart = getCurrentPeriodStartDate(
-          subscription.created_at,
-          subscription.billing_cycle
-        );
-
+      if (tierLimit !== null && tierLimit !== undefined && subscription?.period_start_date) {
         // Count study plans created in the current billing period
         const { count, error: countError } = await supabase
           .from('study_plan_schedules')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
-          .gte('created_at', currentPeriodStart); // Only count plans created since current period started
+          .gte('created_at', subscription.period_start_date); // Only count plans created since current period started
 
         if (countError) {
           console.error('Error checking existing plans:', countError);
