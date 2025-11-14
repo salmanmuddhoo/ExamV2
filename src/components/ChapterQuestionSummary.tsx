@@ -106,12 +106,12 @@ export function ChapterQuestionSummary({
 
   if (!isOpen) return null;
 
-  // Group questions by year/month
+  // Group questions by year/month/paper (each paper gets its own row)
   const groupedQuestions = questions.reduce((acc, q) => {
     if (!q.exam_questions?.exam_papers) return acc;
 
     const paper = q.exam_questions.exam_papers;
-    const key = `${paper.year}-${paper.month || 0}`;
+    const key = `${paper.year}-${paper.month || 0}-${paper.title}`;
     if (!acc[key]) {
       acc[key] = {
         year: paper.year,
@@ -128,10 +128,11 @@ export function ChapterQuestionSummary({
     return acc;
   }, {} as Record<string, { year: number; month: number | null; monthName: string; title: string; questions: { id: string; number: string }[] }>);
 
-  // Sort groups by year (descending) and month (descending)
+  // Sort groups by year (descending), month (descending), then by title
   const sortedGroups = Object.values(groupedQuestions).sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year; // Latest year first
-    return (b.month || 0) - (a.month || 0); // Latest month first within same year
+    if (a.month !== b.month) return (b.month || 0) - (a.month || 0); // Latest month first within same year
+    return a.title.localeCompare(b.title); // Then sort by paper title alphabetically
   });
 
   // Sort questions within each group by question number (ascending)
