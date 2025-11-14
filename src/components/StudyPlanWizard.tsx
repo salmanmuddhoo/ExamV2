@@ -189,6 +189,29 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (!user || !selectedSubject || !selectedGrade) return;
 
       try {
+        // First, check per-subject/grade limit (max 3 study plans per subject/grade)
+        const { count: subjectGradeCount, error: subjectError } = await supabase
+          .from('study_plan_schedules')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('subject_id', selectedSubject)
+          .eq('grade_id', selectedGrade);
+
+        if (subjectError) {
+          console.error('Error checking subject/grade plans:', subjectError);
+          return;
+        }
+
+        if (subjectGradeCount !== null && subjectGradeCount >= 3) {
+          setAlertConfig({
+            title: 'Maximum Study Plans Reached',
+            message: `You already have 3 study plans for this subject and grade combination. Please delete an existing study plan before creating a new one.`,
+            type: 'warning'
+          });
+          setShowAlert(true);
+          return;
+        }
+
         // Get the user's tier max_study_plans limit and period start date
         const { data: subscription, error: subError } = await supabase
           .from('user_subscriptions')
@@ -435,6 +458,30 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
     try {
       setGenerating(true);
+
+      // First, check per-subject/grade limit (max 3 study plans per subject/grade)
+      const { count: subjectGradeCount, error: subjectError } = await supabase
+        .from('study_plan_schedules')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('subject_id', selectedSubject)
+        .eq('grade_id', selectedGrade);
+
+      if (subjectError) {
+        console.error('Error checking subject/grade plans:', subjectError);
+        throw new Error('Failed to check subject/grade study plans');
+      }
+
+      if (subjectGradeCount !== null && subjectGradeCount >= 3) {
+        setAlertConfig({
+          title: 'Maximum Study Plans Reached',
+          message: `You already have 3 study plans for this subject and grade combination. Please delete an existing study plan before creating a new one.`,
+          type: 'warning'
+        });
+        setShowAlert(true);
+        setGenerating(false);
+        return;
+      }
 
       // Re-check tier limit before creating (in case it changed)
       const { data: subscription, error: subError } = await supabase
