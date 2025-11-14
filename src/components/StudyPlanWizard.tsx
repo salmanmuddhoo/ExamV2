@@ -97,6 +97,39 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     }
   }, [isOpen]);
 
+  // Calculate the current billing period start date based on subscription created_at and billing_cycle
+  const getCurrentPeriodStartDate = (createdAt: string, billingCycle: string): string => {
+    const subscriptionStart = new Date(createdAt);
+    const now = new Date();
+
+    // For lifetime subscriptions, period never resets
+    if (billingCycle === 'lifetime') {
+      return createdAt;
+    }
+
+    // Calculate how many periods have passed since subscription started
+    const yearsDiff = now.getFullYear() - subscriptionStart.getFullYear();
+    const monthsDiff = now.getMonth() - subscriptionStart.getMonth();
+    const totalMonthsDiff = yearsDiff * 12 + monthsDiff;
+
+    let currentPeriodStart = new Date(subscriptionStart);
+
+    if (billingCycle === 'monthly') {
+      // Add the number of complete months to get current period start
+      currentPeriodStart.setMonth(subscriptionStart.getMonth() + totalMonthsDiff);
+    } else if (billingCycle === 'yearly') {
+      // Add the number of complete years to get current period start
+      currentPeriodStart.setFullYear(subscriptionStart.getFullYear() + yearsDiff);
+
+      // If we haven't reached the anniversary month/day yet this year, go back one year
+      if (now < currentPeriodStart) {
+        currentPeriodStart.setFullYear(currentPeriodStart.getFullYear() - 1);
+      }
+    }
+
+    return currentPeriodStart.toISOString();
+  };
+
   // Fetch study plan usage information
   const fetchStudyPlanUsage = async () => {
     if (!user) return;
@@ -104,10 +137,11 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setLoadingPlanInfo(true);
 
-      // Get user's tier limit
+      // Get user's tier limit and period start date
       const { data: subscription, error: subError } = await supabase
         .from('user_subscriptions')
         .select(`
+          period_start_date,
           subscription_tiers!inner(
             max_study_plans
           )
@@ -122,19 +156,25 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       } else {
         const tierLimit = subscription?.subscription_tiers?.max_study_plans;
         setStudyPlanLimit(tierLimit ?? null);
-      }
 
-      // Count ALL study plans created by this user
-      const { count, error: countError } = await supabase
-        .from('study_plan_schedules')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        // If there's a limit, count study plans created in current billing period (including deleted)
+        if (tierLimit !== null && subscription?.period_start_date) {
+          const { count, error: countError } = await supabase
+            .from('study_plan_schedules')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('created_at', subscription.period_start_date); // Count ALL plans (including deleted_at IS NOT NULL)
 
-      if (countError) {
-        console.error('Error counting study plans:', countError);
-        setStudyPlanCount(0);
-      } else {
-        setStudyPlanCount(count || 0);
+          if (countError) {
+            console.error('Error counting study plans:', countError);
+            setStudyPlanCount(0);
+          } else {
+            setStudyPlanCount(count || 0);
+          }
+        } else {
+          // No limit or no subscription info, don't need to count
+          setStudyPlanCount(0);
+        }
       }
     } catch (error) {
       console.error('Error fetching study plan usage:', error);
@@ -149,10 +189,35 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (!user || !selectedSubject || !selectedGrade) return;
 
       try {
-        // First, get the user's tier max_study_plans limit
+        // First, check per-subject/grade limit (max 3 study plans per subject/grade, excluding deleted)
+        const { count: subjectGradeCount, error: subjectError } = await supabase
+          .from('study_plan_schedules')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('subject_id', selectedSubject)
+          .eq('grade_id', selectedGrade)
+          .is('deleted_at', null); // Only count non-deleted plans
+
+        if (subjectError) {
+          console.error('Error checking subject/grade plans:', subjectError);
+          return;
+        }
+
+        if (subjectGradeCount !== null && subjectGradeCount >= 3) {
+          setAlertConfig({
+            title: 'Maximum Study Plans Reached',
+            message: `You already have 3 study plans for this subject and grade combination. Please delete an existing study plan before creating a new one.`,
+            type: 'warning'
+          });
+          setShowAlert(true);
+          return;
+        }
+
+        // Get the user's tier max_study_plans limit and period start date
         const { data: subscription, error: subError } = await supabase
           .from('user_subscriptions')
           .select(`
+            period_start_date,
             subscription_tiers!inner(
               max_study_plans
             )
@@ -173,29 +238,34 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           return;
         }
 
-        // Count ALL study plans ever created by this user (not filtered by subject/grade)
-        // This includes active, completed, and inactive plans
-        // Deleted plans are already removed from the database, so they won't be counted
-        const { data: existingPlans, error } = await supabase
+        if (!subscription?.period_start_date) {
+          console.error('No period_start_date found');
+          return;
+        }
+
+        // Count study plans created in the current billing period (including deleted ones)
+        // This is a "creation quota" - deleting plans doesn't give back the quota
+        const { count, error } = await supabase
           .from('study_plan_schedules')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', subscription.period_start_date); // Count ALL plans (including deleted_at IS NOT NULL)
 
         if (error) {
           console.error('Error checking study plan limit:', error);
           return;
         }
 
-        const totalPlansCreated = existingPlans || 0;
+        const plansCreatedThisPeriod = count || 0;
 
-        if (totalPlansCreated >= tierLimit) {
+        if (plansCreatedThisPeriod >= tierLimit) {
           setAlertConfig({
             title: 'Study Plan Limit Reached',
-            message: `You have reached your tier's limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. You cannot create more study plans with your current subscription. Please upgrade your plan to create more.`,
+            message: `You have reached your monthly limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. Your limit will reset at the start of your next billing cycle.`,
             type: 'warning'
           });
           setShowAlert(true);
-          // Don't proceed - user needs to upgrade
+          // Don't proceed - user needs to wait for billing cycle reset
         }
       } catch (error) {
         console.error('Error checking study plan limit:', error);
@@ -391,10 +461,36 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
+      // First, check per-subject/grade limit (max 3 study plans per subject/grade, excluding deleted)
+      const { count: subjectGradeCount, error: subjectError } = await supabase
+        .from('study_plan_schedules')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('subject_id', selectedSubject)
+        .eq('grade_id', selectedGrade)
+        .is('deleted_at', null); // Only count non-deleted plans
+
+      if (subjectError) {
+        console.error('Error checking subject/grade plans:', subjectError);
+        throw new Error('Failed to check subject/grade study plans');
+      }
+
+      if (subjectGradeCount !== null && subjectGradeCount >= 3) {
+        setAlertConfig({
+          title: 'Maximum Study Plans Reached',
+          message: `You already have 3 study plans for this subject and grade combination. Please delete an existing study plan before creating a new one.`,
+          type: 'warning'
+        });
+        setShowAlert(true);
+        setGenerating(false);
+        return;
+      }
+
       // Re-check tier limit before creating (in case it changed)
       const { data: subscription, error: subError } = await supabase
         .from('user_subscriptions')
         .select(`
+          period_start_date,
           subscription_tiers!inner(
             max_study_plans
           )
@@ -411,12 +507,14 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       const tierLimit = subscription?.subscription_tiers?.max_study_plans;
 
       // If there's a limit, check it
-      if (tierLimit !== null && tierLimit !== undefined) {
-        // Count ALL study plans created by this user
+      if (tierLimit !== null && tierLimit !== undefined && subscription?.period_start_date) {
+        // Count study plans created in the current billing period (including deleted ones)
+        // This is a "creation quota" - deleting plans doesn't give back the quota
         const { count, error: countError } = await supabase
           .from('study_plan_schedules')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .gte('created_at', subscription.period_start_date); // Count ALL plans (including deleted_at IS NOT NULL)
 
         if (countError) {
           console.error('Error checking existing plans:', countError);
@@ -426,7 +524,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         if (count !== null && count >= tierLimit) {
           setAlertConfig({
             title: 'Study Plan Limit Reached',
-            message: `You have reached your tier's limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. You cannot create more study plans with your current subscription. Please upgrade your plan to create more.`,
+            message: `You have reached your monthly limit of ${tierLimit} study plan${tierLimit > 1 ? 's' : ''}. Your limit will reset at the start of your next billing cycle.`,
             type: 'warning'
           });
           setShowAlert(true);

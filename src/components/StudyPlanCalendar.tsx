@@ -254,6 +254,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
           grade_levels(name)
         `)
         .eq('user_id', user.id)
+        .is('deleted_at', null) // Only show non-deleted plans
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -328,7 +329,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         console.log('Cleaning up old orphaned schedules (>10 min old):', orphanedScheduleIds);
         const { error: deleteError } = await supabase
           .from('study_plan_schedules')
-          .delete()
+          .update({ deleted_at: new Date().toISOString() })
           .in('id', orphanedScheduleIds);
 
         if (deleteError) {
@@ -346,12 +347,12 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
   const handleDeleteSchedule = (scheduleId: string) => {
     setConfirmConfig({
       title: 'Delete Study Plan',
-      message: 'Are you sure you want to delete this study plan? All associated events will be permanently deleted. This action cannot be undone.',
+      message: 'Are you sure you want to delete this study plan? This will free up a slot for creating new study plans for this subject and grade.',
       onConfirm: async () => {
         try {
           const { error } = await supabase
             .from('study_plan_schedules')
-            .delete()
+            .update({ deleted_at: new Date().toISOString() })
             .eq('id', scheduleId);
 
           if (error) throw error;
