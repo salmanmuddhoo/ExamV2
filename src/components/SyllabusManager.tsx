@@ -69,6 +69,9 @@ export function SyllabusManager() {
   // Subject folder expansion state
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
+  // Upload form visibility state
+  const [showUploadForm, setShowUploadForm] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -179,6 +182,9 @@ export function SyllabusManager() {
       setDescription('');
       setAcademicYear('');
       setRegion('');
+
+      // Hide upload form
+      setShowUploadForm(false);
 
       // Refresh list
       fetchData();
@@ -549,17 +555,29 @@ export function SyllabusManager() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Syllabus Management</h2>
-        <p className="text-sm text-gray-600">
-          Upload syllabus PDFs and let AI extract chapters automatically
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Syllabus Management</h2>
+          <p className="text-sm text-gray-600">
+            Upload syllabus PDFs and let AI extract chapters automatically
+          </p>
+        </div>
+        {!showUploadForm && (
+          <button
+            onClick={() => setShowUploadForm(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Upload Syllabus</span>
+          </button>
+        )}
       </div>
 
       {/* Upload Form */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Syllabus</h3>
-        <form onSubmit={handleUpload} className="space-y-4">
+      {showUploadForm && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload New Syllabus</h3>
+          <form onSubmit={handleUpload} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -708,6 +726,7 @@ export function SyllabusManager() {
           </button>
         </form>
       </div>
+      )}
 
       {/* Syllabus List - Grouped by Subject */}
       <div>

@@ -626,6 +626,10 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
   const canProceed = () => {
     switch (step) {
       case 1:
+        // Check if study plan limit is reached
+        if (studyPlanLimit !== null && studyPlanCount >= studyPlanLimit) {
+          return false;
+        }
         // Syllabus and chapters are required (1-3 chapters mandatory)
         return selectedSubject && selectedGrade && selectedSyllabus && selectedChapters.length > 0 && selectedChapters.length <= 3;
       case 2:
@@ -751,7 +755,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                       ) : studyPlanLimit === null ? (
                         `${studyPlanCount} created (Unlimited)`
                       ) : (
-                        `${studyPlanCount} / ${studyPlanLimit}`
+                        `${Math.min(studyPlanCount, studyPlanLimit)} / ${studyPlanLimit}`
                       )}
                     </span>
                   </div>

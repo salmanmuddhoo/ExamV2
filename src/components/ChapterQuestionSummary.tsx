@@ -13,11 +13,12 @@ interface ChapterQuestionSummaryProps {
 interface QuestionTag {
   id: string;
   question_number: string;
+  exam_paper_id: string;
   exam_papers: {
     year: number;
     month: number | null;
     variant: string;
-  };
+  } | null;
 }
 
 const MONTH_NAMES = [
@@ -50,12 +51,15 @@ export function ChapterQuestionSummary({
     try {
       setLoading(true);
 
+      console.log('Fetching questions for chapter:', chapterId);
+
       const { data, error } = await supabase
         .from('question_chapter_tags')
         .select(`
           id,
           question_number,
-          exam_papers!inner(
+          exam_paper_id,
+          exam_papers(
             year,
             month,
             variant
@@ -63,13 +67,21 @@ export function ChapterQuestionSummary({
         `)
         .eq('chapter_id', chapterId);
 
+      console.log('Raw data from query:', data);
+      console.log('Query error:', error);
+
       if (error) {
         console.error('Error fetching chapter questions:', error);
         throw error;
       }
 
+      // Filter out records where exam_papers is null (no matching exam paper)
+      const validData = (data || []).filter((q: any) => q.exam_papers !== null);
+
+      console.log('Valid data after filtering:', validData);
+
       // Sort in JavaScript instead of Supabase
-      const sortedData = (data || []).sort((a: any, b: any) => {
+      const sortedData = validData.sort((a: any, b: any) => {
         if (a.exam_papers.year !== b.exam_papers.year) {
           return b.exam_papers.year - a.exam_papers.year; // Descending
         }
