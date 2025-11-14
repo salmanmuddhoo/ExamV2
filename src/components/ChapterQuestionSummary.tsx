@@ -17,7 +17,7 @@ interface QuestionTag {
     exam_papers: {
       year: number;
       month: number | null;
-      variant: string;
+      title: string;
     } | null;
   } | null;
 }
@@ -63,7 +63,7 @@ export function ChapterQuestionSummary({
             exam_papers!inner(
               year,
               month,
-              variant
+              title
             )
           )
         `)
@@ -115,13 +115,13 @@ export function ChapterQuestionSummary({
         year: paper.year,
         month: paper.month,
         monthName: getMonthName(paper.month),
-        variant: paper.variant,
+        title: paper.title,
         questions: []
       };
     }
     acc[key].questions.push(q.exam_questions.question_number);
     return acc;
-  }, {} as Record<string, { year: number; month: number | null; monthName: string; variant: string; questions: string[] }>);
+  }, {} as Record<string, { year: number; month: number | null; monthName: string; title: string; questions: string[] }>);
 
   const sortedGroups = Object.values(groupedQuestions).sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year;
@@ -188,7 +188,7 @@ export function ChapterQuestionSummary({
                             Year/Month
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Variant
+                            Exam Paper
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Question Numbers
@@ -207,7 +207,7 @@ export function ChapterQuestionSummary({
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-700">{group.variant}</span>
+                              <span className="text-sm text-gray-700">{group.title}</span>
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex flex-wrap gap-2">
@@ -234,14 +234,14 @@ export function ChapterQuestionSummary({
                         key={idx}
                         className="bg-gray-50 rounded-lg p-4 border border-gray-200"
                       >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-2">
+                        <div className="mb-3">
+                          <div className="flex items-center space-x-2 mb-1">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             <span className="text-sm font-semibold text-gray-900">
                               {group.year} / {group.monthName}
                             </span>
                           </div>
-                          <span className="text-xs text-gray-600">{group.variant}</span>
+                          <span className="text-xs text-gray-600">{group.title}</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {group.questions.map((qNum, qIdx) => (
