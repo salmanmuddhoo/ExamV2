@@ -312,38 +312,19 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoadedSuccessfully(false); // Reset success state
       setPdfLoadProgress(0);
 
-      if (isMobile) {
-        // For mobile, use signed URL directly (mobile browsers have issues with blob URLs in iframes)
-        const { data: signedData, error: signedUrlError } = await supabase.storage
-          .from('exam-papers')
-          .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
+      // Download PDF and create blob URL for both mobile and desktop
+      // This ensures PDF opens inline in iframe instead of opening externally
+      const { data: signedData, error: signedUrlError } = await supabase.storage
+        .from('exam-papers')
+        .createSignedUrl(examPaper.pdf_path, 3600);
 
-        if (signedUrlError || !signedData?.signedUrl) {
-          throw new Error('Failed to get signed URL');
-        }
-
-        // Simulate progress for better UX
-        for (let i = 0; i <= 100; i += 10) {
-          setPdfLoadProgress(i);
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-
-        // Use signed URL directly for mobile
-        setPdfBlobUrl(signedData.signedUrl);
-      } else {
-        // For desktop, download with progress tracking and use blob URL
-        const { data: signedData, error: signedUrlError } = await supabase.storage
-          .from('exam-papers')
-          .createSignedUrl(examPaper.pdf_path, 3600);
-
-        if (signedUrlError || !signedData?.signedUrl) {
-          throw new Error('Failed to get signed URL');
-        }
-
-        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfBlobUrl(url);
+      if (signedUrlError || !signedData?.signedUrl) {
+        throw new Error('Failed to get signed URL');
       }
+
+      const pdfBlob = await downloadWithProgress(signedData.signedUrl);
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfBlobUrl(url);
 
       // Process PDFs for AI after setting the blob URL
       const { data, error } = await supabase.storage
