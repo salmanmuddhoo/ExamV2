@@ -13,11 +13,12 @@ interface ChapterQuestionSummaryProps {
 interface QuestionTag {
   id: string;
   question_number: string;
-  exam_paper_id: string;
-  exam_papers: {
-    year: number;
-    month: number | null;
-    variant: string;
+  exam_questions: {
+    exam_papers: {
+      year: number;
+      month: number | null;
+      variant: string;
+    } | null;
   } | null;
 }
 
@@ -58,11 +59,12 @@ export function ChapterQuestionSummary({
         .select(`
           id,
           question_number,
-          exam_paper_id,
-          exam_papers(
-            year,
-            month,
-            variant
+          exam_questions(
+            exam_papers(
+              year,
+              month,
+              variant
+            )
           )
         `)
         .eq('chapter_id', chapterId);
@@ -75,17 +77,24 @@ export function ChapterQuestionSummary({
         throw error;
       }
 
-      // Filter out records where exam_papers is null (no matching exam paper)
-      const validData = (data || []).filter((q: any) => q.exam_papers !== null);
+      // Filter out records where exam_questions or exam_papers is null
+      const validData = (data || []).filter((q: any) =>
+        q.exam_questions !== null && q.exam_questions.exam_papers !== null
+      );
 
       console.log('Valid data after filtering:', validData);
 
       // Sort in JavaScript instead of Supabase
       const sortedData = validData.sort((a: any, b: any) => {
-        if (a.exam_papers.year !== b.exam_papers.year) {
-          return b.exam_papers.year - a.exam_papers.year; // Descending
+        const aYear = a.exam_questions.exam_papers.year;
+        const bYear = b.exam_questions.exam_papers.year;
+        const aMonth = a.exam_questions.exam_papers.month || 0;
+        const bMonth = b.exam_questions.exam_papers.month || 0;
+
+        if (aYear !== bYear) {
+          return bYear - aYear; // Descending
         }
-        return (a.exam_papers.month || 0) - (b.exam_papers.month || 0); // Ascending
+        return aMonth - bMonth; // Ascending
       });
 
       setQuestions(sortedData);
@@ -101,7 +110,9 @@ export function ChapterQuestionSummary({
 
   // Group questions by year/month
   const groupedQuestions = questions.reduce((acc, q) => {
-    const paper = q.exam_papers;
+    if (!q.exam_questions?.exam_papers) return acc;
+
+    const paper = q.exam_questions.exam_papers;
     const key = `${paper.year}-${paper.month || 0}`;
     if (!acc[key]) {
       acc[key] = {
