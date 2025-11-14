@@ -939,7 +939,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                               Duration
                             </th>
                             <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                              Sessions/Week
+                              Sessions per Week
                             </th>
                             <th className="px-2 md:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Period
