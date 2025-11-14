@@ -61,6 +61,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
   const [isMobile, setIsMobile] = useState(false);
   const [pdfLoadError, setPdfLoadError] = useState(false);
+  const [pdfLoadedSuccessfully, setPdfLoadedSuccessfully] = useState(false);
   const [lastQuestionNumber, setLastQuestionNumber] = useState<string | null>(null); // 🔹 NEW: Track last question
   const [imageCache, setImageCache] = useState<Map<string, { exam: string[], markingSchemeText: string, questionText: string }>>(new Map()); // 🔹 NEW: Cache images
   const [paperAccessDenied, setPaperAccessDenied] = useState(false);
@@ -308,6 +309,7 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoading(true);
       setProcessingPdfs(true);
       setPdfLoadError(false); // Reset error state
+      setPdfLoadedSuccessfully(false); // Reset success state
       setPdfLoadProgress(0);
 
       if (isMobile) {
@@ -1240,29 +1242,55 @@ You can still view and download this exam paper!`
          ) : pdfBlobUrl ? (
             <>
               {isMobile ? (
-                <>
+                <div className="relative w-full h-full">
+                  {/* Persistent refresh button on mobile */}
+                  <div className="absolute top-2 right-2 z-10">
+                    <button
+                      onClick={() => {
+                        setPdfBlobUrl('');
+                        setPdfLoadError(false);
+                        setPdfLoadedSuccessfully(false);
+                        setTimeout(() => loadPdfBlob(), 100);
+                      }}
+                      className="bg-black bg-opacity-70 text-white p-2 rounded-full shadow-lg hover:bg-opacity-90 transition-all"
+                      aria-label="Reload exam paper"
+                      title="Reload PDF"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  </div>
+
                   <iframe
                     key={pdfBlobUrl}
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
+                    src={pdfBlobUrl}
                     className="w-full h-full border-0"
                     title="Exam Paper"
                     allow="fullscreen"
                     onLoad={() => {
-                      // Set a timeout to check if PDF loaded successfully
-                      setTimeout(() => setPdfLoadError(false), 2000);
+                      // Mark as successfully loaded after a short delay
+                      setTimeout(() => {
+                        setPdfLoadedSuccessfully(true);
+                        setPdfLoadError(false);
+                      }, 1500);
                     }}
-                    onError={() => setPdfLoadError(true)}
+                    onError={() => {
+                      setPdfLoadError(true);
+                      setPdfLoadedSuccessfully(false);
+                    }}
                   />
-                  {pdfLoadError && (
+
+                  {/* Show error overlay if PDF fails to load */}
+                  {pdfLoadError && !pdfLoadedSuccessfully && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                      <div className="text-center">
+                      <div className="text-center p-6">
                         <button
                           onClick={() => {
                             setPdfBlobUrl('');
                             setPdfLoadError(false);
+                            setPdfLoadedSuccessfully(false);
                             setTimeout(() => loadPdfBlob(), 100);
                           }}
-                          className="group flex flex-col items-center justify-center p-6 hover:scale-105 transition-transform duration-200"
+                          className="group flex flex-col items-center justify-center hover:scale-105 transition-transform duration-200"
                           aria-label="Reload exam paper"
                         >
                           <div className="relative mb-4">
@@ -1275,7 +1303,7 @@ You can still view and download this exam paper!`
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 <iframe
                   src={pdfBlobUrl}
