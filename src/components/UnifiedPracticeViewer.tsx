@@ -1458,6 +1458,13 @@ export function UnifiedPracticeViewer({
           chapterTitle={chapterInfo.chapter_title}
           isOpen={showChapterSummary}
           onClose={() => setShowChapterSummary(false)}
+          onQuestionClick={(questionId) => {
+            const questionIndex = questions.findIndex(q => q.id === questionId);
+            if (questionIndex !== -1) {
+              setCurrentQuestionIndex(questionIndex);
+              setSelectedQuestion(questions[questionIndex]);
+            }
+          }}
         />
       )}
     </div>

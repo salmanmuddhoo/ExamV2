@@ -8,6 +8,7 @@ interface ChapterQuestionSummaryProps {
   chapterTitle: string;
   isOpen: boolean;
   onClose: () => void;
+  onQuestionClick?: (questionId: string) => void;
 }
 
 interface QuestionTag {
@@ -32,7 +33,8 @@ export function ChapterQuestionSummary({
   chapterNumber,
   chapterTitle,
   isOpen,
-  onClose
+  onClose,
+  onQuestionClick
 }: ChapterQuestionSummaryProps) {
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<QuestionTag[]>([]);
@@ -119,13 +121,26 @@ export function ChapterQuestionSummary({
         questions: []
       };
     }
-    acc[key].questions.push(q.exam_questions.question_number);
+    acc[key].questions.push({
+      id: q.question_id,
+      number: q.exam_questions.question_number
+    });
     return acc;
-  }, {} as Record<string, { year: number; month: number | null; monthName: string; title: string; questions: string[] }>);
+  }, {} as Record<string, { year: number; month: number | null; monthName: string; title: string; questions: { id: string; number: string }[] }>);
 
+  // Sort groups by year (descending) and month (descending)
   const sortedGroups = Object.values(groupedQuestions).sort((a, b) => {
-    if (a.year !== b.year) return b.year - a.year;
-    return (a.month || 0) - (b.month || 0);
+    if (a.year !== b.year) return b.year - a.year; // Latest year first
+    return (b.month || 0) - (a.month || 0); // Latest month first within same year
+  });
+
+  // Sort questions within each group by question number (ascending)
+  sortedGroups.forEach(group => {
+    group.questions.sort((a, b) => {
+      const numA = parseInt(a.number) || 0;
+      const numB = parseInt(b.number) || 0;
+      return numA - numB;
+    });
   });
 
   return (
@@ -211,13 +226,19 @@ export function ChapterQuestionSummary({
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex flex-wrap gap-2">
-                                {group.questions.map((qNum, qIdx) => (
-                                  <span
+                                {group.questions.map((q, qIdx) => (
+                                  <button
                                     key={qIdx}
-                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                    onClick={() => {
+                                      if (onQuestionClick) {
+                                        onQuestionClick(q.id);
+                                        onClose();
+                                      }
+                                    }}
+                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors cursor-pointer"
                                   >
-                                    Q{qNum}
-                                  </span>
+                                    Q{q.number}
+                                  </button>
                                 ))}
                               </div>
                             </td>
@@ -244,13 +265,19 @@ export function ChapterQuestionSummary({
                           <span className="text-xs text-gray-600">{group.title}</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {group.questions.map((qNum, qIdx) => (
-                            <span
+                          {group.questions.map((q, qIdx) => (
+                            <button
                               key={qIdx}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                              onClick={() => {
+                                if (onQuestionClick) {
+                                  onQuestionClick(q.id);
+                                  onClose();
+                                }
+                              }}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors cursor-pointer"
                             >
-                              Q{qNum}
-                            </span>
+                              Q{q.number}
+                            </button>
                           ))}
                         </div>
                       </div>
