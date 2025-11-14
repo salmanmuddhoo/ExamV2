@@ -42,7 +42,7 @@ interface Question {
   exam_papers: {
     title: string;
     year: number;
-    month: string;
+    month: number | null;
   };
 }
 
@@ -61,6 +61,16 @@ interface Message {
   content: string;
   questionNumber?: string | null;
 }
+
+const MONTH_NAMES = [
+  '', 'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const getMonthName = (monthNumber: number | null): string => {
+  if (!monthNumber) return '';
+  return MONTH_NAMES[monthNumber] || '';
+};
 
 export function UnifiedPracticeViewer({
   mode,
@@ -1175,7 +1185,11 @@ export function UnifiedPracticeViewer({
                         : ''
                     }`}
                   >
-                    <span className="mr-1.5">Question</span>
+                    <span className="mr-1.5">
+                      Year {selectedQuestion.exam_papers.year}
+                      {selectedQuestion.exam_papers.month && `/${getMonthName(selectedQuestion.exam_papers.month)}`}
+                      {' Question'}
+                    </span>
                     <span className="text-base">{selectedQuestion.question_number}</span>
                   </div>
                 </div>
