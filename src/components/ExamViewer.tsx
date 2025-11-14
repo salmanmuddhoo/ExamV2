@@ -45,6 +45,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
+  const [pdfBlobData, setPdfBlobData] = useState<Blob | null>(null);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pdfLoadProgress, setPdfLoadProgress] = useState(0);
   const [examPaperImages, setExamPaperImages] = useState<string[]>([]);
@@ -323,6 +324,7 @@ This helps me give you the most accurate and focused help! 😊`;
       const pdfBlob = await downloadWithProgress(signedData.signedUrl);
       const url = URL.createObjectURL(pdfBlob);
       setPdfBlobUrl(url);
+      setPdfBlobData(pdfBlob); // Store blob data for mobile PDF.js viewer
 
       // Process PDFs for AI - reuse the already downloaded pdfBlob
       const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
@@ -1214,6 +1216,7 @@ You can still view and download this exam paper!`
             <>
               {isMobile ? (
                 <MobilePdfViewer
+                  pdfData={pdfBlobData}
                   pdfUrl={pdfBlobUrl}
                   onLoadSuccess={() => setPdfLoadError(false)}
                   onLoadError={() => setPdfLoadError(true)}

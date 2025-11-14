@@ -8,12 +8,13 @@ import 'react-pdf/dist/Page/TextLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface MobilePdfViewerProps {
-  pdfUrl: string;
+  pdfUrl?: string;
+  pdfData?: Blob | null;
   onLoadSuccess?: () => void;
   onLoadError?: () => void;
 }
 
-export function MobilePdfViewer({ pdfUrl, onLoadSuccess, onLoadError }: MobilePdfViewerProps) {
+export function MobilePdfViewer({ pdfUrl, pdfData, onLoadSuccess, onLoadError }: MobilePdfViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageWidth, setPageWidth] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,6 +45,8 @@ export function MobilePdfViewer({ pdfUrl, onLoadSuccess, onLoadError }: MobilePd
   function onDocumentLoadError(error: Error) {
     console.error('Error loading PDF:', error);
     console.error('PDF URL:', pdfUrl);
+    console.error('PDF Data:', pdfData ? 'Blob present' : 'No blob');
+    console.error('Error details:', error.message, error.stack);
     setError('Failed to load PDF. Please try again.');
     setIsLoading(false);
     if (onLoadError) {
@@ -75,11 +78,7 @@ export function MobilePdfViewer({ pdfUrl, onLoadSuccess, onLoadError }: MobilePd
       )}
 
       <Document
-        file={{
-          url: pdfUrl,
-          httpHeaders: {},
-          withCredentials: false,
-        }}
+        file={pdfData || (pdfUrl ? { url: pdfUrl, httpHeaders: {}, withCredentials: false } : null)}
         options={{
           cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/`,
           cMapPacked: true,
