@@ -333,9 +333,9 @@ This helps me give you the most accurate and focused help! 😊`;
 
       if (error) throw error;
 
-      const pdfBlob = new Blob([data], { type: 'application/pdf' });
+      const aiProcessingBlob = new Blob([data], { type: 'application/pdf' });
 
-      const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
+      const examFile = new File([aiProcessingBlob], 'exam.pdf', { type: 'application/pdf' });
       const examImages = await convertPdfToBase64Images(examFile);
       setExamPaperImages(examImages.map(img => img.inlineData.data));
 
