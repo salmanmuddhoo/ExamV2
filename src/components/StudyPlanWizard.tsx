@@ -157,13 +157,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
         const tierLimit = subscription?.subscription_tiers?.max_study_plans;
         setStudyPlanLimit(tierLimit ?? null);
 
-        // If there's a limit, count study plans created in current billing period
+        // If there's a limit, count study plans created in current billing period (including deleted)
         if (tierLimit !== null && subscription?.period_start_date) {
           const { count, error: countError } = await supabase
             .from('study_plan_schedules')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', user.id)
-            .gte('created_at', subscription.period_start_date); // Only count plans created since current period started
+            .gte('created_at', subscription.period_start_date); // Count ALL plans (including deleted_at IS NOT NULL)
 
           if (countError) {
             console.error('Error counting study plans:', countError);
@@ -189,13 +189,14 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
       if (!user || !selectedSubject || !selectedGrade) return;
 
       try {
-        // First, check per-subject/grade limit (max 3 study plans per subject/grade)
+        // First, check per-subject/grade limit (max 3 study plans per subject/grade, excluding deleted)
         const { count: subjectGradeCount, error: subjectError } = await supabase
           .from('study_plan_schedules')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .eq('subject_id', selectedSubject)
-          .eq('grade_id', selectedGrade);
+          .eq('grade_id', selectedGrade)
+          .is('deleted_at', null); // Only count non-deleted plans
 
         if (subjectError) {
           console.error('Error checking subject/grade plans:', subjectError);
@@ -242,12 +243,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
           return;
         }
 
-        // Count study plans created in the current billing period
+        // Count study plans created in the current billing period (including deleted ones)
+        // This is a "creation quota" - deleting plans doesn't give back the quota
         const { count, error } = await supabase
           .from('study_plan_schedules')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
-          .gte('created_at', subscription.period_start_date); // Only count plans created since current period started
+          .gte('created_at', subscription.period_start_date); // Count ALL plans (including deleted_at IS NOT NULL)
 
         if (error) {
           console.error('Error checking study plan limit:', error);
@@ -459,13 +461,14 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
     try {
       setGenerating(true);
 
-      // First, check per-subject/grade limit (max 3 study plans per subject/grade)
+      // First, check per-subject/grade limit (max 3 study plans per subject/grade, excluding deleted)
       const { count: subjectGradeCount, error: subjectError } = await supabase
         .from('study_plan_schedules')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('subject_id', selectedSubject)
-        .eq('grade_id', selectedGrade);
+        .eq('grade_id', selectedGrade)
+        .is('deleted_at', null); // Only count non-deleted plans
 
       if (subjectError) {
         console.error('Error checking subject/grade plans:', subjectError);
@@ -505,12 +508,13 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
       // If there's a limit, check it
       if (tierLimit !== null && tierLimit !== undefined && subscription?.period_start_date) {
-        // Count study plans created in the current billing period
+        // Count study plans created in the current billing period (including deleted ones)
+        // This is a "creation quota" - deleting plans doesn't give back the quota
         const { count, error: countError } = await supabase
           .from('study_plan_schedules')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
-          .gte('created_at', subscription.period_start_date); // Only count plans created since current period started
+          .gte('created_at', subscription.period_start_date); // Count ALL plans (including deleted_at IS NOT NULL)
 
         if (countError) {
           console.error('Error checking existing plans:', countError);
