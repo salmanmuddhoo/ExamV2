@@ -7,6 +7,7 @@ import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
 import { formatTokenCount } from '../lib/formatUtils';
 import { ContextualHint } from './ContextualHint';
+import { MobilePdfViewer } from './MobilePdfViewer';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -1240,42 +1241,11 @@ You can still view and download this exam paper!`
          ) : pdfBlobUrl ? (
             <>
               {isMobile ? (
-                <>
-                  <iframe
-                    key={pdfBlobUrl}
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
-                    className="w-full h-full border-0"
-                    title="Exam Paper"
-                    allow="fullscreen"
-                    onLoad={() => {
-                      // Set a timeout to check if PDF loaded successfully
-                      setTimeout(() => setPdfLoadError(false), 2000);
-                    }}
-                    onError={() => setPdfLoadError(true)}
-                  />
-                  {pdfLoadError && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                      <div className="text-center">
-                        <button
-                          onClick={() => {
-                            setPdfBlobUrl('');
-                            setPdfLoadError(false);
-                            setTimeout(() => loadPdfBlob(), 100);
-                          }}
-                          className="group flex flex-col items-center justify-center p-6 hover:scale-105 transition-transform duration-200"
-                          aria-label="Reload exam paper"
-                        >
-                          <div className="relative mb-4">
-                            <div className="absolute inset-0 bg-black rounded-full opacity-10 group-hover:opacity-20 transition-opacity"></div>
-                            <RefreshCw className="w-16 h-16 text-black relative z-10 group-hover:rotate-180 transition-transform duration-500" />
-                          </div>
-                          <p className="text-gray-900 font-semibold text-lg mb-1">Tap to reload</p>
-                          <p className="text-gray-600 text-sm">Exam paper failed to load</p>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                <MobilePdfViewer
+                  pdfUrl={pdfBlobUrl}
+                  onLoadSuccess={() => setPdfLoadError(false)}
+                  onLoadError={() => setPdfLoadError(true)}
+                />
               ) : (
                 <iframe
                   src={pdfBlobUrl}
