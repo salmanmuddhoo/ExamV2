@@ -124,6 +124,10 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
                     scrollbarColor: '#9CA3AF #F3F4F6',
                     whiteSpace: 'pre',
                     wordWrap: 'normal',
+                    fontFamily: '"Courier New", Courier, "Lucida Console", Monaco, monospace',
+                    fontSize: '0.875rem',
+                    lineHeight: '1.4',
+                    letterSpacing: '0',
                   }}>{children}</pre>
                 ),
                 code: ({ className, children }) => {
@@ -131,10 +135,14 @@ export function ChatMessage({ role, content, isStreaming = false, onStreamUpdate
                   return isInline ? (
                     <code className="bg-gray-200 text-gray-900 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
                   ) : (
-                    <code className="text-gray-900 text-xs font-mono block" style={{
+                    <code className="text-gray-900 text-xs block" style={{
                       background: 'transparent',
                       whiteSpace: 'pre',
                       wordWrap: 'normal',
+                      fontFamily: '"Courier New", Courier, "Lucida Console", Monaco, monospace',
+                      fontSize: '0.875rem',
+                      lineHeight: '1.4',
+                      letterSpacing: '0',
                     }}>{children}</code>
                   );
                 },
