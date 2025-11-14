@@ -1999,7 +1999,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                     <span className="font-semibold text-gray-900">{summarySchedule.study_duration_minutes} min</span>
                   </div>
                   <div>
-                    <span className="text-gray-600">Sessions/Week: </span>
+                    <span className="text-gray-600">Sessions per Week: </span>
                     <span className="font-semibold text-gray-900">{summarySchedule.sessions_per_week}</span>
                   </div>
                   <div>
