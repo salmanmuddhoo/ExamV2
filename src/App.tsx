@@ -166,94 +166,150 @@ function App() {
     const queryParams = new URLSearchParams(window.location.search);
     const accessToken = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
-    const type = hashParams.get('type');
+
+    // CRITICAL: Check type in BOTH hash and query params (Supabase can use either!)
+    const typeInHash = hashParams.get('type');
+    const typeInQuery = queryParams.get('type');
+    const type = typeInHash || typeInQuery;
+
     const code = queryParams.get('code');
+    const token = queryParams.get('token'); // PKCE token parameter
+
+    console.log('=== AUTH DETECTION DEBUG ===');
+    console.log('Full URL:', window.location.href);
+    console.log('Pathname:', window.location.pathname);
+    console.log('Query:', window.location.search);
+    console.log('Hash:', window.location.hash);
+    console.log('Type (hash):', typeInHash);
+    console.log('Type (query):', typeInQuery);
+    console.log('Final type:', type);
+    console.log('Code:', code);
+    console.log('Token (PKCE):', token);
+    console.log('Access token:', accessToken);
 
     // Check if this is an OAuth callback (has code + state, or has access_token in hash)
     const state = queryParams.get('state');
     const isOAuthCallback = (code && state) || (accessToken && refreshToken);
 
+    console.log('State:', state);
+    console.log('Is OAuth?:', isOAuthCallback);
+
     // IMPORTANT: Skip code handling if this is OAuth - let the OAuth useEffect handle it
     if (isOAuthCallback) {
-      console.log('OAuth callback detected, skipping email verification logic');
+      console.log('✅ OAuth callback - skipping');
+      return;
+    }
+
+    // Handle PKCE token flow (Supabase verify links with token parameter)
+    if (token && type) {
+      console.log('🔑 PKCE token flow - Type:', type);
+
+      if (type === 'recovery') {
+        console.log('✅ Password recovery - setting reset-password view');
+        setIsPasswordReset(true);
+        setView('reset-password');
+        return;
+      } else if (type === 'signup' || type === 'email_change') {
+        console.log('✅ Email verification - setting email-verification view');
+        setView('email-verification');
+        return;
+      }
+    }
+
+    // Legacy hash-based authentication
+    if (accessToken && type === 'recovery') {
+      console.log('✅ Hash recovery - setting reset-password view');
+      setIsPasswordReset(true);
+      setView('reset-password');
+      return;
+    } else if (accessToken && (type === 'signup' || type === 'email_change')) {
+      console.log('✅ Hash verification - setting login view');
+      setShowEmailVerifiedModal(true);
+      setView('login');
+      window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
 
     // Check for authentication code in query parameters (Supabase magic links)
     if (code) {
-      // Supabase sends 'code' parameter for both email verification and password reset
-      // Check the current pathname to determine the intended flow
+      console.log('🔐 Auth code detected');
+
       let currentPath = window.location.pathname.replace(/\/$/, '') || '/';
-      // Remove /app prefix if it exists (for Supabase redirects with /app in Site URL)
+      console.log('Path before /app check:', currentPath);
+
+      // Remove /app prefix if it exists
       if (currentPath.startsWith('/app')) {
         currentPath = currentPath.substring(4) || '/';
-        // Clean up the URL to remove /app prefix
+        console.log('Removed /app, new path:', currentPath);
         const newUrl = currentPath + window.location.search + window.location.hash;
         window.history.replaceState({}, document.title, newUrl);
       }
 
       // If URL explicitly includes the path, honor it
       if (currentPath === '/email-verification' || currentPath === '/verify-email') {
+        console.log('✅ Path match: email-verification');
         setView('email-verification');
         return;
       }
 
       if (currentPath === '/reset-password') {
+        console.log('✅ Path match: reset-password');
         setIsPasswordReset(true);
         setView('reset-password');
         return;
       }
 
-      // If on root path with code, listen for Supabase auth events to determine type
-      // Set up a one-time listener for auth state change
+      console.log('🔍 Root path, listening for auth events...');
+
+      // Listen for auth events
       let hasDetectedEvent = false;
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log('Auth event detected:', event);
+        console.log('🎯 Auth event:', event, 'Has session:', !!session);
 
-        if (hasDetectedEvent) return; // Prevent multiple detections
+        if (hasDetectedEvent) {
+          console.log('⚠️ Already detected, skipping');
+          return;
+        }
 
         if (event === 'PASSWORD_RECOVERY') {
-          // This is a password reset flow
+          console.log('✅ PASSWORD_RECOVERY detected');
           hasDetectedEvent = true;
           setIsPasswordReset(true);
           setView('reset-password');
-          // Clean up listener
           authListener.subscription.unsubscribe();
         } else if (event === 'SIGNED_IN' && session?.user) {
-          // Check if this is email verification (user has email_confirmed_at)
-          // vs new signup (still needs verification)
+          console.log('✅ SIGNED_IN - email_confirmed:', session.user.email_confirmed_at);
           hasDetectedEvent = true;
           if (session.user.email_confirmed_at) {
-            // Email was just verified, show verification page
+            console.log('→ Setting email-verification view');
             setView('email-verification');
           } else {
-            // New OAuth sign in, redirect will be handled by OAuth useEffect
+            console.log('→ Setting chat-hub view');
             setView('chat-hub');
           }
-          // Clean up listener
           authListener.subscription.unsubscribe();
         } else if (event === 'USER_UPDATED') {
-          // Email verification completed
+          console.log('✅ USER_UPDATED detected');
           hasDetectedEvent = true;
           setView('email-verification');
-          // Clean up listener
           authListener.subscription.unsubscribe();
         }
       });
 
-      // Fallback: If no auth event fires within 3 seconds, try to determine from session
+      // Fallback timer
       const fallbackTimer = setTimeout(async () => {
         if (!hasDetectedEvent) {
+          console.log('⏰ Fallback: checking session...');
           authListener.subscription.unsubscribe();
 
-          // Check current session to determine flow type
           const { data: sessionData } = await supabase.auth.getSession();
+          console.log('Session exists:', !!sessionData?.session?.user);
 
           if (sessionData?.session?.user) {
-            // User has session - this is likely email verification
+            console.log('→ Has session: email-verification');
             setView('email-verification');
           } else {
-            // No session yet - could be password reset
+            console.log('→ No session: reset-password');
             setIsPasswordReset(true);
             setView('reset-password');
           }
@@ -268,18 +324,8 @@ function App() {
       };
     }
 
-    // Legacy hash-based authentication (older Supabase links)
-    if (accessToken && type === 'recovery') {
-      // User clicked password reset link from email
-      setIsPasswordReset(true);
-      setView('reset-password');
-    } else if (accessToken && (type === 'signup' || type === 'email_change')) {
-      // User clicked email verification link
-      setShowEmailVerifiedModal(true);
-      setView('login');
-      // Clean up URL hash
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    console.log('❌ No auth params found');
+    console.log('=== END DEBUG ===');
   }, []);
 
   // Handle OAuth redirect and initial authentication state
