@@ -1422,7 +1422,8 @@ You can still view and download this exam paper!`
                     title="Ask Your Questions Here"
                     message="Type your question about the exam paper here. For example: 'Explain question 2' or 'Help me with Q3b'."
                     position="top"
-                    delay={2000}
+                    arrowAlign="center"
+                    delay={1200}
                   />
                 </div>
               )}
