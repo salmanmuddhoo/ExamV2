@@ -7,6 +7,7 @@ import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
 import { formatTokenCount } from '../lib/formatUtils';
 import { ContextualHint } from './ContextualHint';
+import { MobilePdfViewer } from './MobilePdfViewer';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -44,6 +45,7 @@ export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, o
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
+  const [pdfBlobData, setPdfBlobData] = useState<Blob | null>(null);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pdfLoadProgress, setPdfLoadProgress] = useState(0);
   const [examPaperImages, setExamPaperImages] = useState<string[]>([]);
@@ -310,48 +312,21 @@ This helps me give you the most accurate and focused help! 😊`;
       setPdfLoadError(false); // Reset error state
       setPdfLoadProgress(0);
 
-      if (isMobile) {
-        // For mobile, use signed URL directly (mobile browsers have issues with blob URLs in iframes)
-        const { data: signedData, error: signedUrlError } = await supabase.storage
-          .from('exam-papers')
-          .createSignedUrl(examPaper.pdf_path, 3600); // Valid for 1 hour
+      // Download PDF with progress tracking and use blob URL (works for both mobile and desktop)
+      const { data: signedData, error: signedUrlError } = await supabase.storage
+        .from('exam-papers')
+        .createSignedUrl(examPaper.pdf_path, 3600);
 
-        if (signedUrlError || !signedData?.signedUrl) {
-          throw new Error('Failed to get signed URL');
-        }
-
-        // Simulate progress for better UX
-        for (let i = 0; i <= 100; i += 10) {
-          setPdfLoadProgress(i);
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-
-        // Use signed URL directly for mobile
-        setPdfBlobUrl(signedData.signedUrl);
-      } else {
-        // For desktop, download with progress tracking and use blob URL
-        const { data: signedData, error: signedUrlError } = await supabase.storage
-          .from('exam-papers')
-          .createSignedUrl(examPaper.pdf_path, 3600);
-
-        if (signedUrlError || !signedData?.signedUrl) {
-          throw new Error('Failed to get signed URL');
-        }
-
-        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfBlobUrl(url);
+      if (signedUrlError || !signedData?.signedUrl) {
+        throw new Error('Failed to get signed URL');
       }
 
-      // Process PDFs for AI after setting the blob URL
-      const { data, error } = await supabase.storage
-        .from('exam-papers')
-        .download(examPaper.pdf_path);
+      const pdfBlob = await downloadWithProgress(signedData.signedUrl);
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfBlobUrl(url);
+      setPdfBlobData(pdfBlob); // Store blob data for mobile PDF.js viewer
 
-      if (error) throw error;
-
-      const pdfBlob = new Blob([data], { type: 'application/pdf' });
-
+      // Process PDFs for AI - reuse the already downloaded pdfBlob
       const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
       const examImages = await convertPdfToBase64Images(examFile);
       setExamPaperImages(examImages.map(img => img.inlineData.data));
@@ -1240,42 +1215,13 @@ You can still view and download this exam paper!`
          ) : pdfBlobUrl ? (
             <>
               {isMobile ? (
-                <>
-                  <iframe
-                    key={pdfBlobUrl}
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfBlobUrl)}&embedded=true`}
-                    className="w-full h-full border-0"
-                    title="Exam Paper"
-                    allow="fullscreen"
-                    onLoad={() => {
-                      // Set a timeout to check if PDF loaded successfully
-                      setTimeout(() => setPdfLoadError(false), 2000);
-                    }}
-                    onError={() => setPdfLoadError(true)}
-                  />
-                  {pdfLoadError && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-                      <div className="text-center">
-                        <button
-                          onClick={() => {
-                            setPdfBlobUrl('');
-                            setPdfLoadError(false);
-                            setTimeout(() => loadPdfBlob(), 100);
-                          }}
-                          className="group flex flex-col items-center justify-center p-6 hover:scale-105 transition-transform duration-200"
-                          aria-label="Reload exam paper"
-                        >
-                          <div className="relative mb-4">
-                            <div className="absolute inset-0 bg-black rounded-full opacity-10 group-hover:opacity-20 transition-opacity"></div>
-                            <RefreshCw className="w-16 h-16 text-black relative z-10 group-hover:rotate-180 transition-transform duration-500" />
-                          </div>
-                          <p className="text-gray-900 font-semibold text-lg mb-1">Tap to reload</p>
-                          <p className="text-gray-600 text-sm">Exam paper failed to load</p>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                <MobilePdfViewer
+                  pdfData={pdfBlobData}
+                  pdfUrl={pdfBlobUrl}
+                  examPaperImages={examPaperImages}
+                  onLoadSuccess={() => setPdfLoadError(false)}
+                  onLoadError={() => setPdfLoadError(true)}
+                />
               ) : (
                 <iframe
                   src={pdfBlobUrl}

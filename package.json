@@ -16,9 +16,11 @@
     "@supabase/supabase-js": "^2.57.4",
     "katex": "^0.16.22",
     "lucide-react": "^0.344.0",
+    "pdfjs-dist": "^5.4.394",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
+    "react-pdf": "^10.2.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0"
