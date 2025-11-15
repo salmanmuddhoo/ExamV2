@@ -4,79 +4,40 @@ import { Loader2, AlertCircle } from 'lucide-react';
 interface MobilePdfViewerProps {
   pdfUrl?: string;
   pdfData?: Blob | null;
+  examPaperImages?: string[];
   onLoadSuccess?: () => void;
   onLoadError?: () => void;
 }
 
-export function MobilePdfViewer({ pdfData, pdfUrl, onLoadSuccess, onLoadError }: MobilePdfViewerProps) {
-  const [viewerUrl, setViewerUrl] = useState<string>('');
+export function MobilePdfViewer({ examPaperImages, onLoadSuccess, onLoadError }: MobilePdfViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedImages, setLoadedImages] = useState<number>(0);
 
   useEffect(() => {
-    setupViewer();
-  }, [pdfData, pdfUrl]);
-
-  async function setupViewer() {
-    try {
-      console.log('Setting up PDF viewer for mobile...');
-      setIsLoading(true);
-      setError(null);
-
-      let pdfSourceUrl = '';
-
-      if (pdfData) {
-        // Create blob URL from PDF data
-        console.log('Creating blob URL from PDF data');
-        pdfSourceUrl = URL.createObjectURL(pdfData);
-      } else if (pdfUrl) {
-        // Use provided URL
-        console.log('Using provided PDF URL');
-        pdfSourceUrl = pdfUrl;
-      } else {
-        throw new Error('No PDF source provided');
+    if (examPaperImages && examPaperImages.length > 0) {
+      console.log(`Displaying ${examPaperImages.length} exam paper images on mobile`);
+      setIsLoading(false);
+      if (onLoadSuccess) {
+        onLoadSuccess();
       }
-
-      // Construct viewer URL with PDF as query parameter
-      const encodedPdfUrl = encodeURIComponent(pdfSourceUrl);
-      const viewer = `/pdfjs/viewer.html?file=${encodedPdfUrl}`;
-
-      console.log('Viewer URL:', viewer);
-      setViewerUrl(viewer);
-
-      // Cleanup blob URL when component unmounts
-      return () => {
-        if (pdfData && pdfSourceUrl) {
-          URL.revokeObjectURL(pdfSourceUrl);
-          console.log('Blob URL revoked');
-        }
-      };
-    } catch (err) {
-      console.error('Error setting up viewer:', err);
-      setError('Failed to load PDF viewer');
+    } else {
+      console.log('No exam paper images available');
+      setError('No exam paper images available');
       setIsLoading(false);
       if (onLoadError) {
         onLoadError();
       }
     }
-  }
+  }, [examPaperImages]);
 
-  const handleIframeLoad = () => {
-    console.log('PDF viewer iframe loaded');
-    setIsLoading(false);
-    setError(null);
-    if (onLoadSuccess) {
-      onLoadSuccess();
-    }
+  const handleImageLoad = (index: number) => {
+    setLoadedImages(prev => prev + 1);
+    console.log(`Image ${index + 1} loaded`);
   };
 
-  const handleIframeError = () => {
-    console.error('PDF viewer iframe failed to load');
-    setError('Failed to load PDF');
-    setIsLoading(false);
-    if (onLoadError) {
-      onLoadError();
-    }
+  const handleImageError = (index: number) => {
+    console.error(`Error loading image ${index + 1}`);
   };
 
   if (error) {
@@ -84,38 +45,56 @@ export function MobilePdfViewer({ pdfData, pdfUrl, onLoadSuccess, onLoadError }:
       <div className="flex items-center justify-center h-full bg-gray-50 p-4">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-          <p className="text-gray-700 font-medium mb-2">Failed to load PDF</p>
-          <p className="text-sm text-gray-500">Please check your connection and try again</p>
+          <p className="text-gray-700 font-medium mb-2">Failed to load exam paper</p>
+          <p className="text-sm text-gray-500">Please try refreshing the page</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-50 p-4">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-gray-400 mb-3" />
+          <p className="text-gray-600">Loading exam paper...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full relative bg-gray-100">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">Loading PDF viewer...</p>
+    <div
+      className="w-full h-full overflow-y-auto overflow-x-hidden bg-gray-100"
+      style={{
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain'
+      }}
+    >
+      <div className="p-4 space-y-4">
+        {examPaperImages && examPaperImages.map((imageData, index) => (
+          <div key={index} className="bg-white shadow-md rounded-lg overflow-hidden">
+            <img
+              src={`data:image/png;base64,${imageData}`}
+              alt={`Exam paper page ${index + 1}`}
+              className="w-full h-auto"
+              loading={index < 2 ? 'eager' : 'lazy'}
+              onLoad={() => handleImageLoad(index)}
+              onError={() => handleImageError(index)}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                height: 'auto'
+              }}
+            />
+            {examPaperImages.length > 1 && (
+              <div className="text-center py-2 text-xs text-gray-500 bg-gray-50">
+                Page {index + 1} of {examPaperImages.length}
+              </div>
+            )}
           </div>
-        </div>
-      )}
-      {viewerUrl && (
-        <iframe
-          src={viewerUrl}
-          className="w-full h-full border-0"
-          title="PDF Viewer"
-          onLoad={handleIframeLoad}
-          onError={handleIframeError}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-          }}
-          sandbox="allow-scripts allow-same-origin"
-        />
-      )}
+        ))}
+      </div>
     </div>
   );
 }

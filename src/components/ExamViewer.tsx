@@ -1218,6 +1218,7 @@ You can still view and download this exam paper!`
                 <MobilePdfViewer
                   pdfData={pdfBlobData}
                   pdfUrl={pdfBlobUrl}
+                  examPaperImages={examPaperImages}
                   onLoadSuccess={() => setPdfLoadError(false)}
                   onLoadError={() => setPdfLoadError(true)}
                 />
