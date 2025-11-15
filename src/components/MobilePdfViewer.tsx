@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { useState, useEffect, useRef } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
 import { Loader2, AlertCircle } from 'lucide-react';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configure PDF.js worker - use newer CDN URL with HTTPS
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface MobilePdfViewerProps {
   pdfUrl?: string;
@@ -16,41 +14,102 @@ interface MobilePdfViewerProps {
 
 export function MobilePdfViewer({ pdfUrl, pdfData, onLoadSuccess, onLoadError }: MobilePdfViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [pageWidth, setPageWidth] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [renderedPages, setRenderedPages] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
   useEffect(() => {
-    // Calculate page width based on viewport
-    const updateWidth = () => {
-      const viewportWidth = window.innerWidth;
-      setPageWidth(viewportWidth - 32); // 32px for padding (16px on each side)
-    };
+    loadPdf();
+  }, [pdfData, pdfUrl]);
 
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
+  async function loadPdf() {
+    try {
+      console.log('Starting PDF load...');
+      console.log('PDF Data:', pdfData ? 'Blob present' : 'No blob');
+      console.log('PDF URL:', pdfUrl);
 
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-    console.log('PDF loaded successfully with', numPages, 'pages');
-    setNumPages(numPages);
-    setIsLoading(false);
-    setError(null);
-    if (onLoadSuccess) {
-      onLoadSuccess();
+      setIsLoading(true);
+      setError(null);
+
+      let pdfSource;
+
+      if (pdfData) {
+        // Use blob data directly
+        console.log('Using blob data');
+        const arrayBuffer = await pdfData.arrayBuffer();
+        pdfSource = { data: arrayBuffer };
+      } else if (pdfUrl) {
+        // Use URL as fallback
+        console.log('Using URL');
+        pdfSource = { url: pdfUrl };
+      } else {
+        throw new Error('No PDF source provided');
+      }
+
+      const loadingTask = pdfjsLib.getDocument(pdfSource);
+      const pdf = await loadingTask.promise;
+
+      console.log('PDF loaded successfully with', pdf.numPages, 'pages');
+      setNumPages(pdf.numPages);
+
+      // Render all pages
+      const viewport = (await pdf.getPage(1)).getViewport({ scale: 1 });
+      const containerWidth = window.innerWidth - 32; // 32px padding
+      const scale = containerWidth / viewport.width;
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        await renderPage(pdf, pageNum, scale);
+      }
+
+      setIsLoading(false);
+      if (onLoadSuccess) {
+        onLoadSuccess();
+      }
+    } catch (err) {
+      console.error('Error loading PDF:', err);
+      console.error('Error details:', err instanceof Error ? err.message : String(err));
+      setError('Failed to load PDF. Please try again.');
+      setIsLoading(false);
+      if (onLoadError) {
+        onLoadError();
+      }
     }
   }
 
-  function onDocumentLoadError(error: Error) {
-    console.error('Error loading PDF:', error);
-    console.error('PDF URL:', pdfUrl);
-    console.error('PDF Data:', pdfData ? 'Blob present' : 'No blob');
-    console.error('Error details:', error.message, error.stack);
-    setError('Failed to load PDF. Please try again.');
-    setIsLoading(false);
-    if (onLoadError) {
-      onLoadError();
+  async function renderPage(pdf: pdfjsLib.PDFDocumentProxy, pageNumber: number, scale: number) {
+    try {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('Failed to get canvas context');
+      }
+
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      canvas.className = 'shadow-lg mb-4 w-full';
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+      };
+
+      await page.render(renderContext).promise;
+
+      canvasRefs.current.set(pageNumber, canvas);
+      setRenderedPages(prev => prev + 1);
+
+      // Append to container
+      if (containerRef.current) {
+        containerRef.current.appendChild(canvas);
+      }
+    } catch (err) {
+      console.error(`Error rendering page ${pageNumber}:`, err);
     }
   }
 
@@ -66,49 +125,25 @@ export function MobilePdfViewer({ pdfUrl, pdfData, onLoadSuccess, onLoadError }:
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-50 p-4">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-600">Loading exam paper...</p>
+          {numPages > 0 && (
+            <p className="text-sm text-gray-500 mt-2">
+              Rendering {renderedPages} of {numPages} pages
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full overflow-y-auto overflow-x-hidden bg-gray-100">
-      {isLoading && (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">Loading exam paper...</p>
-          </div>
-        </div>
-      )}
-
-      <Document
-        file={pdfData || (pdfUrl ? { url: pdfUrl, httpHeaders: {}, withCredentials: false } : null)}
-        options={{
-          cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/`,
-          cMapPacked: true,
-          standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
-        }}
-        onLoadSuccess={onDocumentLoadSuccess}
-        onLoadError={onDocumentLoadError}
-        loading={
-          <div className="flex items-center justify-center min-h-screen">
-            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-          </div>
-        }
-        className="flex flex-col items-center py-4 space-y-4"
-      >
-        {Array.from(new Array(numPages), (el, index) => (
-          <div key={`page_${index + 1}`} className="shadow-lg">
-            <Page
-              pageNumber={index + 1}
-              width={pageWidth}
-              loading={
-                <div className="flex items-center justify-center" style={{ width: pageWidth, height: pageWidth * 1.414 }}>
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                </div>
-              }
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-            />
-          </div>
-        ))}
-      </Document>
+      <div ref={containerRef} className="flex flex-col items-center py-4 px-4" />
     </div>
   );
 }
