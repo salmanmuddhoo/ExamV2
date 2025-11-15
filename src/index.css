@@ -71,7 +71,8 @@
 
 .animate-blink {
   animation: blinkZoom 1.2s ease-in-out infinite;
-  display: inline-block;
+  display: inline-flex;
+  transform-origin: center center;
 }
 
 /* Custom scrollbar for code blocks */

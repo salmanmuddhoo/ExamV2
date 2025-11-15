@@ -39,15 +39,15 @@ export function EmailVerification() {
       return () => clearTimeout(timer);
     } else if (status === 'success' && countdown === 0) {
       // Redirect to login page and clean up URL
-      window.history.replaceState({}, document.title, '/');
-      window.location.href = '/';
+      window.history.replaceState({}, document.title, '/login');
+      window.location.href = '/login';
     }
   }, [status, countdown]);
 
   const handleGoToLogin = () => {
     // Clean up URL before redirect
-    window.history.replaceState({}, document.title, '/');
-    window.location.href = '/';
+    window.history.replaceState({}, document.title, '/login');
+    window.location.href = '/login';
   };
 
   if (status === 'verifying') {
