@@ -158,9 +158,66 @@ function App() {
   // Check for password reset token or email verification in URL (must run first)
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const queryParams = new URLSearchParams(window.location.search);
     const accessToken = hashParams.get('access_token');
     const type = hashParams.get('type');
+    const code = queryParams.get('code');
 
+    // Check for authentication code in query parameters (Supabase magic links)
+    if (code) {
+      // Supabase sends 'code' parameter for both email verification and password reset
+      // Check the current pathname to determine the intended flow
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+
+      // If URL explicitly includes the path, honor it
+      if (currentPath === '/email-verification' || currentPath === '/verify-email') {
+        setView('email-verification');
+        return;
+      }
+
+      if (currentPath === '/reset-password') {
+        setIsPasswordReset(true);
+        setView('reset-password');
+        return;
+      }
+
+      // If on root path with code, listen for Supabase auth events to determine type
+      // Set up a one-time listener for auth state change
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('Auth event detected:', event);
+
+        if (event === 'PASSWORD_RECOVERY') {
+          // This is a password reset flow
+          setIsPasswordReset(true);
+          setView('reset-password');
+          // Clean up listener
+          authListener.subscription.unsubscribe();
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // This is email verification - user is being signed in after verifying email
+          setView('email-verification');
+          // Clean up listener
+          authListener.subscription.unsubscribe();
+        } else if (event === 'USER_UPDATED') {
+          // Email verification completed
+          setView('email-verification');
+          // Clean up listener
+          authListener.subscription.unsubscribe();
+        }
+      });
+
+      // Fallback: If no auth event fires within 2 seconds, default to email verification
+      const fallbackTimer = setTimeout(() => {
+        authListener.subscription.unsubscribe();
+        setView('email-verification');
+      }, 2000);
+
+      return () => {
+        clearTimeout(fallbackTimer);
+        authListener.subscription.unsubscribe();
+      };
+    }
+
+    // Legacy hash-based authentication (older Supabase links)
     if (accessToken && type === 'recovery') {
       // User clicked password reset link from email
       setIsPasswordReset(true);
