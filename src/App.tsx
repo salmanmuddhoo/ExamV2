@@ -27,8 +27,12 @@ type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-br
 
 // Helper function to map URL pathname to view
 function getViewFromPathname(pathname: string): View {
-  // Remove trailing slash
-  const path = pathname.replace(/\/$/, '') || '/';
+  // Remove trailing slash and normalize path (remove /app prefix if present)
+  let path = pathname.replace(/\/$/, '') || '/';
+  // Remove /app prefix if it exists (for Supabase redirects with /app)
+  if (path.startsWith('/app')) {
+    path = path.substring(4) || '/';
+  }
 
   // Map common URL patterns to views
   if (path === '/' || path === '/home') return 'home';
@@ -37,6 +41,7 @@ function getViewFromPathname(pathname: string): View {
   if (path === '/login') return 'login';
   if (path === '/payment' || path === '/pricing') return 'payment';
   if (path === '/email-verification' || path === '/verify-email') return 'email-verification';
+  if (path === '/reset-password') return 'reset-password';
 
   // Map papers-related URLs to papers-browser
   if (path === '/papers' || path === '/papers-browser') return 'papers-browser';
@@ -167,7 +172,14 @@ function App() {
     if (code) {
       // Supabase sends 'code' parameter for both email verification and password reset
       // Check the current pathname to determine the intended flow
-      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      let currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      // Remove /app prefix if it exists (for Supabase redirects with /app in Site URL)
+      if (currentPath.startsWith('/app')) {
+        currentPath = currentPath.substring(4) || '/';
+        // Clean up the URL to remove /app prefix
+        const newUrl = currentPath + window.location.search + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+      }
 
       // If URL explicitly includes the path, honor it
       if (currentPath === '/email-verification' || currentPath === '/verify-email') {
