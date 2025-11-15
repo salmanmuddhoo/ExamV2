@@ -174,6 +174,7 @@ function App() {
 
     const code = queryParams.get('code');
     const token = queryParams.get('token'); // PKCE token parameter
+    const state = queryParams.get('state');
 
     console.log('=== AUTH DETECTION DEBUG ===');
     console.log('Full URL:', window.location.href);
@@ -185,20 +186,28 @@ function App() {
     console.log('Final type:', type);
     console.log('Code:', code);
     console.log('Token (PKCE):', token);
+    console.log('State:', state);
     console.log('Access token:', accessToken);
 
-    // Check if this is an OAuth callback (has code + state, or has access_token in hash)
-    const state = queryParams.get('state');
-    const isOAuthCallback = (code && state) || (accessToken && refreshToken);
+    // OAuth Detection Logic:
+    // OAuth has: code (no state sometimes, no token, no type)
+    // PKCE has: token + type
+    // Legacy has: access_token in hash
 
-    console.log('State:', state);
+    // Check if this is an OAuth callback
+    // OAuth: Has code but NO token and NO type (PKCE flows have token+type)
+    const isOAuthCallback = (code && !token && !type) || (accessToken && refreshToken);
+
     console.log('Is OAuth?:', isOAuthCallback);
 
     // IMPORTANT: Skip code handling if this is OAuth - let the OAuth useEffect handle it
     if (isOAuthCallback) {
-      console.log('✅ OAuth callback - skipping');
+      console.log('✅ OAuth callback detected - skipping auth flow, will redirect to chat-hub');
+      // Don't set any view here, let the OAuth useEffect handle it
       return;
     }
+
+    console.log('Not OAuth - checking other auth flows...');
 
     // Handle PKCE token flow (Supabase verify links with token parameter)
     if (token && type) {
