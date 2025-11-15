@@ -165,8 +165,19 @@ function App() {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const queryParams = new URLSearchParams(window.location.search);
     const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
     const type = hashParams.get('type');
     const code = queryParams.get('code');
+
+    // Check if this is an OAuth callback (has code + state, or has access_token in hash)
+    const state = queryParams.get('state');
+    const isOAuthCallback = (code && state) || (accessToken && refreshToken);
+
+    // IMPORTANT: Skip code handling if this is OAuth - let the OAuth useEffect handle it
+    if (isOAuthCallback) {
+      console.log('OAuth callback detected, skipping email verification logic');
+      return;
+    }
 
     // Check for authentication code in query parameters (Supabase magic links)
     if (code) {
@@ -195,37 +206,65 @@ function App() {
 
       // If on root path with code, listen for Supabase auth events to determine type
       // Set up a one-time listener for auth state change
+      let hasDetectedEvent = false;
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         console.log('Auth event detected:', event);
 
+        if (hasDetectedEvent) return; // Prevent multiple detections
+
         if (event === 'PASSWORD_RECOVERY') {
           // This is a password reset flow
+          hasDetectedEvent = true;
           setIsPasswordReset(true);
           setView('reset-password');
           // Clean up listener
           authListener.subscription.unsubscribe();
         } else if (event === 'SIGNED_IN' && session?.user) {
-          // This is email verification - user is being signed in after verifying email
-          setView('email-verification');
+          // Check if this is email verification (user has email_confirmed_at)
+          // vs new signup (still needs verification)
+          hasDetectedEvent = true;
+          if (session.user.email_confirmed_at) {
+            // Email was just verified, show verification page
+            setView('email-verification');
+          } else {
+            // New OAuth sign in, redirect will be handled by OAuth useEffect
+            setView('chat-hub');
+          }
           // Clean up listener
           authListener.subscription.unsubscribe();
         } else if (event === 'USER_UPDATED') {
           // Email verification completed
+          hasDetectedEvent = true;
           setView('email-verification');
           // Clean up listener
           authListener.subscription.unsubscribe();
         }
       });
 
-      // Fallback: If no auth event fires within 2 seconds, default to email verification
-      const fallbackTimer = setTimeout(() => {
-        authListener.subscription.unsubscribe();
-        setView('email-verification');
-      }, 2000);
+      // Fallback: If no auth event fires within 3 seconds, try to determine from session
+      const fallbackTimer = setTimeout(async () => {
+        if (!hasDetectedEvent) {
+          authListener.subscription.unsubscribe();
+
+          // Check current session to determine flow type
+          const { data: sessionData } = await supabase.auth.getSession();
+
+          if (sessionData?.session?.user) {
+            // User has session - this is likely email verification
+            setView('email-verification');
+          } else {
+            // No session yet - could be password reset
+            setIsPasswordReset(true);
+            setView('reset-password');
+          }
+        }
+      }, 3000);
 
       return () => {
         clearTimeout(fallbackTimer);
-        authListener.subscription.unsubscribe();
+        if (authListener?.subscription) {
+          authListener.subscription.unsubscribe();
+        }
       };
     }
 
