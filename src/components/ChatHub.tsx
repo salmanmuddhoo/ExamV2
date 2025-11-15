@@ -515,6 +515,7 @@ export function ChatHub({
                   title="Start Here!"
                   message="Tap here to select an exam paper and start practicing with AI assistance."
                   position="bottom"
+                  arrowAlign="right"
                   delay={1000}
                 />
               </div>

@@ -99,8 +99,11 @@ export function FirstTimeHintsProvider({ children }: { children: ReactNode }) {
       // Skip conditional hints that may not apply:
       // - mobileToggle is only for mobile users
       // - profileSubscription may not be implemented everywhere
+      // - chatHubNewConversation may be skipped if user goes directly to exam
       // These should not block the sequence
-      const isConditionalHint = previousHint === 'mobileToggle' || previousHint === 'profileSubscription';
+      const isConditionalHint = previousHint === 'mobileToggle' ||
+                                previousHint === 'profileSubscription' ||
+                                previousHint === 'chatHubNewConversation';
 
       if (!isConditionalHint && !hintsSeen[previousHint]) {
         // A previous required hint hasn't been seen yet, so don't show this one
