@@ -106,42 +106,71 @@ export function ChapterQuestionSummary({
 
   if (!isOpen) return null;
 
-  // Group questions by year/month/paper (each paper gets its own row)
-  const groupedQuestions = questions.reduce((acc, q) => {
+  // Group questions by year/month first, then by paper within each group
+  const groupedByYearMonth = questions.reduce((acc, q) => {
     if (!q.exam_questions?.exam_papers) return acc;
 
     const paper = q.exam_questions.exam_papers;
-    const key = `${paper.year}-${paper.month || 0}-${paper.title}`;
-    if (!acc[key]) {
-      acc[key] = {
+    const yearMonthKey = `${paper.year}-${paper.month || 0}`;
+
+    if (!acc[yearMonthKey]) {
+      acc[yearMonthKey] = {
         year: paper.year,
         month: paper.month,
         monthName: getMonthName(paper.month),
+        papers: {}
+      };
+    }
+
+    // Group by paper within the year/month
+    const paperKey = paper.title;
+    if (!acc[yearMonthKey].papers[paperKey]) {
+      acc[yearMonthKey].papers[paperKey] = {
         title: paper.title,
         questions: []
       };
     }
-    acc[key].questions.push({
+
+    acc[yearMonthKey].papers[paperKey].questions.push({
       id: q.question_id,
       number: q.exam_questions.question_number
     });
-    return acc;
-  }, {} as Record<string, { year: number; month: number | null; monthName: string; title: string; questions: { id: string; number: string }[] }>);
 
-  // Sort groups by year (descending), month (descending), then by title
-  const sortedGroups = Object.values(groupedQuestions).sort((a, b) => {
+    return acc;
+  }, {} as Record<string, {
+    year: number;
+    month: number | null;
+    monthName: string;
+    papers: Record<string, {
+      title: string;
+      questions: { id: string; number: string }[]
+    }>
+  }>);
+
+  // Convert to sorted array
+  const sortedGroups = Object.values(groupedByYearMonth).sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year; // Latest year first
-    if (a.month !== b.month) return (b.month || 0) - (a.month || 0); // Latest month first within same year
-    return a.title.localeCompare(b.title); // Then sort by paper title alphabetically
+    return (b.month || 0) - (a.month || 0); // Latest month first within same year
   });
 
-  // Sort questions within each group by question number (ascending)
+  // Sort papers and questions within each group
   sortedGroups.forEach(group => {
-    group.questions.sort((a, b) => {
-      const numA = parseInt(a.number) || 0;
-      const numB = parseInt(b.number) || 0;
-      return numA - numB;
+    // Convert papers object to sorted array
+    const sortedPapers = Object.values(group.papers).sort((a, b) =>
+      a.title.localeCompare(b.title)
+    );
+
+    // Sort questions within each paper by question number
+    sortedPapers.forEach(paper => {
+      paper.questions.sort((a, b) => {
+        const numA = parseInt(a.number) || 0;
+        const numB = parseInt(b.number) || 0;
+        return numA - numB;
+      });
     });
+
+    // Replace papers object with sorted array
+    (group as any).papersList = sortedPapers;
   });
 
   return (
@@ -197,37 +226,88 @@ export function ChapterQuestionSummary({
                 <div className="space-y-4">
                   {/* Desktop Table */}
                   <div className="hidden sm:block overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Year/Month
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Exam Paper
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Question Numbers
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedGroups.map((group, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-900">
-                                  {group.year} / {group.monthName}
-                                </span>
+                    <div className="space-y-4">
+                      {sortedGroups.map((group: any, idx) => (
+                        <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
+                          {/* Year/Month Header */}
+                          <div className="bg-gray-100 px-6 py-3 border-b border-gray-200">
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="w-5 h-5 text-gray-500" />
+                              <span className="text-base font-bold text-gray-900">
+                                {group.year} / {group.monthName}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Papers within this year/month */}
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Exam Paper
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Question Numbers
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {group.papersList.map((paper: any, pIdx: number) => (
+                                <tr key={pIdx} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="text-sm text-gray-700">{paper.title}</span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex flex-wrap gap-2">
+                                      {paper.questions.map((q: any, qIdx: number) => (
+                                        <button
+                                          key={qIdx}
+                                          onClick={() => {
+                                            if (onQuestionClick) {
+                                              onQuestionClick(q.id);
+                                              onClose();
+                                            }
+                                          }}
+                                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors cursor-pointer"
+                                        >
+                                          Q{q.number}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mobile Cards */}
+                  <div className="sm:hidden space-y-4">
+                    {sortedGroups.map((group: any, idx) => (
+                      <div
+                        key={idx}
+                        className="border border-gray-200 rounded-lg overflow-hidden"
+                      >
+                        {/* Year/Month Header */}
+                        <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="w-5 h-5 text-gray-500" />
+                            <span className="text-base font-bold text-gray-900">
+                              {group.year} / {group.monthName}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Papers within this year/month */}
+                        <div className="bg-white divide-y divide-gray-200">
+                          {group.papersList.map((paper: any, pIdx: number) => (
+                            <div key={pIdx} className="p-4">
+                              <div className="mb-2">
+                                <span className="text-sm font-medium text-gray-700">{paper.title}</span>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-700">{group.title}</span>
-                            </td>
-                            <td className="px-6 py-4">
                               <div className="flex flex-wrap gap-2">
-                                {group.questions.map((q, qIdx) => (
+                                {paper.questions.map((q: any, qIdx: number) => (
                                   <button
                                     key={qIdx}
                                     onClick={() => {
@@ -242,43 +322,7 @@ export function ChapterQuestionSummary({
                                   </button>
                                 ))}
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile Cards */}
-                  <div className="sm:hidden space-y-3">
-                    {sortedGroups.map((group, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                      >
-                        <div className="mb-3">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <Calendar className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm font-semibold text-gray-900">
-                              {group.year} / {group.monthName}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-600">{group.title}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {group.questions.map((q, qIdx) => (
-                            <button
-                              key={qIdx}
-                              onClick={() => {
-                                if (onQuestionClick) {
-                                  onQuestionClick(q.id);
-                                  onClose();
-                                }
-                              }}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors cursor-pointer"
-                            >
-                              Q{q.number}
-                            </button>
+                            </div>
                           ))}
                         </div>
                       </div>

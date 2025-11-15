@@ -150,10 +150,6 @@ export function WelcomeModal({ isOpen, onClose, tokensRemaining, papersRemaining
                 <ul className="space-y-2 text-xs text-gray-700">
                   <li className="flex items-start space-x-2">
                     <ChevronRight className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <span><strong>Exam Date</strong> - Set your target exam date</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <ChevronRight className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />
                     <span><strong>Subject & Syllabus</strong> - Choose what to study</span>
                   </li>
                   <li className="flex items-start space-x-2">

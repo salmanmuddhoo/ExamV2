@@ -963,7 +963,11 @@ export function ChatHub({
                   Ready to ace your exams?
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Choose a conversation to continue, or click <span className={`font-extrabold text-gray-900 ${showBlinkAnimation ? 'animate-blink' : ''}`}>"New Conversation"</span> to start working on a new exam paper.
+                  Choose a conversation to continue, or click the{' '}
+                  <span className={`inline-flex items-center justify-center w-8 h-8 bg-black text-white rounded-lg ${showBlinkAnimation ? 'animate-blink' : ''}`}>
+                    <Plus className="w-5 h-5" />
+                  </span>{' '}
+                  button to start working on a new exam paper.
                 </p>
 
                 {userTier !== 'pro' ? (

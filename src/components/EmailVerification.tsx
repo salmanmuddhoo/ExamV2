@@ -11,7 +11,11 @@ export function EmailVerification() {
         // Get the hash from URL (Supabase sends the token in the hash)
         const hash = window.location.hash;
 
-        if (hash && hash.includes('access_token')) {
+        // Get query parameters (Supabase also sends verification code as query param)
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+
+        if ((hash && hash.includes('access_token')) || code) {
           // The user has clicked the email verification link
           // Supabase automatically handles the verification
           setStatus('success');
