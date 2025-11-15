@@ -38,20 +38,20 @@ export function EmailVerification() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (status === 'success' && countdown === 0) {
-      // Clear sessionStorage to prevent view state conflicts
-      sessionStorage.removeItem('currentView');
-      // Redirect to login page and clean up URL
-      window.history.replaceState({}, document.title, '/login');
-      window.location.href = '/login';
+      // Clear ALL storage to prevent any conflicts
+      sessionStorage.clear();
+      localStorage.removeItem('currentView');
+      // Force redirect to login page (replace removes current page from history)
+      window.location.replace('/login');
     }
   }, [status, countdown]);
 
   const handleGoToLogin = () => {
-    // Clear sessionStorage to prevent view state conflicts
-    sessionStorage.removeItem('currentView');
-    // Clean up URL before redirect
-    window.history.replaceState({}, document.title, '/login');
-    window.location.href = '/login';
+    // Clear ALL storage to prevent any conflicts
+    sessionStorage.clear();
+    localStorage.removeItem('currentView');
+    // Force redirect to login page (replace removes current page from history)
+    window.location.replace('/login');
   };
 
   if (status === 'verifying') {
