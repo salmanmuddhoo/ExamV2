@@ -251,7 +251,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
           ) : (
             <>
               <h2 className="text-3xl font-semibold text-center mb-2 text-gray-900">
-                {isSignUp ? 'Create your account' : 'Welcome back'}
+                {isSignUp ? 'Create your account' : 'Welcome'}
               </h2>
               <p className="text-center text-gray-600 mb-8 text-sm">
                 {isSignUp
@@ -433,9 +433,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
               }}
               className="text-black hover:text-gray-800 text-sm transition-colors"
             >
-              {isSignUp
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
+              {isSignUp ? (
+                'Already have an account? Sign in'
+              ) : (
+                <>
+                  Don't have an account?{' '}
+                  <span className="text-lg font-bold">Sign up</span>
+                </>
+              )}
             </button>
           </div>
 
