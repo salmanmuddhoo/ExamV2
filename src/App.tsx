@@ -189,25 +189,12 @@ function App() {
     console.log('State:', state);
     console.log('Access token:', accessToken);
 
-    // OAuth Detection Logic:
-    // OAuth has: code (no state sometimes, no token, no type)
-    // PKCE has: token + type
-    // Legacy has: access_token in hash
-
-    // Check if this is an OAuth callback
-    // OAuth: Has code but NO token and NO type (PKCE flows have token+type)
-    const isOAuthCallback = (code && !token && !type) || (accessToken && refreshToken);
-
-    console.log('Is OAuth?:', isOAuthCallback);
-
-    // IMPORTANT: Skip code handling if this is OAuth - let the OAuth useEffect handle it
-    if (isOAuthCallback) {
-      console.log('✅ OAuth callback detected - skipping auth flow, will redirect to chat-hub');
-      // Don't set any view here, let the OAuth useEffect handle it
-      return;
-    }
-
-    console.log('Not OAuth - checking other auth flows...');
+    // IMPORTANT: Don't try to distinguish OAuth from password reset here!
+    // Both end up with ?code=... after Supabase processes them.
+    // The auth event listener below will distinguish:
+    // - PASSWORD_RECOVERY event = password reset
+    // - SIGNED_IN event = OAuth or legacy flows
+    console.log('Checking auth flows...');
 
     // Handle PKCE token flow (Supabase verify links with token parameter)
     if (token && type) {
@@ -287,15 +274,12 @@ function App() {
           setView('reset-password');
           authListener.subscription.unsubscribe();
         } else if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ SIGNED_IN - email_confirmed:', session.user.email_confirmed_at);
+          console.log('✅ SIGNED_IN detected - this is OAuth login');
           hasDetectedEvent = true;
-          if (session.user.email_confirmed_at) {
-            console.log('→ Setting email-verification view');
-            setView('email-verification');
-          } else {
-            console.log('→ Setting chat-hub view');
-            setView('chat-hub');
-          }
+          // OAuth users go to chat-hub
+          // (Email verification is handled by path check: /email-verification)
+          console.log('→ Setting chat-hub view for OAuth');
+          setView('chat-hub');
           authListener.subscription.unsubscribe();
         } else if (event === 'USER_UPDATED') {
           console.log('✅ USER_UPDATED detected');
