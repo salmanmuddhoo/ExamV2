@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>PDF Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f3f4f6;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 1000;
+    }
+
+    #loading.hidden {
+      display: none;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #container {
+      padding: 16px;
+      max-width: 100%;
+    }
+
+    .page {
+      margin-bottom: 16px;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    #error {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      padding: 24px;
+      display: none;
+    }
+
+    #error.show {
+      display: block;
+    }
+
+    .error-icon {
+      color: #ef4444;
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <p style="color: #6b7280;">Loading PDF...</p>
+    <p id="progress" style="color: #9ca3af; font-size: 14px; margin-top: 8px;"></p>
+  </div>
+
+  <div id="error">
+    <div class="error-icon">⚠️</div>
+    <p style="color: #374151; font-weight: 500; margin-bottom: 8px;">Failed to load PDF</p>
+    <p style="color: #6b7280; font-size: 14px;">Please try refreshing the page</p>
+  </div>
+
+  <div id="container"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
+  <script type="module">
+    import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+
+    const loading = document.getElementById('loading');
+    const progress = document.getElementById('progress');
+    const error = document.getElementById('error');
+    const container = document.getElementById('container');
+
+    async function loadPDF() {
+      try {
+        // Get PDF URL from query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const pdfUrl = urlParams.get('file');
+
+        if (!pdfUrl) {
+          throw new Error('No PDF URL provided');
+        }
+
+        console.log('Loading PDF from:', pdfUrl);
+
+        // Load PDF
+        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        const pdf = await loadingTask.promise;
+
+        console.log('PDF loaded, pages:', pdf.numPages);
+
+        // Calculate scale for mobile
+        const containerWidth = window.innerWidth - 32; // Account for padding
+
+        // Render all pages
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          progress.textContent = `Loading page ${pageNum} of ${pdf.numPages}`;
+
+          const page = await pdf.getPage(pageNum);
+
+          // Calculate scale
+          const viewport = page.getViewport({ scale: 1.0 });
+          const scale = containerWidth / viewport.width;
+          const scaledViewport = page.getViewport({ scale });
+
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d', { alpha: false });
+
+          canvas.height = scaledViewport.height;
+          canvas.width = scaledViewport.width;
+          canvas.className = 'page';
+
+          // Render page
+          await page.render({
+            canvasContext: context,
+            viewport: scaledViewport
+          }).promise;
+
+          container.appendChild(canvas);
+
+          console.log(`Page ${pageNum} rendered`);
+        }
+
+        loading.classList.add('hidden');
+        console.log('All pages rendered');
+      } catch (err) {
+        console.error('Error loading PDF:', err);
+        loading.classList.add('hidden');
+        error.classList.add('show');
+      }
+    }
+
+    loadPDF();
+  </script>
+</body>
+</html>
