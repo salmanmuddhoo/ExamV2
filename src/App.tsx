@@ -343,9 +343,19 @@ function App() {
 
     // Check if this is an OAuth callback
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const queryParams = new URLSearchParams(window.location.search);
     const accessToken = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
-    const isOAuthCallback = !!(accessToken && refreshToken);
+    const code = queryParams.get('code');
+    const token = queryParams.get('token'); // PKCE token
+    const type = queryParams.get('type');
+
+    // OAuth can be:
+    // 1. Legacy hash-based: access_token + refresh_token in hash
+    // 2. Modern code-based: code in query (but NOT PKCE which has token + type)
+    const isOAuthCallback = !!(accessToken && refreshToken) || !!(code && !token && !type);
+
+    console.log('[OAuth Handler] isOAuthCallback:', isOAuthCallback, 'code:', code, 'token:', token, 'type:', type);
 
     // Check if we're in PWA mode and returning from OAuth
     const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
