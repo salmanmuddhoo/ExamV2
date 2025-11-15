@@ -27,8 +27,12 @@ type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-br
 
 // Helper function to map URL pathname to view
 function getViewFromPathname(pathname: string): View {
-  // Remove trailing slash
-  const path = pathname.replace(/\/$/, '') || '/';
+  // Remove trailing slash and normalize path (remove /app prefix if present)
+  let path = pathname.replace(/\/$/, '') || '/';
+  // Remove /app prefix if it exists (for Supabase redirects with /app)
+  if (path.startsWith('/app')) {
+    path = path.substring(4) || '/';
+  }
 
   // Map common URL patterns to views
   if (path === '/' || path === '/home') return 'home';
@@ -37,6 +41,7 @@ function getViewFromPathname(pathname: string): View {
   if (path === '/login') return 'login';
   if (path === '/payment' || path === '/pricing') return 'payment';
   if (path === '/email-verification' || path === '/verify-email') return 'email-verification';
+  if (path === '/reset-password') return 'reset-password';
 
   // Map papers-related URLs to papers-browser
   if (path === '/papers' || path === '/papers-browser') return 'papers-browser';
@@ -158,9 +163,73 @@ function App() {
   // Check for password reset token or email verification in URL (must run first)
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const queryParams = new URLSearchParams(window.location.search);
     const accessToken = hashParams.get('access_token');
     const type = hashParams.get('type');
+    const code = queryParams.get('code');
 
+    // Check for authentication code in query parameters (Supabase magic links)
+    if (code) {
+      // Supabase sends 'code' parameter for both email verification and password reset
+      // Check the current pathname to determine the intended flow
+      let currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      // Remove /app prefix if it exists (for Supabase redirects with /app in Site URL)
+      if (currentPath.startsWith('/app')) {
+        currentPath = currentPath.substring(4) || '/';
+        // Clean up the URL to remove /app prefix
+        const newUrl = currentPath + window.location.search + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+
+      // If URL explicitly includes the path, honor it
+      if (currentPath === '/email-verification' || currentPath === '/verify-email') {
+        setView('email-verification');
+        return;
+      }
+
+      if (currentPath === '/reset-password') {
+        setIsPasswordReset(true);
+        setView('reset-password');
+        return;
+      }
+
+      // If on root path with code, listen for Supabase auth events to determine type
+      // Set up a one-time listener for auth state change
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('Auth event detected:', event);
+
+        if (event === 'PASSWORD_RECOVERY') {
+          // This is a password reset flow
+          setIsPasswordReset(true);
+          setView('reset-password');
+          // Clean up listener
+          authListener.subscription.unsubscribe();
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // This is email verification - user is being signed in after verifying email
+          setView('email-verification');
+          // Clean up listener
+          authListener.subscription.unsubscribe();
+        } else if (event === 'USER_UPDATED') {
+          // Email verification completed
+          setView('email-verification');
+          // Clean up listener
+          authListener.subscription.unsubscribe();
+        }
+      });
+
+      // Fallback: If no auth event fires within 2 seconds, default to email verification
+      const fallbackTimer = setTimeout(() => {
+        authListener.subscription.unsubscribe();
+        setView('email-verification');
+      }, 2000);
+
+      return () => {
+        clearTimeout(fallbackTimer);
+        authListener.subscription.unsubscribe();
+      };
+    }
+
+    // Legacy hash-based authentication (older Supabase links)
     if (accessToken && type === 'recovery') {
       // User clicked password reset link from email
       setIsPasswordReset(true);
