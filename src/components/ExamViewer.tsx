@@ -1371,6 +1371,7 @@ You can still view and download this exam paper!`
                     title="Track Your Tokens"
                     message="This shows your remaining AI tokens. Each question you ask uses tokens. Upgrade for more tokens!"
                     position="top"
+                    arrowAlign="left"
                     delay={2000}
                   />
                 </div>
