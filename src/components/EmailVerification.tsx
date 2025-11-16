@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, Mail, ArrowRight, Loader } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function EmailVerification() {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
@@ -8,6 +9,9 @@ export function EmailVerification() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
+        console.log('[EmailVerification] Starting verification...');
+        console.log('[EmailVerification] URL:', window.location.href);
+
         // Get the hash from URL (Supabase sends the token in the hash)
         const hash = window.location.hash;
 
@@ -15,15 +19,45 @@ export function EmailVerification() {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
 
+        console.log('[EmailVerification] Hash:', hash);
+        console.log('[EmailVerification] Code:', code);
+
         if ((hash && hash.includes('access_token')) || code) {
-          // The user has clicked the email verification link
-          // Supabase automatically handles the verification
-          setStatus('success');
+          console.log('[EmailVerification] Auth params detected, waiting for session...');
+
+          // Wait for Supabase to exchange the code for a session
+          let attempts = 0;
+          const maxAttempts = 10;
+
+          const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            console.log('[EmailVerification] Attempt', attempts + 1, 'Session:', !!session);
+
+            if (session) {
+              console.log('[EmailVerification] ✅ Session established, showing success');
+              setStatus('success');
+              return true;
+            }
+
+            attempts++;
+            if (attempts >= maxAttempts) {
+              console.log('[EmailVerification] ⚠️ Max attempts reached, no session');
+              setStatus('error');
+              return false;
+            }
+
+            // Wait 500ms and try again
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return checkSession();
+          };
+
+          await checkSession();
         } else {
+          console.log('[EmailVerification] ❌ No auth params found');
           setStatus('error');
         }
       } catch (error) {
-        console.error('Verification error:', error);
+        console.error('[EmailVerification] Error:', error);
         setStatus('error');
       }
     };
