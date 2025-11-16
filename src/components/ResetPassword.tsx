@@ -72,11 +72,13 @@ export function ResetPassword() {
 
       setSuccess(true);
 
-      // Sign out the user and redirect to home after 2 seconds
+      // Sign out the user and redirect to login after 2 seconds
       setTimeout(async () => {
         await supabase.auth.signOut();
-        // Clear the hash from URL
-        window.location.href = '/';
+        // Clear all session storage
+        sessionStorage.clear();
+        // Redirect to login page
+        window.location.replace('/login');
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to reset password');
