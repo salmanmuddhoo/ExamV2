@@ -374,6 +374,15 @@ function App() {
     // Handle initial load or OAuth redirect
     if (!initialLoadComplete && !isPasswordReset) {
       if (user && profile?.role !== 'admin') {
+        // Don't override view if we're on email-verification or reset-password page
+        const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+        if (currentPath === '/email-verification' || currentPath === '/reset-password') {
+          console.log('[OAuth Handler] On special path, not overriding view:', currentPath);
+          setInitialLoadComplete(true);
+          setHasHandledOAuthRedirect(true);
+          return;
+        }
+
         // Only set view to chat-hub if there's no saved view or if it's OAuth callback
         const savedView = sessionStorage.getItem('currentView');
         if (!savedView || savedView === 'home' || savedView === 'login' || isOAuthCallback) {
@@ -391,6 +400,14 @@ function App() {
     }
     // Handle late OAuth redirects (when user/profile become available after initial load)
     else if (!hasHandledOAuthRedirect && isOAuthCallback && user && profile) {
+      // Don't override view if we're on email-verification or reset-password page
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      if (currentPath === '/email-verification' || currentPath === '/reset-password') {
+        console.log('[OAuth Handler Late] On special path, not overriding view:', currentPath);
+        setHasHandledOAuthRedirect(true);
+        return;
+      }
+
       if (profile.role !== 'admin') {
         // Only set view to chat-hub if there's no saved view or if it's OAuth callback
         const savedView = sessionStorage.getItem('currentView');
