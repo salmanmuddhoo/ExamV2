@@ -23,35 +23,10 @@ export function EmailVerification() {
         console.log('[EmailVerification] Code:', code);
 
         if ((hash && hash.includes('access_token')) || code) {
-          console.log('[EmailVerification] Auth params detected, waiting for session...');
-
-          // Wait for Supabase to exchange the code for a session
-          let attempts = 0;
-          const maxAttempts = 10;
-
-          const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            console.log('[EmailVerification] Attempt', attempts + 1, 'Session:', !!session);
-
-            if (session) {
-              console.log('[EmailVerification] ✅ Session established, showing success');
-              setStatus('success');
-              return true;
-            }
-
-            attempts++;
-            if (attempts >= maxAttempts) {
-              console.log('[EmailVerification] ⚠️ Max attempts reached, no session');
-              setStatus('error');
-              return false;
-            }
-
-            // Wait 500ms and try again
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return checkSession();
-          };
-
-          await checkSession();
+          console.log('[EmailVerification] ✅ Email verification link detected, showing success');
+          // Email verification doesn't auto-sign users in
+          // Just show success message and redirect to login
+          setStatus('success');
         } else {
           console.log('[EmailVerification] ❌ No auth params found');
           setStatus('error');
