@@ -105,6 +105,10 @@ export function PayPalPaymentDual({
         }
       };
       fetchPlanId();
+    } else if (paymentType === 'one_time') {
+      // Clear error when switching to one-time payment
+      setError('');
+      setPaypalPlanId(null);
     }
   }, [paymentType, paymentData.tierId, paymentData.billingCycle]);
 
