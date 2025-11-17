@@ -5,6 +5,32 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey"
 };
+
+// Helper function to fetch AI model pricing from database
+async function getModelPricing(supabase: any, modelName: string): Promise<{ inputCost: number; outputCost: number }> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_models')
+      .select('input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', modelName)
+      .single();
+
+    if (error) {
+      console.error('Error fetching model pricing:', error);
+      // Fallback to Gemini 2.0 Flash default pricing
+      return { inputCost: 0.075, outputCost: 0.30 };
+    }
+
+    return {
+      inputCost: data.input_token_cost_per_million,
+      outputCost: data.output_token_cost_per_million
+    };
+  } catch (err) {
+    console.error('Error in getModelPricing:', err);
+    // Fallback to Gemini 2.0 Flash default pricing
+    return { inputCost: 0.075, outputCost: 0.30 };
+  }
+}
 Deno.serve(async (req)=>{
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -188,6 +214,23 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
     const geminiData = await geminiResponse.json();
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Gemini response received');
+
+    // Extract token usage and calculate cost
+    const usageMetadata = geminiData?.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount || 0;
+    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const totalTokens = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
+
+    // Fetch dynamic pricing from database
+    const modelName = 'gemini-2.0-flash-exp';
+    const pricing = await getModelPricing(supabase, modelName);
+
+    // Calculate cost using database pricing
+    const inputCost = (promptTokens / 1000000) * pricing.inputCost;
+    const outputCost = (completionTokens / 1000000) * pricing.outputCost;
+    const totalCost = inputCost + outputCost;
+
+    console.log(`Token usage: ${totalTokens} tokens (input: ${promptTokens}, output: ${completionTokens}), cost: $${totalCost.toFixed(6)}`);
     // Parse JSON from response
     let extractedData;
     try {
@@ -251,12 +294,32 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
         throw new Error(`Database insert failed: ${chaptersError.message} (${chaptersError.code})`);
       }
       console.log(`Successfully inserted ${insertedData?.length || chaptersToInsert.length} chapters`);
+
       // Update status to completed
       await supabase.from('syllabus').update({
         processing_status: 'completed',
         extraction_metadata: extractedData.metadata || {}
       }).eq('id', syllabusId);
       console.log('Chapters saved successfully');
+
+      // Log token usage to database for analytics
+      try {
+        await supabase.from('token_usage_logs').insert({
+          syllabus_id: syllabusId,
+          model: modelName,
+          provider: 'gemini',
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
+          estimated_cost: totalCost,
+          is_follow_up: false,
+          operation_type: 'syllabus_extraction'
+        });
+        console.log('✅ Token usage saved to database');
+      } catch (logError) {
+        console.error('Failed to log token usage:', logError);
+        // Don't fail the whole operation if logging fails
+      }
       return new Response(JSON.stringify({
         success: true,
         chapters: extractedData.chapters,
