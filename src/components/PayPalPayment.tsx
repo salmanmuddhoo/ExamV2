@@ -88,8 +88,10 @@ export function PayPalPayment({
     }
 
     // Load PayPal SDK
+    // Added disable-funding=card to prevent card payment issues with billing address
+    // If you want to allow card payments, remove disable-funding and ensure proper billing address collection
     const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD`;
+    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&disable-funding=card`;
     script.addEventListener('load', () => setSdkReady(true));
     script.addEventListener('error', () => {
       setError('Failed to load PayPal. Please try again or contact support.');
