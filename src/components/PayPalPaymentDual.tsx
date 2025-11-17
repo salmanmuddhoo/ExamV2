@@ -131,8 +131,9 @@ export function PayPalPaymentDual({
     }
 
     const script = document.createElement('script');
-    // Include both intents
-    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&disable-funding=card&vault=true&intent=subscription`;
+    // Remove intent parameter to support both createOrder (one-time) and createSubscription (recurring)
+    // vault=true enables subscription support without forcing it
+    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&disable-funding=card&vault=true`;
     script.addEventListener('load', () => setSdkReady(true));
     script.addEventListener('error', () => {
       setError('Failed to load PayPal. Please try again or contact support.');
