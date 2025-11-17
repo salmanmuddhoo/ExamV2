@@ -17,7 +17,7 @@ Set the following environment variables in your Supabase project:
 ```bash
 # Required
 npx supabase secrets set PAYPAL_CLIENT_ID=your_paypal_client_id
-npx supabase secrets set PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+npx supabase secrets set PAYPAL_SECRET=your_paypal_secret
 
 # Optional (for webhook signature verification - recommended for production)
 npx supabase secrets set PAYPAL_WEBHOOK_ID=your_webhook_id
@@ -73,7 +73,7 @@ npx supabase secrets set PAYPAL_MODE=sandbox  # or 'production'
 For production, enable webhook signature verification by:
 
 1. Uncomment the verification code in `index.ts` (lines ~52-67)
-2. Ensure `PAYPAL_WEBHOOK_ID`, `PAYPAL_CLIENT_ID`, and `PAYPAL_CLIENT_SECRET` are set
+2. Ensure `PAYPAL_WEBHOOK_ID`, `PAYPAL_CLIENT_ID`, and `PAYPAL_SECRET` are set
 3. The function will verify that webhooks are genuinely from PayPal
 
 ### Environment Variables Required for Verification
@@ -81,7 +81,7 @@ For production, enable webhook signature verification by:
 ```bash
 PAYPAL_WEBHOOK_ID=your_webhook_id
 PAYPAL_CLIENT_ID=your_client_id
-PAYPAL_CLIENT_SECRET=your_client_secret
+PAYPAL_SECRET=your_client_secret
 ```
 
 ## Testing

@@ -80,6 +80,17 @@ export function PayPalPayment({
     ? convertToUSD(couponData.finalAmount, paymentData.currency)
     : displayAmountUSD;
 
+  // Debug logging for amount calculation
+  console.log('PayPal Payment Amount Debug:', {
+    originalAmount: paymentData.amount,
+    originalCurrency: paymentData.currency,
+    exchangeRate,
+    displayAmountUSD,
+    couponData,
+    displayFinalUSD,
+    willCharge: displayFinalUSD.toFixed(2)
+  });
+
   useEffect(() => {
     // Check if PayPal client ID is configured
     if (!PAYPAL_CLIENT_ID) {
@@ -107,6 +118,12 @@ export function PayPalPayment({
 
   useEffect(() => {
     if (sdkReady && window.paypal) {
+      // Clear any existing buttons to prevent duplicates
+      const container = document.querySelector('#paypal-button-container');
+      if (container) {
+        container.innerHTML = '';
+      }
+
       window.paypal
         .Buttons({
           createOrder: async (data: any, actions: any) => {
@@ -220,7 +237,7 @@ export function PayPalPayment({
         })
         .render('#paypal-button-container');
     }
-  }, [sdkReady, paymentData, paymentMethod, user, onSuccess]);
+  }, [sdkReady]);
 
   if (succeeded) {
     return (

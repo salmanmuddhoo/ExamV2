@@ -128,22 +128,57 @@ Replace test keys with live keys in production environment.
 5. Select **"Merchant"** as app type
 6. Click **"Create App"**
 
-#### Step 3: Get Sandbox Client ID
+#### Step 3: Get Sandbox Credentials
 1. Copy the **Client ID** (starts with `AX...` or `AS...`)
-2. Keep **Secret** safe (you'll need it for backend)
+2. Copy the **Secret** (you'll need it for webhooks)
 
-#### Step 4: Add Client ID to Code
-Open `src/components/PayPalPayment.tsx` and replace:
-```typescript
-// Line 26:
-const PAYPAL_CLIENT_ID = 'YOUR_PAYPAL_CLIENT_ID';
-```
-With your actual sandbox client ID:
-```typescript
-const PAYPAL_CLIENT_ID = 'AX4Abc123...xyz789';
+#### Step 4: Set Environment Variables
+
+**For Frontend (.env or .env.local):**
+```bash
+VITE_PAYPAL_CLIENT_ID=your_sandbox_client_id
 ```
 
-#### Step 5: Create Sandbox Test Accounts
+**For Backend/Supabase (Supabase Dashboard → Project Settings → Edge Functions → Manage secrets):**
+```bash
+PAYPAL_CLIENT_ID=your_sandbox_client_id
+PAYPAL_SECRET=your_sandbox_secret
+PAYPAL_MODE=sandbox
+```
+
+Or using CLI:
+```bash
+npx supabase secrets set PAYPAL_CLIENT_ID=your_sandbox_client_id
+npx supabase secrets set PAYPAL_SECRET=your_sandbox_secret
+npx supabase secrets set PAYPAL_MODE=sandbox
+```
+
+#### Step 5: Deploy PayPal Webhook Function
+
+```bash
+cd /home/user/ExamV2
+npx supabase functions deploy paypal-webhook
+```
+
+#### Step 6: Configure Webhook in PayPal
+1. Go to **Dashboard** → **My Apps & Credentials** → **Sandbox** tab
+2. Click on your app name
+3. Scroll to **Webhooks** section
+4. Click **Add Webhook**
+5. Webhook URL: `https://your-project-ref.supabase.co/functions/v1/paypal-webhook`
+   - Replace `your-project-ref` with your Supabase project reference
+6. Select event types:
+   - `PAYMENT.CAPTURE.COMPLETED`
+   - `PAYMENT.CAPTURE.DENIED`
+   - `PAYMENT.CAPTURE.DECLINED`
+   - `PAYMENT.CAPTURE.REFUNDED`
+7. Click **Save**
+8. Copy the **Webhook ID** and set it:
+   ```bash
+   npx supabase secrets set PAYPAL_WEBHOOK_ID=your_webhook_id
+   ```
+
+#### Step 7: Create Sandbox Test Accounts
 1. Go to **Sandbox** → **Accounts**
 2. You should see auto-created accounts:
    - **Personal** (buyer): Use this to test payments
@@ -153,15 +188,154 @@ const PAYPAL_CLIENT_ID = 'AX4Abc123...xyz789';
 
 ### Production Mode
 
-#### Step 1: Create Live App
+**IMPORTANT: PayPal does NOT support automatic recurring subscriptions with the current integration. The PayPal Buttons integration only supports one-time payments. Users will need to manually pay each billing cycle.**
+
+For automatic recurring subscriptions, you would need to:
+1. Implement PayPal Subscriptions API (different from PayPal Buttons)
+2. Create subscription plans in PayPal
+3. Use PayPal's subscription webhooks
+
+Current setup is best for:
+- One-time payments
+- Manual renewal subscriptions (users pay each period manually)
+
+#### Step 1: Complete PayPal Business Verification
+1. Go to [https://www.paypal.com](https://www.paypal.com)
+2. Complete your business verification:
+   - Business information
+   - Tax ID/EIN
+   - Bank account for settlements
+   - Identity verification
+3. This can take 3-7 business days
+
+#### Step 2: Create Live App
 1. Go to **My Apps & Credentials**
 2. Select **"Live"** tab
 3. Click **"Create App"**
-4. Complete business verification
+4. App Name: "Exam Study Assistant" (or your choice)
+5. Click **Create App**
 
-#### Step 2: Get Live Client ID
+#### Step 3: Get Live Credentials
 1. Copy **Live Client ID**
-2. Update code for production
+2. Copy **Live Secret**
+
+#### Step 4: Update Production Environment Variables
+
+**Frontend:**
+Update `.env.production` or production hosting environment:
+```bash
+VITE_PAYPAL_CLIENT_ID=your_live_client_id
+```
+
+**Backend/Supabase:**
+```bash
+npx supabase secrets set PAYPAL_CLIENT_ID=your_live_client_id --project-ref your-production-project
+npx supabase secrets set PAYPAL_SECRET=your_live_secret --project-ref your-production-project
+npx supabase secrets set PAYPAL_MODE=production --project-ref your-production-project
+```
+
+#### Step 5: Deploy Webhook Function to Production
+```bash
+npx supabase functions deploy paypal-webhook --project-ref your-production-project
+```
+
+#### Step 6: Configure Production Webhook
+1. Go to **Dashboard** → **My Apps & Credentials** → **Live** tab
+2. Click on your app name
+3. Scroll to **Webhooks** section
+4. Click **Add Webhook**
+5. Webhook URL: `https://your-production-project.supabase.co/functions/v1/paypal-webhook`
+6. Select same event types as sandbox
+7. Click **Save**
+8. Set webhook ID:
+   ```bash
+   npx supabase secrets set PAYPAL_WEBHOOK_ID=your_live_webhook_id --project-ref your-production-project
+   ```
+
+#### Step 7: Enable Webhook Signature Verification (Production Only)
+
+For production security, enable webhook signature verification:
+
+1. Edit `supabase/functions/paypal-webhook/index.ts`
+2. Uncomment lines 58-74 (the signature verification code)
+3. Redeploy:
+   ```bash
+   npx supabase functions deploy paypal-webhook --project-ref your-production-project
+   ```
+
+This ensures webhooks are genuinely from PayPal and not spoofed.
+
+### Recurring Payments Setup (Optional - Requires Additional Work)
+
+If you want automatic recurring subscriptions with PayPal, you need to implement the PayPal Subscriptions API:
+
+#### Architecture Changes Required:
+1. **Create Subscription Plans in PayPal:**
+   - Use PayPal REST API to create billing plans
+   - Define monthly and yearly plans
+   - Set up pricing tiers
+
+2. **Update Frontend Integration:**
+   - Replace `window.paypal.Buttons()` with subscription flow
+   - Use PayPal Subscriptions SDK instead of Buttons SDK
+   - Handle subscription approval and activation
+
+3. **Webhook Events to Handle:**
+   - `BILLING.SUBSCRIPTION.CREATED`
+   - `BILLING.SUBSCRIPTION.ACTIVATED`
+   - `BILLING.SUBSCRIPTION.UPDATED`
+   - `BILLING.SUBSCRIPTION.CANCELLED`
+   - `BILLING.SUBSCRIPTION.SUSPENDED`
+   - `BILLING.SUBSCRIPTION.EXPIRED`
+   - `PAYMENT.SALE.COMPLETED` (recurring payment captured)
+
+4. **Database Updates:**
+   - Store PayPal subscription ID
+   - Track subscription status
+   - Handle automatic renewals
+
+**Recommended Approach:**
+- Keep current one-time payment setup for simplicity
+- Mark PayPal subscriptions as `is_recurring = false` in database
+- Users manually renew each period
+- Send email reminders before expiration
+- OR implement full PayPal Subscriptions API (significant development work)
+
+### Testing PayPal Payments
+
+1. Use sandbox buyer account credentials
+2. Select a tier and billing cycle
+3. Click **PayPal** payment method
+4. Complete payment with sandbox account
+5. Verify:
+   - Transaction appears in database
+   - Webhook was received (check Supabase logs)
+   - User subscription was activated
+   - Receipt email was sent
+
+### Troubleshooting
+
+**Duplicate PayPal buttons appearing:**
+- Fixed in latest code - buttons are now cleared before rendering
+
+**Amount mismatch (showing different amount in PayPal vs UI):**
+- Check browser console for "PayPal Payment Amount Debug" logs
+- Verify `currency_exchange_rates` table has correct rate for MUR→USD
+- Ensure tier prices are in correct currency in database
+
+**Webhook returning 401 Unauthorized:**
+- Fixed in latest code - CORS headers added
+- Ensure webhook is deployed: `npx supabase functions deploy paypal-webhook`
+- Check environment variables are set correctly
+
+**Webhook returning 404 Not Found:**
+- Function not deployed - run deploy command
+- Wrong webhook URL - verify it matches your Supabase project
+
+**Payment succeeds but subscription not activated:**
+- Check payment_transactions table for transaction
+- Verify trigger function is working
+- Check Supabase logs for errors
 
 ---
 
