@@ -9,15 +9,16 @@
  * Prerequisites:
  * - Node.js installed
  * - PayPal Developer account with app credentials
- * - Run: npm install node-fetch
+ * - Dependencies installed: npm install
  *
  * Usage:
  * 1. Update the configuration below with your values
- * 2. Run: node scripts/setup-paypal-plans.js
+ * 2. Run: npm run setup:paypal-plans
+ *    Or: node scripts/setup-paypal-plans.js
  * 3. Save the Plan IDs output - you'll need them for the database
  */
 
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 // ============================================
 // CONFIGURATION - UPDATE THESE VALUES
@@ -387,8 +388,12 @@ async function main() {
 }
 
 // Run the script
-if (require.main === module) {
+// In ES modules, check if this file is being run directly
+import { fileURLToPath } from 'url';
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+
+if (isMainModule) {
   main();
 }
 
-module.exports = { main };
+export { main };
