@@ -36,8 +36,8 @@ const CONFIG = {
   PRODUCT_NAME: 'Exam Study Assistant Subscription',
   PRODUCT_DESCRIPTION: 'AI-powered exam preparation and study assistance',
   PRODUCT_CATEGORY: 'SOFTWARE',
-  HOME_URL: 'https://yourdomain.com', // Update with your domain
-  IMAGE_URL: 'https://yourdomain.com/logo.png', // Update with your logo
+  HOME_URL: 'https://aixampapers.com.com', // Update with your domain
+  IMAGE_URL: 'https://aixampapers.com.com/logo.png', // Update with your logo
 
   // Subscription plans configuration
   // Update these prices to match your tier pricing
