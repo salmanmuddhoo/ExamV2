@@ -143,7 +143,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             <FeatureCard
               icon={<BookOpen className="w-8 h-8" />}
               title="Comprehensive Exam Library"
-              description="Access a growing collection of past exam papers organized by grade level and subject, all in one place."
+              description="Access a growing collection of past exam papers organized by grade level, subject, year by year and topic wise, all in one place."
             />
             <FeatureCard
               icon={<Brain className="w-8 h-8" />}
@@ -204,7 +204,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Smart Paper Organization</h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                When you chat with our AI, all exam papers are automatically organized by chapters. Simply select which chapter you're studying, and the AI focuses on that specific content.
+                When you chat with our AI, all exam papers are automatically organized by chapters. Conversations are organised by chapter and year by year. Simply select which chapter you're studying, and the AI focuses on that specific content.
               </p>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 text-sm">
@@ -213,11 +213,11 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-2 h-2 bg-emerald-600 rounded-full"></div>
-                  <span className="text-gray-700">AI understands your current topic</span>
+                  <span className="text-gray-700">Year by year organization</span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-2 h-2 bg-teal-600 rounded-full"></div>
-                  <span className="text-gray-700">Focus on what matters most</span>
+                  <span className="text-gray-700">AI understands your current topic</span>
                 </div>
               </div>
             </div>
@@ -423,7 +423,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                 icon={<Crown className="w-6 h-6" />}
                 features={[
                   { text: "View all exam papers", available: true },
-                  { text: "AI assistant on all exam papers", available: true },
+                  { text: "AI assistant on all exam papers for all levels", available: true },
                   { text: `${formatTokenCount(tiers.pro.token_limit)} AI tokens per month`, available: true },
                   { text: "Yearly practice", available: true },
                   { text: "Chapter-wise practice", available: true },
