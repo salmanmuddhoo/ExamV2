@@ -1251,7 +1251,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
                   title="View Your Study Sessions"
                   message="Click on any study session to view details, mark it as in-progress, or complete it. Track your progress!"
                   position="bottom"
-                  arrowAlign="left"
+                  arrowAlign="center"
                 />
               </div>
 
