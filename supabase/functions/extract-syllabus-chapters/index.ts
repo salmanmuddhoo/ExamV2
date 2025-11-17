@@ -6,6 +6,45 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey"
 };
 
+// Helper function to fetch admin upload model from system settings
+async function getAdminUploadModel(supabase: any): Promise<{ model_name: string; provider: string }> {
+  try {
+    // Fetch the admin upload model ID from system settings
+    const { data: settingData, error: settingError } = await supabase
+      .from('system_settings')
+      .select('setting_value')
+      .eq('setting_key', 'admin_upload_model')
+      .maybeSingle();
+
+    if (settingError || !settingData) {
+      console.log('No admin upload model configured, using default');
+      return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+    }
+
+    const modelId = settingData.setting_value as string;
+
+    // Fetch the model details
+    const { data: modelData, error: modelError } = await supabase
+      .from('ai_models')
+      .select('model_name, provider')
+      .eq('id', modelId)
+      .single();
+
+    if (modelError || !modelData) {
+      console.error('Error fetching model details:', modelError);
+      return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+    }
+
+    return {
+      model_name: modelData.model_name,
+      provider: modelData.provider
+    };
+  } catch (err) {
+    console.error('Error in getAdminUploadModel:', err);
+    return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+  }
+}
+
 // Helper function to fetch AI model pricing from database
 async function getModelPricing(supabase: any, modelName: string): Promise<{ inputCost: number; outputCost: number }> {
   try {
@@ -84,6 +123,11 @@ Deno.serve(async (req)=>{
       });
     }
     console.log(`Extracting chapters from syllabus: ${syllabusId}`);
+
+    // Fetch the admin upload model from system settings
+    const adminModel = await getAdminUploadModel(supabase);
+    console.log(`Using AI model: ${adminModel.model_name} (${adminModel.provider})`);
+
     // Update status to processing
     await supabase.from('syllabus').update({
       processing_status: 'processing'
@@ -180,7 +224,7 @@ QUALITY REQUIREMENTS:
 
 IMPORTANT: Focus on extracting the actual teaching/learning content structure, not administrative sections. Look for the section that contains the actual subject matter to be taught.`;
     console.log('Sending PDF to Gemini for analysis...');
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${adminModel.model_name}:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -222,7 +266,7 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
     const totalTokens = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
 
     // Fetch dynamic pricing from database
-    const modelName = 'gemini-2.0-flash-exp';
+    const modelName = adminModel.model_name;
     const pricing = await getModelPricing(supabase, modelName);
 
     // Calculate cost using database pricing
@@ -307,7 +351,7 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
         await supabase.from('token_usage_logs').insert({
           syllabus_id: syllabusId,
           model: modelName,
-          provider: 'gemini',
+          provider: adminModel.provider,
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           total_tokens: totalTokens,
