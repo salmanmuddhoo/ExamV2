@@ -76,7 +76,9 @@ export function PayPalPayment({
   };
 
   const displayAmountUSD = convertToUSD(paymentData.amount, paymentData.currency);
-  const displayFinalUSD = couponData ? couponData.finalAmount : displayAmountUSD;
+  const displayFinalUSD = couponData
+    ? convertToUSD(couponData.finalAmount, paymentData.currency)
+    : displayAmountUSD;
 
   useEffect(() => {
     // Check if PayPal client ID is configured
@@ -107,7 +109,20 @@ export function PayPalPayment({
         .Buttons({
           createOrder: async (data: any, actions: any) => {
             const finalAmountUSD = displayFinalUSD;
-            return actions.order.create({
+
+            // Validate amount
+            if (isNaN(finalAmountUSD) || finalAmountUSD < 0.01) {
+              console.error('Invalid PayPal amount:', {
+                finalAmountUSD,
+                displayAmountUSD,
+                couponData,
+                paymentData,
+                exchangeRate
+              });
+              throw new Error(`Invalid payment amount: $${finalAmountUSD}. Minimum is $0.01 USD.`);
+            }
+
+            const orderPayload = {
               purchase_units: [
                 {
                   description: `${paymentData.tierName} - ${paymentData.billingCycle}${couponData ? ` (Coupon: ${couponData.code})` : ''}`,
@@ -117,7 +132,10 @@ export function PayPalPayment({
                   },
                 },
               ],
-            });
+            };
+
+            console.log('Creating PayPal order:', orderPayload);
+            return actions.order.create(orderPayload);
           },
           onApprove: async (data: any, actions: any) => {
             setProcessing(true);
@@ -188,7 +206,8 @@ export function PayPalPayment({
             }
           },
           onError: (err: any) => {
-            setError('Payment failed. Please try again.');
+            console.error('PayPal error:', err);
+            setError(err?.message || 'Payment failed. Please try again.');
           },
           style: {
             layout: 'vertical',
