@@ -54,8 +54,6 @@ export function ChapterQuestionSummary({
     try {
       setLoading(true);
 
-      console.log('Fetching questions for chapter:', chapterId);
-
       const { data, error } = await supabase
         .from('question_chapter_tags')
         .select(`
@@ -71,15 +69,10 @@ export function ChapterQuestionSummary({
         `)
         .eq('chapter_id', chapterId);
 
-      console.log('Raw data from query:', data);
-      console.log('Query error:', error);
-
       if (error) {
         console.error('Error fetching chapter questions:', error);
         throw error;
       }
-
-      console.log('Valid data:', data);
 
       // Sort in JavaScript instead of Supabase
       // !inner join already filters out nulls, so no need for additional filtering

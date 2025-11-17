@@ -26,6 +26,7 @@ export function AIModelSettings() {
   const [saving, setSaving] = useState(false);
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [adminUploadModelId, setAdminUploadModelId] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editingPrices, setEditingPrices] = useState<Record<string, boolean>>({});
   const [priceChanges, setPriceChanges] = useState<Record<string, { input: number; output: number }>>({});
@@ -66,6 +67,27 @@ export function AIModelSettings() {
       } else {
         // Default: allow all models if not configured
         setSelectedModelIds(models?.map(m => m.id) || []);
+      }
+
+      // Fetch admin upload model setting
+      const { data: uploadModelData, error: uploadModelError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'admin_upload_model')
+        .maybeSingle();
+
+      if (uploadModelError && uploadModelError.code !== 'PGRST116') {
+        console.error('Error fetching upload model:', uploadModelError);
+      }
+
+      if (uploadModelData && uploadModelData.setting_value) {
+        setAdminUploadModelId(uploadModelData.setting_value as string);
+      } else {
+        // Default: use first active model or gemini-2.0-flash-exp
+        const defaultModel = models?.find(m => m.model_name === 'gemini-2.0-flash-exp') || models?.[0];
+        if (defaultModel) {
+          setAdminUploadModelId(defaultModel.id);
+        }
       }
     } catch (error) {
       console.error('Error fetching AI model settings:', error);
@@ -166,8 +188,13 @@ export function AIModelSettings() {
         return;
       }
 
-      // Update or insert the setting
-      const { error } = await supabase
+      if (!adminUploadModelId) {
+        setMessage({ type: 'error', text: 'Please select a model for admin uploads' });
+        return;
+      }
+
+      // Update or insert the allowed models setting
+      const { error: allowedError } = await supabase
         .from('system_settings')
         .upsert({
           setting_key: 'allowed_ai_models',
@@ -178,7 +205,21 @@ export function AIModelSettings() {
           onConflict: 'setting_key'
         });
 
-      if (error) throw error;
+      if (allowedError) throw allowedError;
+
+      // Update or insert the admin upload model setting
+      const { error: uploadError } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'admin_upload_model',
+          setting_value: adminUploadModelId,
+          description: 'AI model ID used for admin operations (syllabus extraction, exam paper processing)',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (uploadError) throw uploadError;
 
       setMessage({ type: 'success', text: 'AI model settings saved successfully!' });
       setTimeout(() => setMessage(null), 3000);
@@ -462,6 +503,42 @@ export function AIModelSettings() {
             Make sure to keep at least one model enabled for students to use.
           </p>
         </div>
+      </div>
+
+      {/* Admin Upload Model Selection */}
+      <div className="border border-gray-200 rounded-lg p-4 sm:p-6 bg-white">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Brain className="w-5 h-5 text-green-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Admin Upload Model</h3>
+            <p className="text-sm text-gray-600">Select the AI model used for syllabus extraction and exam paper processing</p>
+          </div>
+        </div>
+
+        {!loading && (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              AI Model for Uploads
+            </label>
+            <select
+              value={adminUploadModelId}
+              onChange={(e) => setAdminUploadModelId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+            >
+              {aiModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.display_name} - {model.provider} ({model.supports_vision ? 'Vision' : 'Text'})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              This model will be used when extracting chapters from syllabuses and processing exam papers in the admin panel.
+              The cost will be calculated using the pricing set in the model configuration above.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Save Button */}

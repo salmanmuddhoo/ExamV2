@@ -5,6 +5,71 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey"
 };
+
+// Helper function to fetch admin upload model from system settings
+async function getAdminUploadModel(supabase: any): Promise<{ model_name: string; provider: string }> {
+  try {
+    // Fetch the admin upload model ID from system settings
+    const { data: settingData, error: settingError } = await supabase
+      .from('system_settings')
+      .select('setting_value')
+      .eq('setting_key', 'admin_upload_model')
+      .maybeSingle();
+
+    if (settingError || !settingData) {
+      console.log('No admin upload model configured, using default');
+      return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+    }
+
+    const modelId = settingData.setting_value as string;
+
+    // Fetch the model details
+    const { data: modelData, error: modelError } = await supabase
+      .from('ai_models')
+      .select('model_name, provider')
+      .eq('id', modelId)
+      .single();
+
+    if (modelError || !modelData) {
+      console.error('Error fetching model details:', modelError);
+      return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+    }
+
+    return {
+      model_name: modelData.model_name,
+      provider: modelData.provider
+    };
+  } catch (err) {
+    console.error('Error in getAdminUploadModel:', err);
+    return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+  }
+}
+
+// Helper function to fetch AI model pricing from database
+async function getModelPricing(supabase: any, modelName: string): Promise<{ inputCost: number; outputCost: number }> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_models')
+      .select('input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', modelName)
+      .single();
+
+    if (error) {
+      console.error('Error fetching model pricing:', error);
+      // Fallback to Gemini 2.0 Flash default pricing
+      return { inputCost: 0.075, outputCost: 0.30 };
+    }
+
+    return {
+      inputCost: data.input_token_cost_per_million,
+      outputCost: data.output_token_cost_per_million
+    };
+  } catch (err) {
+    console.error('Error in getModelPricing:', err);
+    // Fallback to Gemini 2.0 Flash default pricing
+    return { inputCost: 0.075, outputCost: 0.30 };
+  }
+}
 Deno.serve(async (req)=>{
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -58,6 +123,11 @@ Deno.serve(async (req)=>{
       });
     }
     console.log(`Extracting chapters from syllabus: ${syllabusId}`);
+
+    // Fetch the admin upload model from system settings
+    const adminModel = await getAdminUploadModel(supabase);
+    console.log(`Using AI model: ${adminModel.model_name} (${adminModel.provider})`);
+
     // Update status to processing
     await supabase.from('syllabus').update({
       processing_status: 'processing'
@@ -154,7 +224,7 @@ QUALITY REQUIREMENTS:
 
 IMPORTANT: Focus on extracting the actual teaching/learning content structure, not administrative sections. Look for the section that contains the actual subject matter to be taught.`;
     console.log('Sending PDF to Gemini for analysis...');
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${adminModel.model_name}:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -188,6 +258,23 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
     const geminiData = await geminiResponse.json();
     const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Gemini response received');
+
+    // Extract token usage and calculate cost
+    const usageMetadata = geminiData?.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount || 0;
+    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const totalTokens = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
+
+    // Fetch dynamic pricing from database
+    const modelName = adminModel.model_name;
+    const pricing = await getModelPricing(supabase, modelName);
+
+    // Calculate cost using database pricing
+    const inputCost = (promptTokens / 1000000) * pricing.inputCost;
+    const outputCost = (completionTokens / 1000000) * pricing.outputCost;
+    const totalCost = inputCost + outputCost;
+
+    console.log(`Token usage: ${totalTokens} tokens (input: ${promptTokens}, output: ${completionTokens}), cost: $${totalCost.toFixed(6)}`);
     // Parse JSON from response
     let extractedData;
     try {
@@ -251,12 +338,32 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
         throw new Error(`Database insert failed: ${chaptersError.message} (${chaptersError.code})`);
       }
       console.log(`Successfully inserted ${insertedData?.length || chaptersToInsert.length} chapters`);
+
       // Update status to completed
       await supabase.from('syllabus').update({
         processing_status: 'completed',
         extraction_metadata: extractedData.metadata || {}
       }).eq('id', syllabusId);
       console.log('Chapters saved successfully');
+
+      // Log token usage to database for analytics
+      try {
+        await supabase.from('token_usage_logs').insert({
+          syllabus_id: syllabusId,
+          model: modelName,
+          provider: adminModel.provider,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
+          estimated_cost: totalCost,
+          is_follow_up: false,
+          operation_type: 'syllabus_extraction'
+        });
+        console.log('✅ Token usage saved to database');
+      } catch (logError) {
+        console.error('Failed to log token usage:', logError);
+        // Don't fail the whole operation if logging fails
+      }
       return new Response(JSON.stringify({
         success: true,
         chapters: extractedData.chapters,
