@@ -43,31 +43,24 @@ const CONFIG = {
   // Update these prices to match your tier pricing
   PLANS: [
     {
-      tier_name: 'student',
-      tier_display_name: 'Student',
+      tier_name: 'student_lite',
+      tier_display_name: 'Student Lite',
       billing_cycle: 'monthly',
-      price: '10.00', // USD
-      description: 'Monthly subscription for Student tier'
+      price: '3.00', // USD
+      description: 'Monthly subscription for Student Lite tier'
     },
     {
       tier_name: 'student',
       tier_display_name: 'Student',
-      billing_cycle: 'yearly',
-      price: '100.00', // USD (discounted from 12 * 10)
+      billing_cycle: 'monthly',
+      price: '8.00', // USD (discounted from 12 * 10)
       description: 'Yearly subscription for Student tier (save 17%)'
     },
     {
       tier_name: 'premium',
       tier_display_name: 'Premium',
       billing_cycle: 'monthly',
-      price: '20.00', // USD
-      description: 'Monthly subscription for Premium tier'
-    },
-    {
-      tier_name: 'premium',
-      tier_display_name: 'Premium',
-      billing_cycle: 'yearly',
-      price: '200.00', // USD (discounted from 12 * 20)
+      price: '13.00', // USD (discounted from 12 * 20)
       description: 'Yearly subscription for Premium tier (save 17%)'
     }
   ]
