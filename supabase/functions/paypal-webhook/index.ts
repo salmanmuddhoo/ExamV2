@@ -81,6 +81,7 @@ serve(async (req) => {
 
     // Handle different event types
     switch (event.event_type) {
+      // One-time payment events
       case 'PAYMENT.CAPTURE.COMPLETED':
         await handlePaymentCaptureCompleted(event, supabase);
         break;
@@ -92,6 +93,31 @@ serve(async (req) => {
 
       case 'PAYMENT.CAPTURE.REFUNDED':
         await handlePaymentRefunded(event, supabase);
+        break;
+
+      // Recurring subscription events
+      case 'BILLING.SUBSCRIPTION.CREATED':
+        await handleSubscriptionCreated(event, supabase);
+        break;
+
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+        await handleSubscriptionActivated(event, supabase);
+        break;
+
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+        await handleSubscriptionCancelled(event, supabase);
+        break;
+
+      case 'BILLING.SUBSCRIPTION.SUSPENDED':
+        await handleSubscriptionSuspended(event, supabase);
+        break;
+
+      case 'BILLING.SUBSCRIPTION.EXPIRED':
+        await handleSubscriptionExpired(event, supabase);
+        break;
+
+      case 'PAYMENT.SALE.COMPLETED':
+        await handleRecurringPayment(event, supabase);
         break;
 
       default:
@@ -234,6 +260,200 @@ async function handlePaymentRefunded(event: any, supabase: any) {
   }
 
   // TODO: Consider cancelling subscription if refunded
+}
+
+// ============================================
+// SUBSCRIPTION EVENT HANDLERS
+// ============================================
+
+// Handle subscription created event
+async function handleSubscriptionCreated(event: any, supabase: any) {
+  const subscription = event.resource;
+  const subscriptionId = subscription.id;
+
+  console.log('Subscription created:', subscriptionId);
+
+  // Find transaction by subscription ID
+  const { error } = await supabase
+    .from('payment_transactions')
+    .update({
+      metadata: {
+        subscription_created: true,
+        subscription_create_time: subscription.create_time,
+        subscription_status: subscription.status
+      }
+    })
+    .eq('paypal_subscription_id', subscriptionId);
+
+  if (error) {
+    console.error('Error updating subscription created:', error);
+  }
+}
+
+// Handle subscription activated event
+async function handleSubscriptionActivated(event: any, supabase: any) {
+  const subscription = event.resource;
+  const subscriptionId = subscription.id;
+
+  console.log('Subscription activated:', subscriptionId);
+
+  // Update transaction to completed status
+  const { error } = await supabase
+    .from('payment_transactions')
+    .update({
+      status: 'completed',
+      metadata: {
+        subscription_activated: true,
+        subscription_start_time: subscription.start_time,
+        subscription_status: subscription.status
+      }
+    })
+    .eq('paypal_subscription_id', subscriptionId);
+
+  if (error) {
+    console.error('Error activating subscription:', error);
+  }
+
+  // Subscription activation will trigger the database trigger to activate user subscription
+  console.log('Subscription activated successfully');
+}
+
+// Handle subscription cancelled event
+async function handleSubscriptionCancelled(event: any, supabase: any) {
+  const subscription = event.resource;
+  const subscriptionId = subscription.id;
+
+  console.log('Subscription cancelled:', subscriptionId);
+
+  // Mark subscription as cancelled
+  const { error } = await supabase
+    .from('payment_transactions')
+    .update({
+      status: 'cancelled',
+      metadata: {
+        subscription_cancelled: true,
+        subscription_cancel_time: new Date().toISOString(),
+        cancellation_note: subscription.status_update_reason || 'User cancelled'
+      }
+    })
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring');
+
+  if (error) {
+    console.error('Error cancelling subscription:', error);
+  }
+
+  // Note: User retains access until period end (handled by existing logic)
+  console.log('Subscription marked as cancelled');
+}
+
+// Handle subscription suspended event
+async function handleSubscriptionSuspended(event: any, supabase: any) {
+  const subscription = event.resource;
+  const subscriptionId = subscription.id;
+
+  console.log('Subscription suspended:', subscriptionId);
+
+  // Mark subscription as suspended
+  const { error } = await supabase
+    .from('payment_transactions')
+    .update({
+      status: 'suspended',
+      metadata: {
+        subscription_suspended: true,
+        suspension_time: new Date().toISOString(),
+        suspension_reason: subscription.status_update_reason || 'Unknown'
+      }
+    })
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring');
+
+  if (error) {
+    console.error('Error suspending subscription:', error);
+  }
+
+  console.log('Subscription suspended - usually due to payment failure');
+}
+
+// Handle subscription expired event
+async function handleSubscriptionExpired(event: any, supabase: any) {
+  const subscription = event.resource;
+  const subscriptionId = subscription.id;
+
+  console.log('Subscription expired:', subscriptionId);
+
+  // Mark subscription as expired
+  const { error } = await supabase
+    .from('payment_transactions')
+    .update({
+      status: 'expired',
+      metadata: {
+        subscription_expired: true,
+        expiration_time: new Date().toISOString()
+      }
+    })
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring');
+
+  if (error) {
+    console.error('Error expiring subscription:', error);
+  }
+
+  console.log('Subscription expired - user will be downgraded to free tier');
+}
+
+// Handle recurring payment event (monthly/yearly charge)
+async function handleRecurringPayment(event: any, supabase: any) {
+  const sale = event.resource;
+  const subscriptionId = sale.billing_agreement_id;
+  const saleId = sale.id;
+  const amount = parseFloat(sale.amount.total);
+  const currency = sale.amount.currency;
+
+  console.log('Recurring payment received:', saleId, 'for subscription:', subscriptionId);
+
+  // Find the original subscription transaction
+  const { data: originalTransaction } = await supabase
+    .from('payment_transactions')
+    .select('user_id, tier_id, payment_method_id, billing_cycle, selected_grade_id, selected_subject_ids')
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring')
+    .single();
+
+  if (!originalTransaction) {
+    console.error('Original subscription transaction not found for:', subscriptionId);
+    return;
+  }
+
+  // Create new transaction record for the recurring payment
+  const { error } = await supabase
+    .from('payment_transactions')
+    .insert({
+      user_id: originalTransaction.user_id,
+      tier_id: originalTransaction.tier_id,
+      payment_method_id: originalTransaction.payment_method_id,
+      amount: amount,
+      currency: currency,
+      billing_cycle: originalTransaction.billing_cycle,
+      status: 'completed',
+      payment_type: 'recurring',
+      external_transaction_id: saleId,
+      paypal_subscription_id: subscriptionId,
+      selected_grade_id: originalTransaction.selected_grade_id,
+      selected_subject_ids: originalTransaction.selected_subject_ids,
+      metadata: {
+        recurring_payment: true,
+        sale_data: sale,
+        payment_date: new Date().toISOString()
+      }
+    });
+
+  if (error) {
+    console.error('Error recording recurring payment:', error);
+    return;
+  }
+
+  console.log('Recurring payment recorded - user limits will be reset by trigger');
 }
 
 // Verify webhook signature (for production use)
