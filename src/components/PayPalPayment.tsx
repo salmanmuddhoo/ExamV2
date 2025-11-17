@@ -41,7 +41,8 @@ export function PayPalPayment({
   const [processing, setProcessing] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
   const [error, setError] = useState<string>('');
-  const [exchangeRate, setExchangeRate] = useState<number>(45.5);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [loadingRate, setLoadingRate] = useState(true);
 
   // PayPal client ID from environment variables
   const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
@@ -58,9 +59,16 @@ export function PayPalPayment({
 
         if (!error && data) {
           setExchangeRate(data.rate_to_usd);
+        } else {
+          // Fallback to default if DB fetch fails
+          setExchangeRate(45.5);
         }
       } catch (err) {
         console.error('Error fetching exchange rate:', err);
+        // Fallback to default on error
+        setExchangeRate(45.5);
+      } finally {
+        setLoadingRate(false);
       }
     };
     fetchExchangeRate();
@@ -69,27 +77,30 @@ export function PayPalPayment({
   // Convert amount to USD if needed (PayPal only supports USD)
   const convertToUSD = (amount: number, currency: string) => {
     if (currency === 'USD') return amount;
-    if (currency === 'MUR') {
+    if (currency === 'MUR' && exchangeRate) {
       return Number((amount / exchangeRate).toFixed(2));
     }
     return amount; // Default fallback
   };
 
-  const displayAmountUSD = convertToUSD(paymentData.amount, paymentData.currency);
-  const displayFinalUSD = couponData
-    ? convertToUSD(couponData.finalAmount, paymentData.currency)
-    : displayAmountUSD;
+  // Only calculate amounts when exchange rate is loaded
+  const displayAmountUSD = exchangeRate ? convertToUSD(paymentData.amount, paymentData.currency) : 0;
+  const displayFinalUSD = exchangeRate
+    ? (couponData ? convertToUSD(couponData.finalAmount, paymentData.currency) : displayAmountUSD)
+    : 0;
 
   // Debug logging for amount calculation
-  console.log('PayPal Payment Amount Debug:', {
-    originalAmount: paymentData.amount,
-    originalCurrency: paymentData.currency,
-    exchangeRate,
-    displayAmountUSD,
-    couponData,
-    displayFinalUSD,
-    willCharge: displayFinalUSD.toFixed(2)
-  });
+  if (exchangeRate) {
+    console.log('PayPal Payment Amount Debug:', {
+      originalAmount: paymentData.amount,
+      originalCurrency: paymentData.currency,
+      exchangeRate,
+      displayAmountUSD,
+      couponData,
+      displayFinalUSD,
+      willCharge: displayFinalUSD.toFixed(2)
+    });
+  }
 
   useEffect(() => {
     // Check if PayPal client ID is configured
@@ -117,7 +128,8 @@ export function PayPalPayment({
   }, [PAYPAL_CLIENT_ID]);
 
   useEffect(() => {
-    if (sdkReady && window.paypal) {
+    // Wait for both SDK and exchange rate to be ready
+    if (sdkReady && window.paypal && exchangeRate) {
       // Clear any existing buttons to prevent duplicates
       const container = document.querySelector('#paypal-button-container');
       if (container) {
@@ -237,7 +249,7 @@ export function PayPalPayment({
         })
         .render('#paypal-button-container');
     }
-  }, [sdkReady]);
+  }, [sdkReady, exchangeRate, displayFinalUSD]);
 
   if (succeeded) {
     return (
@@ -249,6 +261,20 @@ export function PayPalPayment({
         <p className="text-gray-600">
           Your subscription has been activated. Redirecting...
         </p>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching exchange rate
+  if (loadingRate) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">Loading payment information...</p>
+          </div>
+        </div>
       </div>
     );
   }
