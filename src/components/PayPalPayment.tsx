@@ -44,7 +44,7 @@ export function PayPalPayment({
   const [exchangeRate, setExchangeRate] = useState<number>(45.5);
 
   // PayPal client ID from environment variables
-  const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || 'YOUR_PAYPAL_CLIENT_ID';
+  const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
   // Fetch exchange rate from database
   useEffect(() => {
@@ -79,16 +79,27 @@ export function PayPalPayment({
   const displayFinalUSD = couponData ? couponData.finalAmount : displayAmountUSD;
 
   useEffect(() => {
+    // Check if PayPal client ID is configured
+    if (!PAYPAL_CLIENT_ID) {
+      setError('PayPal is not configured. Please contact support.');
+      return;
+    }
+
     // Load PayPal SDK
     const script = document.createElement('script');
     script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD`;
     script.addEventListener('load', () => setSdkReady(true));
+    script.addEventListener('error', () => {
+      setError('Failed to load PayPal. Please try again or contact support.');
+    });
     document.body.appendChild(script);
 
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
-  }, []);
+  }, [PAYPAL_CLIENT_ID]);
 
   useEffect(() => {
     if (sdkReady && window.paypal) {

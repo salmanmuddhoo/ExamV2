@@ -7,8 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { sendReceiptEmailWithRetry } from '../lib/receiptUtils';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
 
-// TODO: Replace with your Stripe publishable key (test mode)
-const stripePromise = loadStripe('pk_test_51SH0xvCDkfruimlwdFlj8SaZhpDyrjcl1lMzCtOtKyrst5upXG3rscpavu1wStepSleqyD3SDrHxXV7DHcAei0BB00rxHlIwja');
+// Load Stripe with publishable key from environment variables
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
 
 interface CouponData {
   code: string;
@@ -401,6 +402,32 @@ function StripeCheckoutForm({
 }
 
 export function StripePayment(props: StripePaymentProps) {
+  // Check if Stripe is configured
+  if (!STRIPE_PUBLISHABLE_KEY) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CreditCard className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Stripe Not Configured</h2>
+          <p className="text-gray-600 mb-6">
+            Stripe payment processing is not currently available. Please contact support or try another payment method.
+          </p>
+          {!props.hideBackButton && (
+            <button
+              onClick={props.onBack}
+              className="flex items-center justify-center space-x-2 w-full bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Go Back</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Elements stripe={stripePromise}>
       <StripeCheckoutForm {...props} />
