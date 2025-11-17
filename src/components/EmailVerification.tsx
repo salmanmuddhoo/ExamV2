@@ -9,9 +9,6 @@ export function EmailVerification() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        console.log('[EmailVerification] Starting verification...');
-        console.log('[EmailVerification] URL:', window.location.href);
-
         // Get the hash from URL (Supabase sends the token in the hash)
         const hash = window.location.hash;
 
@@ -19,20 +16,14 @@ export function EmailVerification() {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
 
-        console.log('[EmailVerification] Hash:', hash);
-        console.log('[EmailVerification] Code:', code);
-
         if ((hash && hash.includes('access_token')) || code) {
-          console.log('[EmailVerification] ✅ Email verification link detected, showing success');
           // Email verification doesn't auto-sign users in
           // Just show success message and redirect to login
           setStatus('success');
         } else {
-          console.log('[EmailVerification] ❌ No auth params found');
           setStatus('error');
         }
       } catch (error) {
-        console.error('[EmailVerification] Error:', error);
         setStatus('error');
       }
     };

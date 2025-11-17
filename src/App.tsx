@@ -176,37 +176,19 @@ function App() {
     const token = queryParams.get('token'); // PKCE token parameter
     const state = queryParams.get('state');
 
-    console.log('=== AUTH DETECTION DEBUG ===');
-    console.log('Full URL:', window.location.href);
-    console.log('Pathname:', window.location.pathname);
-    console.log('Query:', window.location.search);
-    console.log('Hash:', window.location.hash);
-    console.log('Type (hash):', typeInHash);
-    console.log('Type (query):', typeInQuery);
-    console.log('Final type:', type);
-    console.log('Code:', code);
-    console.log('Token (PKCE):', token);
-    console.log('State:', state);
-    console.log('Access token:', accessToken);
-
     // IMPORTANT: Don't try to distinguish OAuth from password reset here!
     // Both end up with ?code=... after Supabase processes them.
     // The auth event listener below will distinguish:
     // - PASSWORD_RECOVERY event = password reset
     // - SIGNED_IN event = OAuth or legacy flows
-    console.log('Checking auth flows...');
 
     // Handle PKCE token flow (Supabase verify links with token parameter)
     if (token && type) {
-      console.log('🔑 PKCE token flow - Type:', type);
-
       if (type === 'recovery') {
-        console.log('✅ Password recovery - setting reset-password view');
         setIsPasswordReset(true);
         setView('reset-password');
         return;
       } else if (type === 'signup' || type === 'email_change') {
-        console.log('✅ Email verification - setting email-verification view');
         setView('email-verification');
         return;
       }
@@ -214,12 +196,10 @@ function App() {
 
     // Legacy hash-based authentication
     if (accessToken && type === 'recovery') {
-      console.log('✅ Hash recovery - setting reset-password view');
       setIsPasswordReset(true);
       setView('reset-password');
       return;
     } else if (accessToken && (type === 'signup' || type === 'email_change')) {
-      console.log('✅ Hash verification - setting login view');
       setShowEmailVerifiedModal(true);
       setView('login');
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -228,61 +208,46 @@ function App() {
 
     // Check for authentication code in query parameters (Supabase magic links)
     if (code) {
-      console.log('🔐 Auth code detected');
-
       let currentPath = window.location.pathname.replace(/\/$/, '') || '/';
-      console.log('Path before /app check:', currentPath);
 
       // Remove /app prefix if it exists
       if (currentPath.startsWith('/app')) {
         currentPath = currentPath.substring(4) || '/';
-        console.log('Removed /app, new path:', currentPath);
         const newUrl = currentPath + window.location.search + window.location.hash;
         window.history.replaceState({}, document.title, newUrl);
       }
 
       // If URL explicitly includes the path, honor it
       if (currentPath === '/email-verification' || currentPath === '/verify-email') {
-        console.log('✅ Path match: email-verification');
         setView('email-verification');
         return;
       }
 
       if (currentPath === '/reset-password') {
-        console.log('✅ Path match: reset-password');
         setIsPasswordReset(true);
         setView('reset-password');
         return;
       }
 
-      console.log('🔍 Root path, listening for auth events...');
-
       // Listen for auth events
       let hasDetectedEvent = false;
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log('🎯 Auth event:', event, 'Has session:', !!session);
-
         if (hasDetectedEvent) {
-          console.log('⚠️ Already detected, skipping');
           return;
         }
 
         if (event === 'PASSWORD_RECOVERY') {
-          console.log('✅ PASSWORD_RECOVERY detected');
           hasDetectedEvent = true;
           setIsPasswordReset(true);
           setView('reset-password');
           authListener.subscription.unsubscribe();
         } else if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ SIGNED_IN detected - this is OAuth login');
           hasDetectedEvent = true;
           // OAuth users go to chat-hub
           // (Email verification is handled by path check: /email-verification)
-          console.log('→ Setting chat-hub view for OAuth');
           setView('chat-hub');
           authListener.subscription.unsubscribe();
         } else if (event === 'USER_UPDATED') {
-          console.log('✅ USER_UPDATED detected');
           hasDetectedEvent = true;
           setView('email-verification');
           authListener.subscription.unsubscribe();
@@ -292,17 +257,13 @@ function App() {
       // Fallback timer
       const fallbackTimer = setTimeout(async () => {
         if (!hasDetectedEvent) {
-          console.log('⏰ Fallback: checking session...');
           authListener.subscription.unsubscribe();
 
           const { data: sessionData } = await supabase.auth.getSession();
-          console.log('Session exists:', !!sessionData?.session?.user);
 
           if (sessionData?.session?.user) {
-            console.log('→ Has session: email-verification');
             setView('email-verification');
           } else {
-            console.log('→ No session: reset-password');
             setIsPasswordReset(true);
             setView('reset-password');
           }
@@ -316,9 +277,6 @@ function App() {
         }
       };
     }
-
-    console.log('❌ No auth params found');
-    console.log('=== END DEBUG ===');
   }, []);
 
   // Handle OAuth redirect and initial authentication state
@@ -328,7 +286,6 @@ function App() {
     // EARLY CHECK: Don't run OAuth handler logic if we're on special auth pages
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     if (currentPath === '/email-verification' || currentPath === '/reset-password') {
-      console.log('[OAuth Handler] On special path, skipping OAuth logic:', currentPath);
       return;
     }
 
@@ -345,8 +302,6 @@ function App() {
     // 1. Legacy hash-based: access_token + refresh_token in hash
     // 2. Modern code-based: code in query (but NOT PKCE which has token + type)
     const isOAuthCallback = !!(accessToken && refreshToken) || !!(code && !token && !type);
-
-    console.log('[OAuth Handler] isOAuthCallback:', isOAuthCallback, 'code:', code, 'token:', token, 'type:', type);
 
     // Check if we're in PWA mode and returning from OAuth
     const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
