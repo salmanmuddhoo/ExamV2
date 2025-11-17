@@ -352,7 +352,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                       )}
                       {!currentSubscription.is_recurring && currentSubscription.end_date && (
                         <span className="ml-1 text-orange-600">
-                          • Expires on {new Date(currentSubscription.end_date).toLocaleDateString('en-US', {
+                          • Ends on {new Date(currentSubscription.end_date).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'

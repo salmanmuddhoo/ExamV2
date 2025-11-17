@@ -644,7 +644,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                           <div className="mb-1">
                             <p className="text-xs font-medium text-gray-700">
                               {billingCycle === 'monthly' ? 'Monthly' : 'Yearly'} Plan
-                              {renewalDate && isRecurring && billingCycle === 'monthly' && (
+                              {renewalDate && isRecurring && (
                                 <span className="ml-1 text-gray-600">
                                   • Renews on {new Date(renewalDate).toLocaleDateString('en-US', {
                                     month: 'short',
@@ -655,7 +655,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                               )}
                               {renewalDate && !isRecurring && (
                                 <span className="ml-1 text-orange-600">
-                                  • Expires on {new Date(renewalDate).toLocaleDateString('en-US', {
+                                  • Ends on {new Date(renewalDate).toLocaleDateString('en-US', {
                                     month: 'short',
                                     day: 'numeric',
                                     year: 'numeric'
