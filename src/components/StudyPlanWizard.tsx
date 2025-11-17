@@ -762,7 +762,7 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
                 title="Create Your Study Plan"
                 message="Fill in your subject, grade, and preferences. Our AI will create a personalized study schedule just for you!"
                 position="bottom"
-                arrowAlign="left"
+                arrowAlign="center"
               />
             </div>
             <button
