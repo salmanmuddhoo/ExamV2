@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { StripePayment } from './StripePayment';
-import { PayPalPayment } from './PayPalPayment';
+import { PayPalPaymentDual } from './PayPalPaymentDual';
 import { MCBJuicePayment } from './MCBJuicePayment';
 import { PeachPayment } from './PeachPayment';
 import type { PaymentMethod, PaymentSelectionData } from '../types/payment';
@@ -70,7 +70,7 @@ export function PaymentOrchestrator({
 
   if (step === 'paypal' && selectedPaymentMethod) {
     return (
-      <PayPalPayment
+      <PayPalPaymentDual
         paymentData={paymentData}
         paymentMethod={selectedPaymentMethod}
         onBack={handleBackToMethods}
