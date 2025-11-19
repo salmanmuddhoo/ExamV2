@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle } from 'lucide-react';
+import { X, User, CreditCard, History, Settings, Camera, Check, Loader2, Crown, Star, BookOpen, Calendar, AlertCircle, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { PaymentHistory } from './PaymentHistory';
 import { supabase } from '../lib/supabase';
@@ -49,6 +49,12 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
   const [showEditSelections, setShowEditSelections] = useState(false);
   const [updatingSelections, setUpdatingSelections] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [maxSubjects, setMaxSubjects] = useState<number>(8);
+  const [currentSubjectIds, setCurrentSubjectIds] = useState<string[]>([]);
+  const [showAddSubjects, setShowAddSubjects] = useState(false);
+  const [availableSubjects, setAvailableSubjects] = useState<{id: string, name: string}[]>([]);
+  const [selectedNewSubjects, setSelectedNewSubjects] = useState<string[]>([]);
+  const [addingSubjects, setAddingSubjects] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getTierIcon = (tierName: string) => {
@@ -90,7 +96,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select(`
-          subscription_tiers(name, display_name, token_limit, papers_limit),
+          subscription_tiers(name, display_name, token_limit, papers_limit, max_subjects),
           selected_grade_id,
           selected_subject_ids,
           grade_levels!user_subscriptions_selected_grade_id_fkey(name),
@@ -149,6 +155,12 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         const internalTierName = tierData?.name || '';
         setSubscriptionTier(displayName);
         setTierName(internalTierName);
+
+        // Set max subjects from tier
+        setMaxSubjects(tierData?.max_subjects || 8);
+
+        // Store current subject IDs
+        setCurrentSubjectIds(data.selected_subject_ids || []);
 
         // Set token information
         const tierLimit = tierData?.token_limit;
@@ -302,6 +314,110 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
     }
   };
 
+  // Function to open add subjects modal and fetch available subjects
+  const handleOpenAddSubjects = async () => {
+    if (!user) return;
+
+    try {
+      // Get the user's selected grade
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('selected_grade_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (!subscription?.selected_grade_id) {
+        setUpdateMessage({ type: 'error', text: 'Please select a grade first' });
+        return;
+      }
+
+      // Fetch all subjects for the grade
+      const { data: subjects, error } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+
+      // Filter out already selected subjects
+      const available = (subjects || []).filter(
+        s => !currentSubjectIds.includes(s.id)
+      );
+
+      setAvailableSubjects(available);
+      setSelectedNewSubjects([]);
+      setShowAddSubjects(true);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      setUpdateMessage({ type: 'error', text: 'Failed to load subjects' });
+    }
+  };
+
+  // Function to add new subjects to subscription
+  const handleAddSubjects = async () => {
+    if (!user || selectedNewSubjects.length === 0) return;
+
+    // Check if adding exceeds limit
+    const totalAfterAdd = currentSubjectIds.length + selectedNewSubjects.length;
+    if (totalAfterAdd > maxSubjects) {
+      setUpdateMessage({
+        type: 'error',
+        text: `Cannot add ${selectedNewSubjects.length} subjects. You can only add ${maxSubjects - currentSubjectIds.length} more.`
+      });
+      return;
+    }
+
+    setAddingSubjects(true);
+    setUpdateMessage(null);
+
+    try {
+      // Combine current and new subjects
+      const newSubjectIds = [...currentSubjectIds, ...selectedNewSubjects];
+
+      // Update the subscription
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .update({
+          selected_subject_ids: newSubjectIds,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      setUpdateMessage({ type: 'success', text: `Successfully added ${selectedNewSubjects.length} subject${selectedNewSubjects.length > 1 ? 's' : ''}!` });
+      setShowAddSubjects(false);
+      setSelectedNewSubjects([]);
+
+      // Refresh subscription data
+      await fetchSubscriptionTier();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setUpdateMessage(null), 3000);
+    } catch (error: any) {
+      setUpdateMessage({ type: 'error', text: error.message || 'Failed to add subjects' });
+    } finally {
+      setAddingSubjects(false);
+    }
+  };
+
+  // Toggle subject selection for add modal
+  const toggleNewSubject = (subjectId: string) => {
+    setSelectedNewSubjects(prev => {
+      if (prev.includes(subjectId)) {
+        return prev.filter(id => id !== subjectId);
+      } else {
+        // Check if adding would exceed limit
+        const remainingSlots = maxSubjects - currentSubjectIds.length;
+        if (prev.length >= remainingSlots) {
+          return prev;
+        }
+        return [...prev, subjectId];
+      }
+    });
+  };
 
   if (!isOpen || !user || !profile) return null;
 
@@ -847,7 +963,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                             {selectedSubjects.length > 0 && (
                               <div>
                                 <p className="text-xs text-gray-600 mb-2">
-                                  {tierName === 'student_lite' ? 'Subject (Max 1):' : 'Subjects (Max 8):'}
+                                  Subjects ({selectedSubjects.length}/{maxSubjects}):
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                   {selectedSubjects.map((subject, index) => (
@@ -856,11 +972,23 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                                     </span>
                                   ))}
                                 </div>
+                                {/* Add More Subjects Button */}
+                                {currentSubjectIds.length < maxSubjects && (
+                                  <div className="mt-3">
+                                    <button
+                                      onClick={handleOpenAddSubjects}
+                                      className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      <span>Add More Subjects ({maxSubjects - currentSubjectIds.length} slots remaining)</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
                             <div className="mt-3 pt-3 border-t border-blue-200">
                               <p className="text-xs text-gray-600">
-                                💡 <span className="font-medium">Need to change your selections?</span> You'll need to purchase a new subscription with your desired grade and subjects.
+                                <span className="font-medium">Important:</span> Once a subject is added, it cannot be removed or changed. You can add more subjects up to your limit ({maxSubjects} subjects).
                               </p>
                             </div>
                           </div>
@@ -1018,6 +1146,101 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
               onCancel={() => setShowEditSelections(false)}
               maxSubjects={tierName === 'student_lite' ? 1 : 8}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Add More Subjects Modal */}
+      {showAddSubjects && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">Add More Subjects</h3>
+                <button
+                  onClick={() => {
+                    setShowAddSubjects(false);
+                    setSelectedNewSubjects([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-800">
+                  <span className="font-semibold">Important:</span> Once a subject is added, it cannot be removed or changed. Choose carefully!
+                </p>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4">
+                You can add <span className="font-semibold">{maxSubjects - currentSubjectIds.length}</span> more subject{maxSubjects - currentSubjectIds.length !== 1 ? 's' : ''}.
+                Select the subjects you want to add below:
+              </p>
+
+              {availableSubjects.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">No more subjects available to add.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                  {availableSubjects.map((subject) => {
+                    const isSelected = selectedNewSubjects.includes(subject.id);
+                    const remainingSlots = maxSubjects - currentSubjectIds.length;
+                    const isDisabled = !isSelected && selectedNewSubjects.length >= remainingSlots;
+
+                    return (
+                      <button
+                        key={subject.id}
+                        onClick={() => toggleNewSubject(subject.id)}
+                        disabled={isDisabled}
+                        className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                          isSelected
+                            ? 'border-green-500 bg-green-50'
+                            : isDisabled
+                            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-green-300'
+                        }`}
+                      >
+                        <span className={`text-sm font-medium ${isSelected ? 'text-green-700' : 'text-gray-700'}`}>
+                          {subject.name}
+                        </span>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-green-600" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowAddSubjects(false);
+                    setSelectedNewSubjects([]);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddSubjects}
+                  disabled={selectedNewSubjects.length === 0 || addingSubjects}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {addingSubjects ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Adding...
+                    </>
+                  ) : (
+                    `Add ${selectedNewSubjects.length > 0 ? selectedNewSubjects.length : ''} Subject${selectedNewSubjects.length !== 1 ? 's' : ''}`
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
