@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { TrendingUp, DollarSign, Zap, Calendar, BarChart3, Upload, MessageCircle } from 'lucide-react';
+import { TrendingUp, DollarSign, Zap, Calendar, BarChart3, Upload, MessageCircle, BookOpen, ClipboardList, FileText } from 'lucide-react';
 
 interface TokenStats {
   totalTokens: number;
@@ -13,6 +13,16 @@ interface TokenStats {
   chatTokens: number;
   chatCost: number;
   chatRequests: number;
+}
+
+interface CategoryUsage {
+  source: string;
+  label: string;
+  tokens: number;
+  cost: number;
+  requests: number;
+  icon: any;
+  color: string;
 }
 
 interface DailyUsage {
@@ -44,29 +54,39 @@ export function TokenUsageAnalytics() {
   });
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
   const [subjectUsage, setSubjectUsage] = useState<SubjectUsage[]>([]);
+  const [categoryUsage, setCategoryUsage] = useState<CategoryUsage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('7d');
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all' | 'specific'>('7d');
+  const [specificDate, setSpecificDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     fetchTokenUsage();
-  }, [timeRange]);
+  }, [timeRange, specificDate]);
 
   const fetchTokenUsage = async () => {
     try {
       setLoading(true);
 
       // Calculate date filter
-      let dateFilter = new Date();
+      let startDate = new Date();
+      let endDate: Date | null = null;
+
       if (timeRange === '7d') {
-        dateFilter.setDate(dateFilter.getDate() - 7);
+        startDate.setDate(startDate.getDate() - 7);
       } else if (timeRange === '30d') {
-        dateFilter.setDate(dateFilter.getDate() - 30);
+        startDate.setDate(startDate.getDate() - 30);
+      } else if (timeRange === 'specific') {
+        // For specific date, filter for that entire day
+        startDate = new Date(specificDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(specificDate);
+        endDate.setHours(23, 59, 59, 999);
       } else {
-        dateFilter = new Date('2000-01-01'); // All time
+        startDate = new Date('2000-01-01'); // All time
       }
 
       // Fetch all token usage logs with exam paper and subject info
-      const { data: logs, error } = await supabase
+      let query = supabase
         .from('token_usage_logs')
         .select(`
           *,
@@ -75,8 +95,14 @@ export function TokenUsageAnalytics() {
             subjects (name)
           )
         `)
-        .gte('created_at', dateFilter.toISOString())
-        .order('created_at', { ascending: true });
+        .gte('created_at', startDate.toISOString());
+
+      // Add end date filter for specific date
+      if (endDate) {
+        query = query.lte('created_at', endDate.toISOString());
+      }
+
+      const { data: logs, error } = await query.order('created_at', { ascending: true });
 
       if (error) throw error;
 
@@ -145,6 +171,49 @@ export function TokenUsageAnalytics() {
         // Sort by cost descending
         const sortedSubjects = Array.from(subjectMap.values()).sort((a, b) => b.cost - a.cost);
         setSubjectUsage(sortedSubjects);
+
+        // Group by category/source for category breakdown
+        const categoryMap = new Map<string, { tokens: number; cost: number; requests: number }>();
+        logs.forEach((log) => {
+          // Determine source - use the source field if available, otherwise infer from user_id
+          let source = log.source;
+          if (!source) {
+            source = log.user_id ? 'ai_assistant' : 'exam_paper_upload';
+          }
+
+          if (!categoryMap.has(source)) {
+            categoryMap.set(source, { tokens: 0, cost: 0, requests: 0 });
+          }
+          const category = categoryMap.get(source)!;
+          category.tokens += log.total_tokens;
+          category.cost += parseFloat(log.estimated_cost);
+          category.requests += 1;
+        });
+
+        // Define category metadata
+        const categoryMeta: { [key: string]: { label: string; icon: any; color: string } } = {
+          'syllabus_upload': { label: 'Syllabus Upload', icon: BookOpen, color: 'from-green-50 to-green-100 border-green-200' },
+          'exam_paper_upload': { label: 'Exam Paper Upload', icon: FileText, color: 'from-blue-50 to-blue-100 border-blue-200' },
+          'ai_assistant': { label: 'AI Assistant', icon: MessageCircle, color: 'from-purple-50 to-purple-100 border-purple-200' },
+          'study_plan': { label: 'Study Plan', icon: ClipboardList, color: 'from-orange-50 to-orange-100 border-orange-200' },
+        };
+
+        // Build category usage array with all 4 categories
+        const allCategories: CategoryUsage[] = ['syllabus_upload', 'exam_paper_upload', 'ai_assistant', 'study_plan'].map(source => {
+          const data = categoryMap.get(source) || { tokens: 0, cost: 0, requests: 0 };
+          const meta = categoryMeta[source];
+          return {
+            source,
+            label: meta.label,
+            tokens: data.tokens,
+            cost: data.cost,
+            requests: data.requests,
+            icon: meta.icon,
+            color: meta.color,
+          };
+        });
+
+        setCategoryUsage(allCategories);
       } else {
         setStats({
           totalTokens: 0,
@@ -160,6 +229,7 @@ export function TokenUsageAnalytics() {
         });
         setDailyUsage([]);
         setSubjectUsage([]);
+        setCategoryUsage([]);
       }
     } catch (error) {
     } finally {
@@ -181,35 +251,35 @@ export function TokenUsageAnalytics() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
         <div className="flex items-center space-x-3">
           <TrendingUp className="w-6 h-6 text-black" />
-          <h2 className="text-2xl font-semibold text-gray-900">Token Usage & Cost Analytics</h2>
+          <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Token Usage & Cost Analytics</h2>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setTimeRange('7d')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               timeRange === '7d'
                 ? 'bg-black text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Last 7 Days
+            7 Days
           </button>
           <button
             onClick={() => setTimeRange('30d')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               timeRange === '30d'
                 ? 'bg-black text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Last 30 Days
+            30 Days
           </button>
           <button
             onClick={() => setTimeRange('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               timeRange === 'all'
                 ? 'bg-black text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -217,6 +287,26 @@ export function TokenUsageAnalytics() {
           >
             All Time
           </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={specificDate}
+              onChange={(e) => {
+                setSpecificDate(e.target.value);
+                setTimeRange('specific');
+              }}
+              className={`px-3 py-2 border rounded-lg text-sm ${
+                timeRange === 'specific'
+                  ? 'border-black ring-1 ring-black'
+                  : 'border-gray-300'
+              }`}
+            />
+            {timeRange === 'specific' && (
+              <span className="text-xs text-gray-500">
+                {new Date(specificDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -255,52 +345,43 @@ export function TokenUsageAnalytics() {
         </div>
       </div>
 
-      {/* Upload vs Chat Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <Upload className="w-5 h-5 text-blue-700" />
-              <h3 className="text-lg font-semibold text-blue-900">Upload Processing</h3>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-700">Cost</span>
-              <span className="text-xl font-bold text-blue-900">{formatCost(stats.uploadCost)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-700">Tokens</span>
-              <span className="text-lg font-semibold text-blue-900">{formatNumber(stats.uploadTokens)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-700">Uploads</span>
-              <span className="text-lg font-semibold text-blue-900">{formatNumber(stats.uploadRequests)}</span>
-            </div>
-          </div>
-        </div>
+      {/* Category Breakdown */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Token Usage by Category</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {categoryUsage.map((category) => {
+            const IconComponent = category.icon;
+            const colorClasses = category.color.split(' ');
+            const bgFrom = colorClasses[0];
+            const bgTo = colorClasses[1];
+            const borderColor = colorClasses[2];
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <MessageCircle className="w-5 h-5 text-purple-700" />
-              <h3 className="text-lg font-semibold text-purple-900">Student Chats</h3>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-purple-700">Cost</span>
-              <span className="text-xl font-bold text-purple-900">{formatCost(stats.chatCost)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-purple-700">Tokens</span>
-              <span className="text-lg font-semibold text-purple-900">{formatNumber(stats.chatTokens)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-purple-700">Chats</span>
-              <span className="text-lg font-semibold text-purple-900">{formatNumber(stats.chatRequests)}</span>
-            </div>
-          </div>
+            return (
+              <div
+                key={category.source}
+                className={`bg-gradient-to-br ${bgFrom} ${bgTo} p-4 rounded-lg border ${borderColor}`}
+              >
+                <div className="flex items-center space-x-2 mb-3">
+                  <IconComponent className="w-5 h-5 text-gray-700" />
+                  <h4 className="text-sm font-semibold text-gray-900">{category.label}</h4>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">Cost</span>
+                    <span className="text-lg font-bold text-gray-900">{formatCost(category.cost)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">Tokens</span>
+                    <span className="text-sm font-semibold text-gray-900">{formatNumber(category.tokens)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-600">Requests</span>
+                    <span className="text-sm font-semibold text-gray-900">{formatNumber(category.requests)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
