@@ -77,28 +77,39 @@ export function EnhancedAnalyticsDashboard() {
   const [userAverages, setUserAverages] = useState<UserAverages | null>(null);
   const [promptAverages, setPromptAverages] = useState<AIPromptAverage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('30d');
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all' | 'specific'>('30d');
+  const [specificDate, setSpecificDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     fetchAnalytics();
-  }, [timeRange]);
+  }, [timeRange, specificDate]);
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
 
       // Calculate date filter
-      let dateFilter = new Date();
-      if (timeRange === '7d') {
-        dateFilter.setDate(dateFilter.getDate() - 7);
+      let startDate: Date;
+      let endDate: Date | null = null;
+
+      if (timeRange === 'specific') {
+        // For specific date, filter for that entire day
+        startDate = new Date(specificDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(specificDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === '7d') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
       } else if (timeRange === '30d') {
-        dateFilter.setDate(dateFilter.getDate() - 30);
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
       } else {
-        dateFilter = new Date('2000-01-01'); // All time
+        startDate = new Date('2000-01-01'); // All time
       }
 
       // Fetch all token usage logs with relationships
-      const { data: logs, error } = await supabase
+      let query = supabase
         .from('token_usage_logs')
         .select(`
           *,
@@ -112,8 +123,14 @@ export function EnhancedAnalyticsDashboard() {
             title
           )
         `)
-        .gte('created_at', dateFilter.toISOString())
-        .order('created_at', { ascending: true });
+        .gte('created_at', startDate.toISOString());
+
+      // Add end date filter for specific date
+      if (endDate) {
+        query = query.lte('created_at', endDate.toISOString());
+      }
+
+      const { data: logs, error } = await query.order('created_at', { ascending: true });
 
       if (error) throw error;
 
@@ -319,7 +336,7 @@ export function EnhancedAnalyticsDashboard() {
             Comprehensive cost and usage analytics across all AI models
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setTimeRange('7d')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -350,6 +367,26 @@ export function EnhancedAnalyticsDashboard() {
           >
             All Time
           </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTimeRange('specific')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                timeRange === 'specific'
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Specific Date
+            </button>
+            {timeRange === 'specific' && (
+              <input
+                type="date"
+                value={specificDate}
+                onChange={(e) => setSpecificDate(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-black focus:border-transparent"
+              />
+            )}
+          </div>
         </div>
       </div>
 
