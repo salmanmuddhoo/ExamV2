@@ -94,10 +94,10 @@ export function EnhancedAnalyticsDashboard() {
 
       if (timeRange === 'specific') {
         // For specific date, filter for that entire day
-        startDate = new Date(specificDate);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(specificDate);
-        endDate.setHours(23, 59, 59, 999);
+        // Parse date parts to avoid timezone issues
+        const [year, month, day] = specificDate.split('-').map(Number);
+        startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+        endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
       } else if (timeRange === '7d') {
         startDate = new Date();
         startDate.setDate(startDate.getDate() - 7);
