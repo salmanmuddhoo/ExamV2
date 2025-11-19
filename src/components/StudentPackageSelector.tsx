@@ -415,7 +415,7 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
       )}
 
       {/* Action Buttons */}
-      <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
+      <div className="mt-8 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
         <button
           onClick={onCancel}
           className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
