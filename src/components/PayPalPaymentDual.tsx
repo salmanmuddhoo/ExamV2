@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Loader2, CheckCircle, Repeat, CreditCard } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { sendReceiptEmailWithRetry } from '../lib/receiptUtils';
@@ -45,9 +45,14 @@ export function PayPalPaymentDual({
   const [error, setError] = useState<string>('');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(true);
-  const [paymentType, setPaymentType] = useState<PaymentType | null>(null);
+  // Default to one-time payment (checkbox unchecked)
+  const [isRecurring, setIsRecurring] = useState(false);
   const [paypalPlanId, setPaypalPlanId] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [recurringAvailable, setRecurringAvailable] = useState<boolean | null>(null);
+
+  // Derive payment type from checkbox
+  const paymentType: PaymentType = isRecurring ? 'recurring' : 'one_time';
 
   // PayPal client ID from environment variables
   const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
@@ -77,40 +82,46 @@ export function PayPalPaymentDual({
     fetchExchangeRate();
   }, []);
 
-  // Fetch PayPal Plan ID when recurring payment is selected
+  // Check if recurring plan is available and fetch Plan ID
   useEffect(() => {
-    if (paymentType === 'recurring') {
-      const fetchPlanId = async () => {
-        setLoadingPlan(true);
-        try {
-          const { data, error } = await supabase
-            .from('paypal_subscription_plans')
-            .select('paypal_plan_id')
-            .eq('tier_id', paymentData.tierId)
-            .eq('billing_cycle', paymentData.billingCycle)
-            .eq('is_active', true)
-            .single();
+    const checkAndFetchPlan = async () => {
+      setLoadingPlan(true);
+      try {
+        const { data, error } = await supabase
+          .from('paypal_subscription_plans')
+          .select('paypal_plan_id')
+          .eq('tier_id', paymentData.tierId)
+          .eq('billing_cycle', paymentData.billingCycle)
+          .eq('is_active', true)
+          .single();
 
-          if (!error && data) {
-            setPaypalPlanId(data.paypal_plan_id);
-          } else {
-            setError('Recurring subscription plan not configured for this tier. Please choose one-time payment or contact support.');
-            console.error('PayPal plan not found:', error);
-          }
-        } catch (err) {
-          console.error('Error fetching PayPal plan:', err);
-          setError('Failed to load subscription plan');
-        } finally {
-          setLoadingPlan(false);
+        if (!error && data) {
+          setPaypalPlanId(data.paypal_plan_id);
+          setRecurringAvailable(true);
+        } else {
+          setPaypalPlanId(null);
+          setRecurringAvailable(false);
         }
-      };
-      fetchPlanId();
-    } else if (paymentType === 'one_time') {
-      // Clear error when switching to one-time payment
-      setError('');
-      setPaypalPlanId(null);
+      } catch (err) {
+        console.error('Error fetching PayPal plan:', err);
+        setPaypalPlanId(null);
+        setRecurringAvailable(false);
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+    checkAndFetchPlan();
+  }, [paymentData.tierId, paymentData.billingCycle]);
+
+  // Handle checkbox change
+  const handleRecurringChange = (checked: boolean) => {
+    if (checked && !recurringAvailable) {
+      setError('Auto-renewal is not available for this subscription tier yet.');
+      return;
     }
-  }, [paymentType, paymentData.tierId, paymentData.billingCycle]);
+    setError('');
+    setIsRecurring(checked);
+  };
 
   // Convert amount to USD if needed
   const convertToUSD = (amount: number, currency: string) => {
@@ -154,9 +165,9 @@ export function PayPalPaymentDual({
 
   // Render PayPal buttons
   useEffect(() => {
-    if (sdkReady && window.paypal && exchangeRate && paymentType) {
+    if (sdkReady && window.paypal && exchangeRate) {
       // Don't render until we have plan ID for recurring
-      if (paymentType === 'recurring' && !paypalPlanId) {
+      if (isRecurring && !paypalPlanId) {
         return;
       }
 
@@ -166,7 +177,7 @@ export function PayPalPaymentDual({
       }
 
       // One-time payment buttons
-      if (paymentType === 'one_time') {
+      if (!isRecurring) {
         window.paypal.Buttons({
           createOrder: async (data: any, actions: any) => {
             const finalAmountUSD = displayFinalUSD;
@@ -255,7 +266,7 @@ export function PayPalPaymentDual({
       }
 
       // Recurring subscription buttons
-      if (paymentType === 'recurring' && paypalPlanId) {
+      if (isRecurring && paypalPlanId) {
         window.paypal.Buttons({
           createSubscription: async (data: any, actions: any) => {
             return actions.subscription.create({
@@ -318,7 +329,7 @@ export function PayPalPaymentDual({
         }).render('#paypal-button-container');
       }
     }
-  }, [sdkReady, exchangeRate, paymentType, paypalPlanId, displayFinalUSD]);
+  }, [sdkReady, exchangeRate, isRecurring, paypalPlanId, displayFinalUSD]);
 
   if (succeeded) {
     return (
@@ -327,10 +338,10 @@ export function PayPalPaymentDual({
           <CheckCircle className="w-10 h-10 text-green-600" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          {paymentType === 'recurring' ? 'Subscription Created!' : 'Payment Successful!'}
+          {isRecurring ? 'Subscription Created!' : 'Payment Successful!'}
         </h2>
         <p className="text-gray-600">
-          Your subscription has been {paymentType === 'recurring' ? 'activated' : 'processed'}. Redirecting...
+          Your subscription has been {isRecurring ? 'activated' : 'processed'}. Redirecting...
         </p>
       </div>
     );
@@ -349,115 +360,70 @@ export function PayPalPaymentDual({
     );
   }
 
-  // Show payment type selection
-  if (!paymentType) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          {!hideBackButton && (
-            <button
-              onClick={onBack}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
-            </button>
-          )}
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Choose Payment Type</h2>
-          <p className="text-gray-600">
-            Select how you'd like to pay for your <strong>{paymentData.tierName}</strong> subscription
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* One-Time Payment Option */}
-          <button
-            onClick={() => setPaymentType('one_time')}
-            className="border-2 border-gray-200 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg transition-all text-left"
-          >
-            <div className="flex items-start space-x-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <CreditCard className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">One-Time Payment</h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  Pay manually each {paymentData.billingCycle === 'monthly' ? 'month' : 'year'}
-                </p>
-                <div className="text-2xl font-bold text-gray-900 mb-2">
-                  ${displayAmountUSD}
-                </div>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>✓ Full control over payments</li>
-                  <li>✓ No automatic charges</li>
-                  <li>✓ Renew when you want</li>
-                </ul>
-              </div>
-            </div>
-          </button>
-
-          {/* Recurring Subscription Option */}
-          <button
-            onClick={() => setPaymentType('recurring')}
-            className="border-2 border-blue-500 bg-blue-50 rounded-lg p-6 hover:shadow-lg transition-all text-left relative"
-          >
-            <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-              RECOMMENDED
-            </div>
-            <div className="flex items-start space-x-4">
-              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Repeat className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Auto-Renewing Subscription</h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  Automatic renewal every {paymentData.billingCycle === 'monthly' ? 'month' : 'year'}
-                </p>
-                <div className="text-2xl font-bold text-gray-900 mb-2">
-                  ${displayAmountUSD}/{paymentData.billingCycle === 'monthly' ? 'mo' : 'yr'}
-                </div>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>✓ Never miss access</li>
-                  <li>✓ Automatic renewals</li>
-                  <li>✓ Cancel anytime</li>
-                  <li>✓ Hassle-free</li>
-                </ul>
-              </div>
-            </div>
-          </button>
-        </div>
-
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600">
-            <strong>Both options give you the same access.</strong> The recurring subscription automatically renews
-            so you never lose access. You can cancel anytime from your account settings.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show PayPal payment interface
+  // Show PayPal payment interface with recurring checkbox
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={() => setPaymentType(null)}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Change payment type</span>
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          {paymentType === 'recurring' ? 'Subscribe with PayPal' : 'Pay with PayPal'}
-        </h2>
+        {!hideBackButton && (
+          <button
+            onClick={onBack}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+        )}
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Pay with PayPal</h2>
         <p className="text-gray-600">
-          {paymentType === 'recurring'
-            ? `Auto-renewing subscription: $${displayAmountUSD} per ${paymentData.billingCycle === 'monthly' ? 'month' : 'year'}`
-            : `One-time payment: $${displayAmountUSD}`
-          }
+          Complete your payment for <strong>{paymentData.tierName}</strong> - {paymentData.billingCycle === 'monthly' ? 'Monthly' : 'Yearly'}
         </p>
+      </div>
+
+      {/* Amount Display */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-700">Amount to pay:</span>
+          <span className="text-2xl font-bold text-gray-900">
+            ${displayFinalUSD.toFixed(2)}
+            {couponData && (
+              <span className="ml-2 text-sm text-green-600 font-normal">
+                (Save ${couponData.discountAmount.toFixed(2)})
+              </span>
+            )}
+          </span>
+        </div>
+      </div>
+
+      {/* Auto-Renewal Checkbox */}
+      <div className="mb-6">
+        <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+          isRecurring
+            ? 'border-blue-500 bg-blue-50'
+            : 'border-gray-200 hover:border-gray-300'
+        } ${!recurringAvailable && recurringAvailable !== null ? 'opacity-60' : ''}`}>
+          <input
+            type="checkbox"
+            checked={isRecurring}
+            onChange={(e) => handleRecurringChange(e.target.checked)}
+            disabled={!recurringAvailable && recurringAvailable !== null}
+            className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+          />
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <span className="font-medium text-gray-900">Enable auto-renewal</span>
+              {recurringAvailable && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Recommended</span>
+              )}
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              {recurringAvailable
+                ? `Automatically renew your subscription every ${paymentData.billingCycle === 'monthly' ? 'month' : 'year'}. Cancel anytime.`
+                : 'Auto-renewal is not configured for this tier yet.'
+              }
+            </p>
+          </div>
+        </label>
       </div>
 
       {/* Error Message */}
@@ -469,7 +435,7 @@ export function PayPalPaymentDual({
 
       {/* PayPal Button Container */}
       <div className="mb-6">
-        {!sdkReady || (paymentType === 'recurring' && loadingPlan) ? (
+        {!sdkReady || (isRecurring && loadingPlan) ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-gray-400 mx-auto mb-4" />
@@ -480,7 +446,7 @@ export function PayPalPaymentDual({
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Processing {paymentType === 'recurring' ? 'subscription' : 'payment'}...</p>
+              <p className="text-gray-600">Processing {isRecurring ? 'subscription' : 'payment'}...</p>
             </div>
           </div>
         ) : (
@@ -491,8 +457,8 @@ export function PayPalPaymentDual({
       {/* Info Box */}
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
-          <strong>🔒 Secure:</strong> Your payment is processed securely through PayPal.
-          {paymentType === 'recurring' && ' You can cancel your subscription anytime from your account settings.'}
+          <strong>Secure:</strong> Your payment is processed securely through PayPal.
+          {isRecurring && ' You can cancel your subscription anytime from your account settings.'}
         </p>
       </div>
     </div>
