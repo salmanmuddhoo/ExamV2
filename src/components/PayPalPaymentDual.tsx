@@ -45,8 +45,8 @@ export function PayPalPaymentDual({
   const [error, setError] = useState<string>('');
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(true);
-  // Default to one-time payment (checkbox unchecked)
-  const [isRecurring, setIsRecurring] = useState(false);
+  // Default to auto-renewal (checkbox checked)
+  const [isRecurring, setIsRecurring] = useState(true);
   const [paypalPlanId, setPaypalPlanId] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [recurringAvailable, setRecurringAvailable] = useState<boolean | null>(null);
@@ -93,19 +93,23 @@ export function PayPalPaymentDual({
           .eq('tier_id', paymentData.tierId)
           .eq('billing_cycle', paymentData.billingCycle)
           .eq('is_active', true)
-          .single();
+          .maybeSingle(); // Use maybeSingle to avoid 406 error when no rows found
 
         if (!error && data) {
           setPaypalPlanId(data.paypal_plan_id);
           setRecurringAvailable(true);
+          // Keep isRecurring as true (default) when plan is available
         } else {
           setPaypalPlanId(null);
           setRecurringAvailable(false);
+          // Set to one-time payment if no recurring plan available
+          setIsRecurring(false);
         }
       } catch (err) {
         console.error('Error fetching PayPal plan:', err);
         setPaypalPlanId(null);
         setRecurringAvailable(false);
+        setIsRecurring(false);
       } finally {
         setLoadingPlan(false);
       }
@@ -396,8 +400,8 @@ export function PayPalPaymentDual({
       </div>
 
       {/* Auto-Renewal Checkbox */}
-      <div className="mb-6">
-        <label className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+      <div className="mb-4">
+        <label className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all ${
           isRecurring
             ? 'border-blue-500 bg-blue-50'
             : 'border-gray-200 hover:border-gray-300'
@@ -407,16 +411,16 @@ export function PayPalPaymentDual({
             checked={isRecurring}
             onChange={(e) => handleRecurringChange(e.target.checked)}
             disabled={!recurringAvailable && recurringAvailable !== null}
-            className="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
           />
           <div className="flex-1">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900">Enable auto-renewal</span>
+              <span className="text-sm font-medium text-gray-900">Enable auto-renewal</span>
               {recurringAvailable && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Recommended</span>
+                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Recommended</span>
               )}
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs text-gray-500 mt-0.5">
               {recurringAvailable
                 ? `Automatically renew your subscription every ${paymentData.billingCycle === 'monthly' ? 'month' : 'year'}. Cancel anytime.`
                 : 'Auto-renewal is not configured for this tier yet.'

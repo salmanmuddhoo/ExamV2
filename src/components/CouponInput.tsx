@@ -119,9 +119,9 @@ export function CouponInput({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Have a coupon code?
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 relative">
-              <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 value={couponCode}
@@ -130,20 +130,21 @@ export function CouponInput({
                   setError(null);
                 }}
                 onKeyPress={handleKeyPress}
-                placeholder="Enter coupon code"
+                placeholder="Coupon code"
                 disabled={validating}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono uppercase disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono uppercase disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
               />
             </div>
             <button
               onClick={handleValidateCoupon}
               disabled={validating || !couponCode.trim()}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap text-sm"
             >
               {validating ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Validating...
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="hidden sm:inline">Validating...</span>
+                  <span className="sm:hidden">...</span>
                 </>
               ) : (
                 'Apply'
