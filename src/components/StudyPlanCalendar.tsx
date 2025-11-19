@@ -47,7 +47,7 @@ interface StudyPlanCalendarProps {
 }
 
 export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining = 0, tokensLimit = null, tokensUsed = 0, onRefreshTokens }: StudyPlanCalendarProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -106,7 +106,7 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       fetchEvents();
       fetchSchedules();
     }
-  }, [user, currentDate, hasAccess, featureEnabled, accessibleSubjectIds]);
+  }, [user, currentDate, hasAccess, featureEnabled, accessibleSubjectIds, profile]);
 
   // Ensure selectedDate is always set to today if it becomes null
   useEffect(() => {
@@ -226,10 +226,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
         throw error;
       }
 
-      // For Pro users, show all events without filtering
+      // For Pro users and admins, show all events without filtering
       // For other tiers, filter events based on accessible subjects
       let filteredData = data || [];
-      if (tierName !== 'pro' && accessibleSubjectIds.length > 0) {
+      const isAdmin = profile?.role === 'admin';
+      if (tierName !== 'pro' && !isAdmin && accessibleSubjectIds.length > 0) {
         filteredData = filteredData.filter((event: any) => {
           const subjectId = event.study_plan_schedules?.subjects?.id;
           return subjectId && accessibleSubjectIds.includes(subjectId);
@@ -259,10 +260,11 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
 
       if (error) throw error;
 
-      // For Pro users, show all schedules without filtering
+      // For Pro users and admins, show all schedules without filtering
       // For other tiers, filter schedules based on accessible subjects
       let filteredData = data || [];
-      if (tierName !== 'pro' && accessibleSubjectIds.length > 0) {
+      const isAdmin = profile?.role === 'admin';
+      if (tierName !== 'pro' && !isAdmin && accessibleSubjectIds.length > 0) {
         filteredData = filteredData.filter((schedule: any) => {
           const subjectId = schedule.subjects?.id;
           return subjectId && accessibleSubjectIds.includes(subjectId);

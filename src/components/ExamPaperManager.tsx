@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap, List } from 'lucide-react';
+import { Plus, FileText, Trash2, Upload, X, Edit, ChevronDown, BookOpen, GraduationCap, List, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { createPdfPreviewUrl, revokePdfPreviewUrl, convertPdfToBase64Images, PdfImagePart } from '../lib/pdfUtils';
 import { Modal } from './Modal';
@@ -101,6 +101,7 @@ export function ExamPaperManager() {
   const [collapsedGrades, setCollapsedGrades] = useState<Set<string>>(new Set());
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string } | null>(null);
+  const [retaggingPaperId, setRetaggingPaperId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -207,6 +208,23 @@ export function ExamPaperManager() {
 
     const result = await response.json();
     return result;
+  };
+
+  const handleRetag = async (paper: ExamPaper) => {
+    if (!paper.syllabus_id) {
+      showAlert('This exam paper has no syllabus assigned. Please edit and assign a syllabus first.', 'No Syllabus', 'warning');
+      return;
+    }
+
+    setRetaggingPaperId(paper.id);
+    try {
+      await retagQuestionsWithNewSyllabus(paper.id, paper.syllabus_id);
+      showAlert('Questions have been re-tagged with chapter information successfully!', 'Retag Complete', 'success');
+    } catch (error: any) {
+      showAlert(`Failed to retag questions: ${error.message}`, 'Retag Failed', 'error');
+    } finally {
+      setRetaggingPaperId(null);
+    }
   };
 
   const handleEdit = (paper: ExamPaper) => {
@@ -1008,6 +1026,18 @@ export function ExamPaperManager() {
                                       title="View Question-Chapter Summary"
                                     >
                                       <List className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRetag(paper)}
+                                      disabled={retaggingPaperId === paper.id || !paper.syllabus_id}
+                                      className={`p-1.5 rounded transition-colors ${
+                                        paper.syllabus_id
+                                          ? 'text-orange-600 hover:bg-orange-50'
+                                          : 'text-gray-300 cursor-not-allowed'
+                                      } ${retaggingPaperId === paper.id ? 'animate-spin' : ''}`}
+                                      title={paper.syllabus_id ? 'Retag Questions with Chapters' : 'No syllabus assigned'}
+                                    >
+                                      <RefreshCw className="w-3.5 h-3.5" />
                                     </button>
                                     <a
                                       href={paper.pdf_url}
