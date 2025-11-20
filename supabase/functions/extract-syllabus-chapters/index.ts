@@ -128,6 +128,32 @@ Deno.serve(async (req)=>{
     const adminModel = await getAdminUploadModel(supabase);
     console.log(`Using AI model: ${adminModel.model_name} (${adminModel.provider})`);
 
+    // Fetch custom AI prompt if specified for this syllabus
+    let customPrompt: string | null = null;
+    try {
+      const { data: syllabusData, error: syllabusError } = await supabase
+        .from('syllabus')
+        .select('ai_prompt_id')
+        .eq('id', syllabusId)
+        .single();
+
+      if (!syllabusError && syllabusData?.ai_prompt_id) {
+        console.log(`Fetching custom AI prompt: ${syllabusData.ai_prompt_id}`);
+        const { data: promptData, error: promptError } = await supabase
+          .from('ai_prompts')
+          .select('system_prompt')
+          .eq('id', syllabusData.ai_prompt_id)
+          .single();
+
+        if (!promptError && promptData) {
+          customPrompt = promptData.system_prompt;
+          console.log('Using custom AI prompt for extraction');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching custom prompt, using default:', err);
+    }
+
     // Update status to processing
     await supabase.from('syllabus').update({
       processing_status: 'processing'
@@ -144,8 +170,9 @@ Deno.serve(async (req)=>{
     const arrayBuffer = await pdfBlob.arrayBuffer();
     const base64Pdf = await arrayBufferToBase64(arrayBuffer);
     console.log('PDF converted to base64');
-    // Use Gemini to analyze the syllabus directly with inline_data (simpler than File API)
-    const prompt = `Analyze this syllabus PDF and intelligently extract all chapters with their hierarchical structure.
+
+    // Use custom prompt if available, otherwise use default
+    const prompt = customPrompt || `Analyze this syllabus PDF and intelligently extract all chapters with their hierarchical structure.
 
 ANALYSIS INSTRUCTIONS:
 1. Identify the main content section (often called "Subject content", "Course content", "Syllabus content", etc.)

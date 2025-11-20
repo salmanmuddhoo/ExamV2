@@ -13,6 +13,12 @@ interface GradeLevel {
   name: string;
 }
 
+interface AIPrompt {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 interface Syllabus {
   id: string;
   subject_id: string;
@@ -48,6 +54,7 @@ export function SyllabusManager() {
   const [syllabusList, setSyllabusList] = useState<Syllabus[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [grades, setGrades] = useState<GradeLevel[]>([]);
+  const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -55,6 +62,7 @@ export function SyllabusManager() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedAiPrompt, setSelectedAiPrompt] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [academicYear, setAcademicYear] = useState('');
@@ -96,6 +104,12 @@ export function SyllabusManager() {
         .select('id, name')
         .order('name');
 
+      // Fetch AI prompts
+      const { data: promptsData } = await supabase
+        .from('ai_prompts')
+        .select('id, name, description')
+        .order('name');
+
       // Fetch syllabus with related data
       const { data: syllabusData } = await supabase
         .from('syllabus')
@@ -108,6 +122,7 @@ export function SyllabusManager() {
 
       setSubjects(subjectsData || []);
       setGrades(gradesData || []);
+      setAiPrompts(promptsData || []);
       setSyllabusList(syllabusData || []);
     } catch (error) {
       alert('Failed to load data');
@@ -168,6 +183,7 @@ export function SyllabusManager() {
           academic_year: academicYear,
           region: region || null,
           uploaded_by: user.id,
+          ai_prompt_id: selectedAiPrompt || null,
           processing_status: 'pending'
         })
         .select()
@@ -182,6 +198,7 @@ export function SyllabusManager() {
       setSelectedFile(null);
       setSelectedSubject('');
       setSelectedGrade('');
+      setSelectedAiPrompt('');
       setTitle('');
       setDescription('');
       setAcademicYear('');
@@ -674,6 +691,27 @@ export function SyllabusManager() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              AI Extraction Prompt
+            </label>
+            <select
+              value={selectedAiPrompt}
+              onChange={(e) => setSelectedAiPrompt(e.target.value)}
+              className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Default (General syllabus extraction)</option>
+              {aiPrompts.map((prompt) => (
+                <option key={prompt.id} value={prompt.id}>
+                  {prompt.name} {prompt.description ? `- ${prompt.description}` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Select a custom AI prompt for chapter extraction. Different subjects may require different extraction strategies.
+            </p>
           </div>
 
           <div>
