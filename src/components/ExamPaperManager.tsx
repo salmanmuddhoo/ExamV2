@@ -133,7 +133,7 @@ export function ExamPaperManager() {
           .order('created_at', { ascending: false }),
         supabase.from('subjects').select('*').order('name'),
         supabase.from('grade_levels').select('*').order('display_order'),
-        supabase.from('ai_prompts').select('id, name, description').order('name'),
+        supabase.from('ai_prompts').select('id, name, description').eq('prompt_type', 'ai_assistant').order('name'),
       ]);
 
       if (papersRes.error) throw papersRes.error;

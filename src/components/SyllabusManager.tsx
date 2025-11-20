@@ -104,10 +104,11 @@ export function SyllabusManager() {
         .select('id, name')
         .order('name');
 
-      // Fetch AI prompts
+      // Fetch AI prompts (only syllabus extraction type)
       const { data: promptsData } = await supabase
         .from('ai_prompts')
         .select('id, name, description')
+        .eq('prompt_type', 'syllabus_extraction')
         .order('name');
 
       // Fetch syllabus with related data
