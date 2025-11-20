@@ -100,7 +100,7 @@ export function ExamPaperManager() {
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [collapsedGrades, setCollapsedGrades] = useState<Set<string>>(new Set());
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
-  const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string } | null>(null);
+  const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string; syllabus_id: string | null } | null>(null);
   const [retaggingPaperId, setRetaggingPaperId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1021,7 +1021,7 @@ export function ExamPaperManager() {
                                   </div>
                                   <div className="flex flex-wrap gap-1 sm:ml-3">
                                     <button
-                                      onClick={() => setViewingSummaryPaper({ id: paper.id, title: paper.title })}
+                                      onClick={() => setViewingSummaryPaper({ id: paper.id, title: paper.title, syllabus_id: paper.syllabus_id })}
                                       className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
                                       title="View Question-Chapter Summary"
                                     >
@@ -1083,6 +1083,7 @@ export function ExamPaperManager() {
         <QuestionChapterSummary
           examPaperId={viewingSummaryPaper.id}
           examTitle={viewingSummaryPaper.title}
+          syllabusId={viewingSummaryPaper.syllabus_id}
           onClose={() => setViewingSummaryPaper(null)}
         />
       )}
