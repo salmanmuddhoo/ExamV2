@@ -9,6 +9,7 @@ interface AIPrompt {
   name: string;
   description: string | null;
   system_prompt: string;
+  prompt_type: 'ai_assistant' | 'syllabus_extraction';
   created_at: string;
 }
 
@@ -17,10 +18,16 @@ export function AIPromptManager() {
   const [prompts, setPrompts] = useState<AIPrompt[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    system_prompt: string;
+    prompt_type: 'ai_assistant' | 'syllabus_extraction';
+  }>({
     name: '',
     description: '',
     system_prompt: '',
+    prompt_type: 'ai_assistant',
   });
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +61,7 @@ export function AIPromptManager() {
             name: formData.name,
             description: formData.description || null,
             system_prompt: formData.system_prompt,
+            prompt_type: formData.prompt_type,
           })
           .eq('id', editingId);
 
@@ -65,12 +73,13 @@ export function AIPromptManager() {
             name: formData.name,
             description: formData.description || null,
             system_prompt: formData.system_prompt,
+            prompt_type: formData.prompt_type,
           }]);
 
         if (error) throw error;
       }
 
-      setFormData({ name: '', description: '', system_prompt: '' });
+      setFormData({ name: '', description: '', system_prompt: '', prompt_type: 'ai_assistant' });
       setIsAdding(false);
       setEditingId(null);
       fetchPrompts();
@@ -90,6 +99,7 @@ export function AIPromptManager() {
       name: prompt.name,
       description: prompt.description || '',
       system_prompt: prompt.system_prompt,
+      prompt_type: prompt.prompt_type,
     });
     setIsAdding(true);
   };
@@ -136,7 +146,7 @@ export function AIPromptManager() {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ name: '', description: '', system_prompt: '' });
+    setFormData({ name: '', description: '', system_prompt: '', prompt_type: 'ai_assistant' });
   };
 
   if (loading) {
@@ -204,6 +214,25 @@ export function AIPromptManager() {
               </div>
 
               <div>
+                <label htmlFor="prompt_type" className="block text-sm font-medium text-gray-900 mb-1">
+                  Prompt Type
+                </label>
+                <select
+                  id="prompt_type"
+                  value={formData.prompt_type}
+                  onChange={(e) => setFormData({ ...formData, prompt_type: e.target.value as 'ai_assistant' | 'syllabus_extraction' })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black"
+                >
+                  <option value="ai_assistant">AI Assistant (for exam paper chat)</option>
+                  <option value="syllabus_extraction">Syllabus Extraction (for chapter extraction)</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-600">
+                  Select the type of prompt. AI Assistant prompts are used for student exam paper assistance, while Syllabus Extraction prompts are used for extracting chapters from syllabus PDFs.
+                </p>
+              </div>
+
+              <div>
                 <label htmlFor="system_prompt" className="block text-sm font-medium text-gray-900 mb-1">
                   System Prompt
                 </label>
@@ -255,7 +284,16 @@ export function AIPromptManager() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{prompt.name}</h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-semibold text-gray-900">{prompt.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        prompt.prompt_type === 'ai_assistant'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {prompt.prompt_type === 'ai_assistant' ? 'AI Assistant' : 'Syllabus Extraction'}
+                      </span>
+                    </div>
                     {prompt.description && (
                       <p className="text-sm text-gray-600 mt-1">{prompt.description}</p>
                     )}

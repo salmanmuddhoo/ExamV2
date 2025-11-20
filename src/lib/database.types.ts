@@ -404,6 +404,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      ai_prompts: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          system_prompt: string
+          prompt_type: 'ai_assistant' | 'syllabus_extraction'
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          system_prompt: string
+          prompt_type?: 'ai_assistant' | 'syllabus_extraction'
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          system_prompt?: string
+          prompt_type?: 'ai_assistant' | 'syllabus_extraction'
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }
