@@ -630,15 +630,15 @@ export function ExamPaperManager() {
       />
 
       <div>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center space-x-3">
-          <FileText className="w-6 h-6 text-black" />
-          <h2 className="text-2xl font-semibold text-gray-900">Exam Papers</h2>
+          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Exam Papers</h2>
         </div>
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            className="flex items-center justify-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Upload Exam Paper</span>
@@ -667,7 +667,7 @@ export function ExamPaperManager() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="subject" className="block text-sm font-medium text-gray-900 mb-1">
                   Subject
@@ -966,7 +966,7 @@ export function ExamPaperManager() {
 
                 {/* Subjects under this grade */}
                 {!isGradeCollapsed && (
-                  <div className="mt-2 ml-6 pl-4 border-l-2 border-gray-300 space-y-2">
+                  <div className="mt-2 ml-2 sm:ml-6 pl-2 sm:pl-4 border-l-2 border-gray-300 space-y-2">
                     {Object.entries(subjects).map(([subjectName, papers]) => {
                       const subjectKey = `${gradeId}:${subjectName}`;
                       const isSubjectExpanded = expandedSubjects.has(subjectKey);
@@ -990,36 +990,36 @@ export function ExamPaperManager() {
 
                           {/* Papers under this subject */}
                           {isSubjectExpanded && (
-                            <div className="mt-1 ml-4 pl-3 border-l-2 border-gray-200 space-y-2">
+                            <div className="mt-1 ml-2 sm:ml-4 pl-2 sm:pl-3 border-l-2 border-gray-200 space-y-2">
                               {papers.map((paper) => (
                                 <div
                                   key={paper.id}
-                                  className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors gap-2"
                                 >
                                   <div className="flex-1 min-w-0">
                                     <h3 className="font-semibold text-gray-900 text-sm truncate">{paper.title}</h3>
-                                    <div className="flex items-center space-x-3 mt-1">
+                                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 mt-1">
                                       <span className="text-xs text-gray-600">
                                         {paper.month ? `${getMonthName(paper.month)} ` : ''}{paper.year}
                                       </span>
                                       {paper.marking_schemes && (
                                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                                          Has MS
+                                          MS
                                         </span>
                                       )}
                                       {paper.ai_prompts && (
-                                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                                          AI: {paper.ai_prompts.name}
+                                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded truncate max-w-[100px] sm:max-w-none">
+                                          {paper.ai_prompts.name}
                                         </span>
                                       )}
                                       {paper.syllabus && (
-                                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded" title={paper.syllabus.region ? `Region: ${paper.syllabus.region}` : undefined}>
-                                          Syllabus: {paper.syllabus.title || 'Untitled'}
+                                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded truncate max-w-[100px] sm:max-w-none" title={paper.syllabus.region ? `Region: ${paper.syllabus.region}` : undefined}>
+                                          {paper.syllabus.title || 'Syllabus'}
                                         </span>
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex space-x-1 ml-3">
+                                  <div className="flex flex-wrap gap-1 sm:ml-3">
                                     <button
                                       onClick={() => setViewingSummaryPaper({ id: paper.id, title: paper.title })}
                                       className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"

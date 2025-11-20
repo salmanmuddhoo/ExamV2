@@ -93,11 +93,10 @@ export function EnhancedAnalyticsDashboard() {
       let endDate: Date | null = null;
 
       if (timeRange === 'specific') {
-        // For specific date, filter for that entire day
-        // Parse date parts to avoid timezone issues
-        const [year, month, day] = specificDate.split('-').map(Number);
-        startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
-        endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+        // For specific date, use UTC timestamps directly
+        // This ensures we query for the exact date in UTC
+        startDate = new Date(`${specificDate}T00:00:00.000Z`);
+        endDate = new Date(`${specificDate}T23:59:59.999Z`);
       } else if (timeRange === '7d') {
         startDate = new Date();
         startDate.setDate(startDate.getDate() - 7);
