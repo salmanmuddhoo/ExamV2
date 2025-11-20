@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus, CreditCard as Edit2, Trash2, BookOpen } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, BookOpen, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Modal } from './Modal';
 import { useModal } from '../hooks/useModal';
 
@@ -8,6 +8,7 @@ interface Subject {
   id: string;
   name: string;
   description: string | null;
+  is_active: boolean;
 }
 
 export function SubjectManager() {
@@ -116,6 +117,33 @@ export function SubjectManager() {
     setFormData({ name: '', description: '' });
   };
 
+  const handleToggleActive = async (subject: Subject) => {
+    const newStatus = !subject.is_active;
+    const action = newStatus ? 'activate' : 'deactivate';
+
+    showConfirm(
+      `Are you sure you want to ${action} "${subject.name}"? ${
+        !newStatus
+          ? 'This will hide the subject and all its resources (exam papers, study plans) from students.'
+          : 'This will make the subject and its resources visible to students again.'
+      }`,
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('subjects')
+            .update({ is_active: newStatus })
+            .eq('id', subject.id);
+
+          if (error) throw error;
+          fetchSubjects();
+        } catch (error: any) {
+          showAlert(error.message, 'Error', 'error');
+        }
+      },
+      `${newStatus ? 'Activate' : 'Deactivate'} Subject`
+    );
+  };
+
   if (loading) {
     return <div className="text-center py-8 text-gray-600">Loading subjects...</div>;
   }
@@ -208,15 +236,44 @@ export function SubjectManager() {
           subjects.map((subject) => (
             <div
               key={subject.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white border rounded-lg hover:border-gray-300 transition-colors ${
+                subject.is_active ? 'border-gray-200' : 'border-orange-200 bg-orange-50'
+              }`}
             >
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900">{subject.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className={`font-semibold ${subject.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                    {subject.name}
+                  </h3>
+                  {!subject.is_active && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">
+                      Inactive
+                    </span>
+                  )}
+                </div>
                 {subject.description && (
-                  <p className="text-sm text-gray-600 mt-1 break-words">{subject.description}</p>
+                  <p className={`text-sm mt-1 break-words ${subject.is_active ? 'text-gray-600' : 'text-gray-400'}`}>
+                    {subject.description}
+                  </p>
                 )}
               </div>
               <div className="flex space-x-2 self-end sm:self-auto">
+                <button
+                  onClick={() => handleToggleActive(subject)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    subject.is_active
+                      ? 'text-green-600 hover:bg-green-50'
+                      : 'text-orange-600 hover:bg-orange-100'
+                  }`}
+                  aria-label={subject.is_active ? 'Deactivate subject' : 'Activate subject'}
+                  title={subject.is_active ? 'Click to deactivate' : 'Click to activate'}
+                >
+                  {subject.is_active ? (
+                    <ToggleRight className="w-5 h-5" />
+                  ) : (
+                    <ToggleLeft className="w-5 h-5" />
+                  )}
+                </button>
                 <button
                   onClick={() => handleEdit(subject)}
                   className="p-2 text-black hover:bg-gray-50 rounded-lg transition-colors"

@@ -120,6 +120,9 @@ export function EnhancedAnalyticsDashboard() {
           ),
           exam_papers (
             title
+          ),
+          syllabus (
+            file_name
           )
         `)
         .gte('created_at', startDate.toISOString());
@@ -142,9 +145,9 @@ export function EnhancedAnalyticsDashboard() {
         const avgCostPerRequest = totalCost / totalRequests;
 
         // === UPLOAD BREAKDOWN ===
-        // Exam paper uploads (user_id is null and has exam_paper_id)
+        // Exam paper uploads (source = 'exam_paper_upload' or legacy: user_id is null and has exam_paper_id)
         const examPaperUploads = logs.filter(
-          (log) => !log.user_id && log.exam_paper_id
+          (log) => log.source === 'exam_paper_upload' || (!log.user_id && log.exam_paper_id && !log.syllabus_id)
         );
         const examPaperUploadCost = examPaperUploads.reduce(
           (sum, log) => sum + parseFloat(log.estimated_cost || 0),
@@ -156,9 +159,9 @@ export function EnhancedAnalyticsDashboard() {
         );
         const examPaperUploadCount = examPaperUploads.length;
 
-        // Syllabus uploads (user_id is null, no exam_paper_id - these are other processing tasks)
+        // Syllabus uploads (source = 'syllabus_upload' or has syllabus_id)
         const syllabusUploads = logs.filter(
-          (log) => !log.user_id && !log.exam_paper_id
+          (log) => log.source === 'syllabus_upload' || log.syllabus_id
         );
         const syllabusUploadCost = syllabusUploads.reduce(
           (sum, log) => sum + parseFloat(log.estimated_cost || 0),
