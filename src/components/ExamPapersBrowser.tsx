@@ -14,6 +14,7 @@ interface ExamPaper {
 interface Subject {
   id: string;
   name: string;
+  is_active: boolean;
 }
 
 interface GradeLevel {
@@ -82,7 +83,8 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
           .order('month', { ascending: false }),
         supabase
           .from('subjects')
-          .select('id, name')
+          .select('id, name, is_active')
+          .eq('is_active', true)
           .order('name'),
         supabase
           .from('grade_levels')

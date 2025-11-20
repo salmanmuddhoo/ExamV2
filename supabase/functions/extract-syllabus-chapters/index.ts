@@ -357,7 +357,8 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
           total_tokens: totalTokens,
           estimated_cost: totalCost,
           is_follow_up: false,
-          operation_type: 'syllabus_extraction'
+          operation_type: 'syllabus_extraction',
+          source: 'syllabus_upload'
         });
         console.log('✅ Token usage saved to database');
       } catch (logError) {
