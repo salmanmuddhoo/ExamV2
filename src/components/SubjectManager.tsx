@@ -11,27 +11,47 @@ interface Subject {
   is_active: boolean;
 }
 
+interface GradeLevel {
+  id: string;
+  name: string;
+  display_order: number;
+}
+
+interface SubjectGradeActivation {
+  subject_id: string;
+  grade_id: string;
+  is_active: boolean;
+}
+
 export function SubjectManager() {
   const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [grades, setGrades] = useState<GradeLevel[]>([]);
+  const [activations, setActivations] = useState<SubjectGradeActivation[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchSubjects();
+    fetchData();
   }, []);
 
-  const fetchSubjects = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('subjects')
-        .select('*')
-        .order('name');
+      const [subjectsRes, gradesRes, activationsRes] = await Promise.all([
+        supabase.from('subjects').select('*').order('name'),
+        supabase.from('grade_levels').select('*').order('display_order'),
+        supabase.from('subject_grade_activation').select('*')
+      ]);
 
-      if (error) throw error;
-      setSubjects(data || []);
+      if (subjectsRes.error) throw subjectsRes.error;
+      if (gradesRes.error) throw gradesRes.error;
+      if (activationsRes.error) throw activationsRes.error;
+
+      setSubjects(subjectsRes.data || []);
+      setGrades(gradesRes.data || []);
+      setActivations(activationsRes.data || []);
     } catch (error) {
     } finally {
       setLoading(false);
@@ -50,17 +70,35 @@ export function SubjectManager() {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        // Insert new subject
+        const { data: newSubject, error } = await supabase
           .from('subjects')
-          .insert([{ name: formData.name, description: formData.description || null }]);
+          .insert([{ name: formData.name, description: formData.description || null }])
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Create activation records for all grades
+        if (newSubject) {
+          const activationRecords = grades.map(grade => ({
+            subject_id: newSubject.id,
+            grade_id: grade.id,
+            is_active: true
+          }));
+
+          const { error: activationError } = await supabase
+            .from('subject_grade_activation')
+            .insert(activationRecords);
+
+          if (activationError) throw activationError;
+        }
       }
 
       setFormData({ name: '', description: '' });
       setIsAdding(false);
       setEditingId(null);
-      fetchSubjects();
+      fetchData();
     } catch (error: any) {
       showAlert(error.message, 'Error', 'error');
     }
@@ -117,30 +155,48 @@ export function SubjectManager() {
     setFormData({ name: '', description: '' });
   };
 
-  const handleToggleActive = async (subject: Subject) => {
-    const newStatus = !subject.is_active;
+  const handleToggleActive = async (subjectId: string, gradeId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
     const action = newStatus ? 'activate' : 'deactivate';
+    const subject = subjects.find(s => s.id === subjectId);
+    const grade = grades.find(g => g.id === gradeId);
+
+    if (!subject || !grade) return;
 
     showConfirm(
-      `Are you sure you want to ${action} "${subject.name}"? ${
+      `Are you sure you want to ${action} "${subject.name}" for ${grade.name}? ${
         !newStatus
-          ? 'This will hide the subject and all its resources (exam papers, study plans) from students.'
-          : 'This will make the subject and its resources visible to students again.'
+          ? 'This will hide the subject and all its resources (exam papers, study plans) from students in this grade.'
+          : 'This will make the subject and its resources visible to students in this grade again.'
       }`,
       async () => {
         try {
           const { error } = await supabase
-            .from('subjects')
+            .from('subject_grade_activation')
             .update({ is_active: newStatus })
-            .eq('id', subject.id);
+            .eq('subject_id', subjectId)
+            .eq('grade_id', gradeId);
 
           if (error) throw error;
-          fetchSubjects();
+          fetchData();
         } catch (error: any) {
           showAlert(error.message, 'Error', 'error');
         }
       },
       `${newStatus ? 'Activate' : 'Deactivate'} Subject`
+    );
+  };
+
+  const getActivationStatus = (subjectId: string, gradeId: string): boolean => {
+    const activation = activations.find(
+      a => a.subject_id === subjectId && a.grade_id === gradeId
+    );
+    return activation?.is_active ?? true;
+  };
+
+  const isSubjectActiveForAnyGrade = (subjectId: string): boolean => {
+    return activations.some(
+      a => a.subject_id === subjectId && a.is_active
     );
   };
 
@@ -233,64 +289,80 @@ export function SubjectManager() {
             No subjects added yet. Click "Add Subject" to get started.
           </div>
         ) : (
-          subjects.map((subject) => (
-            <div
-              key={subject.id}
-              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-white border rounded-lg hover:border-gray-300 transition-colors ${
-                subject.is_active ? 'border-gray-200' : 'border-orange-200 bg-orange-50'
-              }`}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className={`font-semibold ${subject.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
-                    {subject.name}
-                  </h3>
-                  {!subject.is_active && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">
-                      Inactive
-                    </span>
-                  )}
+          subjects.map((subject) => {
+            const isActiveForAnyGrade = isSubjectActiveForAnyGrade(subject.id);
+            return (
+              <div
+                key={subject.id}
+                className={`p-4 bg-white border rounded-lg hover:border-gray-300 transition-colors ${
+                  isActiveForAnyGrade ? 'border-gray-200' : 'border-orange-200 bg-orange-50'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className={`font-semibold ${isActiveForAnyGrade ? 'text-gray-900' : 'text-gray-500'}`}>
+                        {subject.name}
+                      </h3>
+                      {!isActiveForAnyGrade && (
+                        <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">
+                          Inactive (All Grades)
+                        </span>
+                      )}
+                    </div>
+                    {subject.description && (
+                      <p className={`text-sm mb-3 break-words ${isActiveForAnyGrade ? 'text-gray-600' : 'text-gray-400'}`}>
+                        {subject.description}
+                      </p>
+                    )}
+
+                    {/* Grade-specific activation toggles */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {grades.map((grade) => {
+                        const isActive = getActivationStatus(subject.id, grade.id);
+                        return (
+                          <button
+                            key={grade.id}
+                            onClick={() => handleToggleActive(subject.id, grade.id, isActive)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              isActive
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            }`}
+                            title={`${isActive ? 'Active' : 'Inactive'} for ${grade.name} - Click to ${isActive ? 'deactivate' : 'activate'}`}
+                          >
+                            {isActive ? (
+                              <ToggleRight className="w-4 h-4" />
+                            ) : (
+                              <ToggleLeft className="w-4 h-4" />
+                            )}
+                            <span>{grade.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2 self-end sm:self-start">
+                    <button
+                      onClick={() => handleEdit(subject)}
+                      className="p-2 text-black hover:bg-gray-50 rounded-lg transition-colors"
+                      aria-label="Edit subject"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(subject.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      aria-label="Delete subject"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                {subject.description && (
-                  <p className={`text-sm mt-1 break-words ${subject.is_active ? 'text-gray-600' : 'text-gray-400'}`}>
-                    {subject.description}
-                  </p>
-                )}
               </div>
-              <div className="flex space-x-2 self-end sm:self-auto">
-                <button
-                  onClick={() => handleToggleActive(subject)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    subject.is_active
-                      ? 'text-green-600 hover:bg-green-50'
-                      : 'text-orange-600 hover:bg-orange-100'
-                  }`}
-                  aria-label={subject.is_active ? 'Deactivate subject' : 'Activate subject'}
-                  title={subject.is_active ? 'Click to deactivate' : 'Click to activate'}
-                >
-                  {subject.is_active ? (
-                    <ToggleRight className="w-5 h-5" />
-                  ) : (
-                    <ToggleLeft className="w-5 h-5" />
-                  )}
-                </button>
-                <button
-                  onClick={() => handleEdit(subject)}
-                  className="p-2 text-black hover:bg-gray-50 rounded-lg transition-colors"
-                  aria-label="Edit subject"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(subject.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  aria-label="Delete subject"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
