@@ -315,8 +315,8 @@ export function StudyPlanWizard({ isOpen, onClose, onSuccess, tokensRemaining = 
 
       // Map the returned data to match expected format
       const formattedSubjects = (data || []).map((item: any) => ({
-        id: item.subject_id,
-        name: item.subject_name
+        id: item.id,
+        name: item.name
       }));
 
       setSubjects(formattedSubjects);
