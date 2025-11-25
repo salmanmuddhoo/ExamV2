@@ -254,7 +254,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       return subjects.filter(s =>
         availableSubjectIds.has(s.id) &&
-        accessibleSubjects?.some((as: any) => as.subject_id === s.id)
+        accessibleSubjects?.some((as: any) => as.id === s.id)
       );
     } catch (error) {
       // Fallback
