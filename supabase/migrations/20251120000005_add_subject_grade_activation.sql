@@ -27,6 +27,11 @@ FROM subjects s
 CROSS JOIN grade_levels g
 ON CONFLICT (subject_id, grade_id) DO NOTHING;
 
+-- Drop existing functions to avoid signature conflicts
+DROP FUNCTION IF EXISTS get_accessible_subjects_for_user(UUID, UUID);
+DROP FUNCTION IF EXISTS get_accessible_papers_for_user(UUID, UUID, UUID);
+DROP FUNCTION IF EXISTS can_user_access_paper(UUID, UUID);
+
 -- Update RPC function: get_accessible_subjects_for_user
 -- Now checks subject_grade_activation instead of subjects.is_active
 CREATE OR REPLACE FUNCTION get_accessible_subjects_for_user(p_user_id UUID, p_grade_id UUID)

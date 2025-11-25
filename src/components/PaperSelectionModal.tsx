@@ -657,17 +657,19 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                       <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                       <p className="text-gray-600">
                         {!hasActiveSyllabus
-                          ? 'No chapter-wise questions exist for this subject.'
+                          ? 'There is no chapter-wise questions for this subject. Please try practicing by year instead.'
                           : 'No chapter-wise questions available yet.'}
                       </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {!hasActiveSyllabus
-                          ? 'There is no active syllabus uploaded for this subject. Chapter-wise practice requires an active syllabus with tagged questions.'
-                          : 'Questions haven\'t been tagged to chapters for this subject yet.'}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Please try practicing by year instead.
-                      </p>
+                      {hasActiveSyllabus && (
+                        <>
+                          <p className="text-sm text-gray-500 mt-2">
+                            Questions haven't been tagged to chapters for this subject yet.
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Please try practicing by year instead.
+                          </p>
+                        </>
+                      )}
                     </div>
                   ) : (
                     chapters.map(chapter => (
