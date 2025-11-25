@@ -332,18 +332,25 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
         return;
       }
 
-      // Fetch all subjects for the grade
-      const { data: subjects, error } = await supabase
-        .from('subjects')
-        .select('id, name')
-        .order('name');
+      // Fetch subjects active for this grade using subject_grade_activation
+      const { data: activations, error } = await supabase
+        .from('subject_grade_activation')
+        .select(`
+          subject_id,
+          subjects!inner(id, name)
+        `)
+        .eq('grade_id', subscription.selected_grade_id)
+        .eq('is_active', true);
 
       if (error) throw error;
 
-      // Filter out already selected subjects
-      const available = (subjects || []).filter(
-        s => !currentSubjectIds.includes(s.id)
-      );
+      // Extract subject data and filter out already selected ones
+      const subjects = (activations || []).map((a: any) => ({
+        id: a.subjects.id,
+        name: a.subjects.name
+      })).sort((a, b) => a.name.localeCompare(b.name));
+
+      const available = subjects.filter(s => !currentSubjectIds.includes(s.id));
 
       setAvailableSubjects(available);
       setSelectedNewSubjects([]);
