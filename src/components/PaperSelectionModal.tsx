@@ -71,6 +71,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const [existingConvs, setExistingConvs] = useState<Record<string, boolean>>({});
   const [hasChapterAccess, setHasChapterAccess] = useState(true); // New state for chapter access
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]); // Available subjects for selected grade
+  const [hasActiveSyllabus, setHasActiveSyllabus] = useState(true); // Track if subject has active syllabus
 
   useEffect(() => {
     if (isOpen) {
@@ -81,6 +82,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setSelectedMode(null);
       setSelectedYear(null);
       setSelectedChapter(null);
+      setHasActiveSyllabus(true);
     }
   }, [isOpen]);
 
@@ -353,34 +355,20 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         .eq('is_active', true)
         .maybeSingle();
 
-      // If no active syllabus found, try to get any completed syllabus and use the most recent one
+      // If no active syllabus found, set flag and clear chapters
       if (!syllabusData) {
         console.warn(
-          `⚠️ No active syllabus found for ${selectedSubject.name} (${selectedGrade.name}). ` +
-          `Using most recent syllabus as fallback. ` +
-          `Note: Questions may not be properly tagged to this syllabus's chapters.`
+          `⚠️ No active syllabus found for ${selectedSubject.name} (${selectedGrade.name}).`
         );
 
-        const { data: anySyllabus } = await supabase
-          .from('syllabus')
-          .select('id')
-          .eq('subject_id', selectedSubject.id)
-          .eq('grade_id', selectedGrade.id)
-          .eq('processing_status', 'completed')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (!anySyllabus) {
-          setChapters([]);
-          return;
-        }
-
-        // Use the fallback syllabus (may not have properly tagged questions)
-        var activeSyllabusId = anySyllabus.id;
-      } else {
-        var activeSyllabusId = syllabusData.id;
+        setHasActiveSyllabus(false);
+        setChapters([]);
+        return;
       }
+
+      // Active syllabus exists
+      setHasActiveSyllabus(true);
+      var activeSyllabusId = syllabusData.id;
 
       // Query from question_chapter_tags and join with chapters
       // This ensures we only get chapters that have at least one tag
@@ -486,6 +474,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     setSelectedSubject(null);
     setSelectedMode(null);
     setSelectedChapter(null);
+    setHasActiveSyllabus(true);
     setCurrentStep('grade');
     onClose();
   };
@@ -666,13 +655,21 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
                   {chapters.length === 0 ? (
                     <div className="text-center py-12">
                       <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600">No chapter-wise questions available yet.</p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Questions haven't been tagged to chapters for this subject yet.
+                      <p className="text-gray-600">
+                        {!hasActiveSyllabus
+                          ? 'There is no chapter-wise questions for this subject. Please try practicing by year instead.'
+                          : 'No chapter-wise questions available yet.'}
                       </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Please try practicing by year instead.
-                      </p>
+                      {hasActiveSyllabus && (
+                        <>
+                          <p className="text-sm text-gray-500 mt-2">
+                            Questions haven't been tagged to chapters for this subject yet.
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Please try practicing by year instead.
+                          </p>
+                        </>
+                      )}
                     </div>
                   ) : (
                     chapters.map(chapter => (

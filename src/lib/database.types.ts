@@ -436,6 +436,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      subject_grade_activation: {
+        Row: {
+          id: string
+          subject_id: string
+          grade_id: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          subject_id: string
+          grade_id: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          subject_id?: string
+          grade_id?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }
