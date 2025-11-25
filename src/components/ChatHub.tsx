@@ -247,11 +247,9 @@ export function ChatHub({
       return [];
     }
 
-    // Filter events to only include those for accessible subjects
-    return todayEvents.filter(event => {
-      const subjectId = (event as any).study_plan_schedules?.subjects?.id;
-      return subjectId && accessibleSubjectIds.includes(subjectId);
-    });
+    // Return all today's events - no need to filter by accessible subjects
+    // since study plans are created by the user themselves and should always be visible
+    return todayEvents;
   };
 
   const filteredTodayEvents = getFilteredTodayEvents();
