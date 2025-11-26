@@ -221,7 +221,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       // If no accessible subjects returned, user has no access to any subjects for this grade
       if (!accessibleSubjects || accessibleSubjects.length === 0) {
-        console.log('No accessible subjects found for user in this grade');
         return [];
       }
 
@@ -238,12 +237,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
         availableSubjectIds.has(s.id) &&
         accessibleSubjects?.some((as: any) => as.id === s.id)
       );
-
-      console.log('Accessible subjects for grade:', {
-        gradeId,
-        accessibleSubjects: accessibleSubjects.map((s: any) => s.name),
-        filtered: filtered.map(s => s.name)
-      });
 
       return filtered;
     } catch (error) {

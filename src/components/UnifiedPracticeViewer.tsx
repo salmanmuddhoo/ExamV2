@@ -110,6 +110,7 @@ export function UnifiedPracticeViewer({
 
   // Subscription state (like ExamViewer)
   const [chatLocked, setChatLocked] = useState(false);
+  const [chatLockReason, setChatLockReason] = useState<'token_limit' | 'free_tier_chapter' | 'subject_not_subscribed' | null>(null);
   const [tokensRemaining, setTokensRemaining] = useState<number>(-1);
   const [tierName, setTierName] = useState<string>('');
   const [tokensLimit, setTokensLimit] = useState<number | null>(null);
@@ -329,12 +330,14 @@ export function UnifiedPracticeViewer({
 
           if (remaining === 0) {
             setChatLocked(true);
+            setChatLockReason('token_limit');
           }
         }
 
         // Chapter mode is for paid tiers only (not free)
         if (mode === 'chapter' && tierName === 'free') {
           setChatLocked(true);
+          setChatLockReason('free_tier_chapter');
         }
       }
     } catch (error) {
@@ -376,6 +379,7 @@ export function UnifiedPracticeViewer({
             console.error('Error checking chat access:', chatAccessError);
           } else if (canUseChat === false) {
             setChatLocked(true);
+            setChatLockReason('subject_not_subscribed');
           }
         }
       }
@@ -415,6 +419,7 @@ export function UnifiedPracticeViewer({
 
           if (remaining === 0) {
             setChatLocked(true);
+            setChatLockReason('token_limit');
           }
         }
       }
@@ -1327,14 +1332,18 @@ export function UnifiedPracticeViewer({
                     <div className="flex items-center space-x-3 mb-2">
                       <Lock className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                       <h4 className="font-semibold text-gray-900">
-                        {mode === 'chapter' && tierName === 'free'
+                        {chatLockReason === 'free_tier_chapter'
                           ? 'Practice by Chapter - Premium Feature'
+                          : chatLockReason === 'subject_not_subscribed'
+                          ? 'Chat Locked - Not in Your Package'
                           : 'Chat Locked - Limit Reached'}
                       </h4>
                     </div>
                     <p className="text-sm text-gray-700 mb-3">
-                      {mode === 'chapter' && tierName === 'free'
+                      {chatLockReason === 'free_tier_chapter'
                         ? 'Practice by Chapter with AI assistance is available for Student and Professional tiers. Upgrade to unlock this feature!'
+                        : chatLockReason === 'subject_not_subscribed'
+                        ? 'This subject is not included in your current package. Upgrade or modify your subscription to access AI chat for this subject.'
                         : 'You\'ve reached your chat limit for this billing period. Upgrade to continue using AI chat assistance.'}
                     </p>
                     <button
