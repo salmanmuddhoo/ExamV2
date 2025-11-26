@@ -72,6 +72,7 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   const [hasChapterAccess, setHasChapterAccess] = useState(true); // New state for chapter access
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]); // Available subjects for selected grade
   const [hasActiveSyllabus, setHasActiveSyllabus] = useState(true); // Track if subject has active syllabus
+  const [accessibleSubjectCountsByGrade, setAccessibleSubjectCountsByGrade] = useState<Record<string, number>>({}); // Count of accessible subjects per grade
 
   useEffect(() => {
     if (isOpen) {
@@ -136,6 +137,14 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
       setPapers(papersRes.data || []);
 
       if (user) {
+        // Calculate accessible subject counts for each grade
+        const counts: Record<string, number> = {};
+        for (const grade of availableGrades) {
+          const accessibleSubjects = await getAvailableSubjectsForGrade(grade.id);
+          counts[grade.id] = accessibleSubjects.length;
+        }
+        setAccessibleSubjectCountsByGrade(counts);
+
         // Fetch existing conversations
         const { data: convs, error } = await supabase
           .from('conversations')
@@ -504,15 +513,11 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
               {currentStep === 'grade' && gradeLevels
                 .filter(grade => {
                   // Only show grades that have at least 1 accessible subject
-                  const subjectCount = new Set(
-                    papers.filter(p => p.grade_level_id === grade.id).map(p => p.subject_id)
-                  ).size;
+                  const subjectCount = accessibleSubjectCountsByGrade[grade.id] || 0;
                   return subjectCount > 0;
                 })
                 .map(grade => {
-                  const subjectCount = new Set(
-                    papers.filter(p => p.grade_level_id === grade.id).map(p => p.subject_id)
-                  ).size;
+                  const subjectCount = accessibleSubjectCountsByGrade[grade.id] || 0;
 
                   return (
                     <button key={grade.id} onClick={() => handleGradeClick(grade)} className="w-full text-left px-4 py-4 rounded-lg border-2 border-gray-200 hover:border-black hover:bg-gray-50 transition-all flex items-center justify-between group">
