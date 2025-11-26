@@ -6,8 +6,10 @@
 -- Fix: All users (regardless of tier) can VIEW and BROWSE all exam papers
 --      Chat assistant access remains restricted (enforced by can_user_use_chat_for_paper function)
 
--- Drop the incorrect restrictive policy
+-- Drop all existing SELECT policies on exam_papers
 DROP POLICY IF EXISTS "Users can view papers based on subscription tier" ON exam_papers;
+DROP POLICY IF EXISTS "Authenticated users can view all exam papers" ON exam_papers;
+DROP POLICY IF EXISTS "Anonymous users can view all exam papers" ON exam_papers;
 
 -- Restore unrestricted paper viewing for authenticated users
 CREATE POLICY "Authenticated users can view all exam papers"
