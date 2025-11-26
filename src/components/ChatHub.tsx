@@ -193,7 +193,8 @@ export function ChatHub({
       }
 
       // Extract subject IDs from the returned data
-      const subjectIds = (data || []).map((item: any) => item.subject_id);
+      // RPC returns: { id, name, description }
+      const subjectIds = (data || []).map((item: any) => item.id);
       setAccessibleSubjectIds(subjectIds);
     } catch (error) {
       console.error('Error fetching accessible subjects:', error);
