@@ -183,13 +183,14 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       if (error) {
         console.error('Error fetching accessible subjects:', error);
-        // On error, show all subjects with papers as fallback
-        const subjectIds = new Set(
-          papers
-            .filter(p => p.grade_level_id === gradeId)
-            .map(p => p.subject_id)
-        );
-        return subjects.filter(s => subjectIds.has(s.id));
+        // On error, return empty array to prevent showing all subjects
+        return [];
+      }
+
+      // If no accessible subjects returned, user has no access to any subjects for this grade
+      if (!accessibleSubjects || accessibleSubjects.length === 0) {
+        console.log('No accessible subjects found for user in this grade');
+        return [];
       }
 
       // Filter to subjects that:
@@ -201,19 +202,22 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
           .map(p => p.subject_id)
       );
 
-      return subjects.filter(s =>
+      const filtered = subjects.filter(s =>
         availableSubjectIds.has(s.id) &&
         accessibleSubjects?.some((as: any) => as.id === s.id)
       );
+
+      console.log('Accessible subjects for grade:', {
+        gradeId,
+        accessibleSubjects: accessibleSubjects.map((s: any) => s.name),
+        filtered: filtered.map(s => s.name)
+      });
+
+      return filtered;
     } catch (error) {
       console.error('Error in getAvailableSubjectsForGrade:', error);
-      // Fallback to all subjects with papers
-      const subjectIds = new Set(
-        papers
-          .filter(p => p.grade_level_id === gradeId)
-          .map(p => p.subject_id)
-      );
-      return subjects.filter(s => subjectIds.has(s.id));
+      // On error, return empty array to prevent showing all subjects
+      return [];
     }
   };
 
