@@ -17,6 +17,12 @@ interface Subject {
   is_active: boolean;
 }
 
+interface SubjectGradeActivation {
+  subject_id: string;
+  grade_id: string;
+  is_active: boolean;
+}
+
 interface GradeLevel {
   id: string;
   name: string;
@@ -43,6 +49,7 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Props) {
   const [papers, setPapers] = useState<ExamPaper[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectGradeActivations, setSubjectGradeActivations] = useState<SubjectGradeActivation[]>([]);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
@@ -68,7 +75,7 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
     try {
       setLoading(true);
 
-      const [papersRes, subjectsRes, gradesRes] = await Promise.all([
+      const [papersRes, subjectsRes, gradesRes, activationsRes] = await Promise.all([
         supabase
           .from('exam_papers')
           .select(`
@@ -84,21 +91,26 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
         supabase
           .from('subjects')
           .select('id, name, is_active')
-          .eq('is_active', true)
           .order('name'),
         supabase
           .from('grade_levels')
           .select('id, name')
-          .order('display_order')
+          .order('display_order'),
+        supabase
+          .from('subject_grade_activation')
+          .select('subject_id, grade_id, is_active')
+          .eq('is_active', true)
       ]);
 
       if (papersRes.error) throw papersRes.error;
       if (subjectsRes.error) throw subjectsRes.error;
       if (gradesRes.error) throw gradesRes.error;
+      if (activationsRes.error) throw activationsRes.error;
 
       setPapers(papersRes.data || []);
       setSubjects(subjectsRes.data || []);
       setGradeLevels(gradesRes.data || []);
+      setSubjectGradeActivations(activationsRes.data || []);
     } catch (error) {
     } finally {
       setLoading(false);
@@ -108,12 +120,25 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
   const getFilteredSubjectsWithPapers = (): SubjectWithPapers[] => {
     // Filter papers by grade
     let filteredPapers = [...papers];
+    let selectedGradeId: string | undefined;
     if (selectedGrade) {
-      const selectedGradeId = gradeLevels.find(g => g.name === selectedGrade)?.id;
+      selectedGradeId = gradeLevels.find(g => g.name === selectedGrade)?.id;
       if (selectedGradeId) {
         filteredPapers = filteredPapers.filter(p => p.grade_level_id === selectedGradeId);
       }
     }
+
+    // Create a helper function to check if a subject is active for a grade
+    const isSubjectActiveForGrade = (subjectId: string, gradeId: string): boolean => {
+      return subjectGradeActivations.some(
+        sga => sga.subject_id === subjectId && sga.grade_id === gradeId && sga.is_active
+      );
+    };
+
+    // Filter papers to only include those where subject is active for the grade
+    filteredPapers = filteredPapers.filter(paper =>
+      isSubjectActiveForGrade(paper.subject_id, paper.grade_level_id)
+    );
 
     // Group papers by subject
     const subjectMap = new Map<string, ExamPaper[]>();
