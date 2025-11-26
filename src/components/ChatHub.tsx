@@ -28,8 +28,8 @@ interface ConversationWithPaper {
     title: string;
     year: number;
     month: number | null;
-    subjects: { name: string };
-    grade_levels: { name: string };
+    subjects: { name: string } | null;
+    grade_levels: { name: string } | null;
   };
   syllabus_chapters?: {
     chapter_number: number;
@@ -298,19 +298,25 @@ export function ChatHub({
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setConversations(data || []);
+
+      // Filter out conversations with null grade_levels or subjects
+      const validConversations = (data || []).filter(conv =>
+        conv.exam_papers?.grade_levels && conv.exam_papers?.subjects
+      );
+
+      setConversations(validConversations);
 
       // On initial load, collapse all grades, subjects, and folders
-      if (isInitialLoad && data && data.length > 0) {
-        const grades = new Set(data.map(conv => conv.exam_papers.grade_levels.name));
+      if (isInitialLoad && validConversations.length > 0) {
+        const grades = new Set(validConversations.map(conv => conv.exam_papers.grade_levels!.name));
         setCollapsedGrades(grades);
 
         const subjects = new Set<string>();
         const folders = new Set<string>();
 
-        data.forEach(conv => {
-          const gradeName = conv.exam_papers.grade_levels.name;
-          const subjectName = conv.exam_papers.subjects.name;
+        validConversations.forEach(conv => {
+          const gradeName = conv.exam_papers.grade_levels!.name;
+          const subjectName = conv.exam_papers.subjects!.name;
           subjects.add(`${gradeName}:${subjectName}`);
           folders.add(`${gradeName}:${subjectName}:year`);
           folders.add(`${gradeName}:${subjectName}:chapter`);
@@ -400,6 +406,11 @@ export function ChatHub({
     const grouped: GroupedConversations = {};
 
     conversations.forEach((conv) => {
+      // Skip conversations with null grade_levels or subjects
+      if (!conv.exam_papers?.grade_levels || !conv.exam_papers?.subjects) {
+        return;
+      }
+
       const gradeName = conv.exam_papers.grade_levels.name;
       const subjectName = conv.exam_papers.subjects.name;
 
