@@ -90,8 +90,9 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     try {
       setLoading(true);
 
-      // IMPORTANT: All users can view and browse ANY exam paper
-      // Chat access is restricted based on subscription and checked in ExamViewer
+      // Fetch all grades, subjects, and papers
+      // Note: PaperSelectionModal is for creating NEW CONVERSATIONS with AI chat assistant
+      // So we filter subjects by subscription, unlike ExamPapersBrowser which shows all for browsing
       const [gradesRes, subjectsRes, papersRes] = await Promise.all([
         supabase.from('grade_levels').select('*').order('display_order'),
         supabase.from('subjects').select('*').order('name'),
@@ -161,14 +162,59 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   };
 
   const getAvailableSubjectsForGrade = async (gradeId: string) => {
-    // IMPORTANT: All users can view and browse all subjects
-    // Show all subjects that have papers in this grade
-    const subjectIds = new Set(
-      papers
-        .filter(p => p.grade_level_id === gradeId)
-        .map(p => p.subject_id)
-    );
-    return subjects.filter(s => subjectIds.has(s.id));
+    if (!user) {
+      // For non-logged in users, show all subjects for this grade
+      const subjectIds = new Set(
+        papers
+          .filter(p => p.grade_level_id === gradeId)
+          .map(p => p.subject_id)
+      );
+      return subjects.filter(s => subjectIds.has(s.id));
+    }
+
+    // For logged in users creating conversations, only show subjects they can use chat with
+    // This is different from ExamPapersBrowser (from Navbar) which shows all subjects for browsing
+    try {
+      const { data: accessibleSubjects, error } = await supabase
+        .rpc('get_accessible_subjects_for_user', {
+          p_user_id: user.id,
+          p_grade_id: gradeId
+        });
+
+      if (error) {
+        console.error('Error fetching accessible subjects:', error);
+        // On error, show all subjects with papers as fallback
+        const subjectIds = new Set(
+          papers
+            .filter(p => p.grade_level_id === gradeId)
+            .map(p => p.subject_id)
+        );
+        return subjects.filter(s => subjectIds.has(s.id));
+      }
+
+      // Filter to subjects that:
+      // 1. Have papers in this grade
+      // 2. User has access to (can use chat assistant with)
+      const availableSubjectIds = new Set(
+        papers
+          .filter(p => p.grade_level_id === gradeId)
+          .map(p => p.subject_id)
+      );
+
+      return subjects.filter(s =>
+        availableSubjectIds.has(s.id) &&
+        accessibleSubjects?.some((as: any) => as.id === s.id)
+      );
+    } catch (error) {
+      console.error('Error in getAvailableSubjectsForGrade:', error);
+      // Fallback to all subjects with papers
+      const subjectIds = new Set(
+        papers
+          .filter(p => p.grade_level_id === gradeId)
+          .map(p => p.subject_id)
+      );
+      return subjects.filter(s => subjectIds.has(s.id));
+    }
   };
 
   const getPapersForSubjectAndGrade = (subjectId: string, gradeId: string) => {
