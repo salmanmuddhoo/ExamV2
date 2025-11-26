@@ -240,7 +240,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'general', onOp
                   .eq('exam_papers.subject_id', subjectId)
                   .order('updated_at', { ascending: false })
                   .limit(1)
-                  .single();
+                  .maybeSingle();
 
                 if (!convError && recentConv) {
                   const examPaper = recentConv.exam_papers as any;
