@@ -92,14 +92,46 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       // Fetch all grades, subjects, and papers
       // Note: PaperSelectionModal is for creating NEW CONVERSATIONS with AI chat assistant
-      // So we filter subjects by subscription, unlike ExamPapersBrowser which shows all for browsing
+      // So we filter grades and subjects by subscription, unlike ExamPapersBrowser which shows all for browsing
       const [gradesRes, subjectsRes, papersRes] = await Promise.all([
         supabase.from('grade_levels').select('*').order('display_order'),
         supabase.from('subjects').select('*').order('name'),
         supabase.from('exam_papers').select('id, title, year, month, subject_id, grade_level_id').order('year', { ascending: false }).order('title'),
       ]);
 
-      setGradeLevels(gradesRes.data || []);
+      let availableGrades = gradesRes.data || [];
+
+      // Filter grades based on user subscription
+      if (user) {
+        const { data: subscription, error: subError } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            selected_grade_id,
+            subscription_tiers!inner(name)
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .single();
+
+        if (!subError && subscription) {
+          const tierName = (subscription.subscription_tiers as any)?.name;
+
+          // For student/student_lite tiers, only show the subscribed grade
+          if (tierName && ['student', 'student_lite'].includes(tierName)) {
+            if (subscription.selected_grade_id) {
+              availableGrades = availableGrades.filter(
+                g => g.id === subscription.selected_grade_id
+              );
+            } else {
+              // No grade selected, show no grades
+              availableGrades = [];
+            }
+          }
+          // Pro and Free tiers see all grades
+        }
+      }
+
+      setGradeLevels(availableGrades);
       setSubjects(subjectsRes.data || []);
       setPapers(papersRes.data || []);
 
