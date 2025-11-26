@@ -247,9 +247,15 @@ export function ChatHub({
       return [];
     }
 
-    // Return all today's events - no need to filter by accessible subjects
-    // since study plans are created by the user themselves and should always be visible
-    return todayEvents;
+    // Filter events based on accessible subjects for non-admin users
+    // Users should only see study plans for subjects they currently have access to
+    return todayEvents.filter((event: any) => {
+      const subjectId = event.study_plan_schedules?.subjects?.id;
+      // If no subject ID, exclude the event
+      if (!subjectId) return false;
+      // Show event only if subject is in accessible subjects list
+      return accessibleSubjectIds.includes(subjectId);
+    });
   };
 
   const filteredTodayEvents = getFilteredTodayEvents();

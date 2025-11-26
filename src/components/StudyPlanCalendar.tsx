@@ -230,7 +230,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       // For other tiers, filter events based on accessible subjects
       let filteredData = data || [];
       const isAdmin = profile?.role === 'admin';
-      if (tierName !== 'pro' && !isAdmin && accessibleSubjectIds.length > 0) {
+      if (tierName !== 'pro' && !isAdmin) {
+        // Filter events to only show those for subjects the user has access to
         filteredData = filteredData.filter((event: any) => {
           const subjectId = event.study_plan_schedules?.subjects?.id;
           return subjectId && accessibleSubjectIds.includes(subjectId);
@@ -264,7 +265,8 @@ export function StudyPlanCalendar({ onBack, onOpenSubscriptions, tokensRemaining
       // For other tiers, filter schedules based on accessible subjects
       let filteredData = data || [];
       const isAdmin = profile?.role === 'admin';
-      if (tierName !== 'pro' && !isAdmin && accessibleSubjectIds.length > 0) {
+      if (tierName !== 'pro' && !isAdmin) {
+        // Filter schedules to only show those for subjects the user has access to
         filteredData = filteredData.filter((schedule: any) => {
           const subjectId = schedule.subjects?.id;
           return subjectId && accessibleSubjectIds.includes(subjectId);
