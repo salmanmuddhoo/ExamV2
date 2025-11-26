@@ -540,7 +540,38 @@ export function UnifiedPracticeViewer({
 
       if (error) throw error;
 
-      setTodayEvents(data || []);
+      // Filter by accessible subjects for student/student_lite tiers
+      let filteredData = data || [];
+
+      // Get user's subscription tier and filter if needed
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_tiers!inner(name)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      const tierName = subscription?.subscription_tiers?.name;
+
+      // Pro tier sees all, free/student/student_lite see only subscribed subjects
+      if (tierName !== 'pro') {
+        // Get accessible subjects
+        const { data: accessibleSubjects } = await supabase
+          .rpc('get_accessible_subjects_for_user', {
+            p_user_id: user.id,
+            p_grade_id: gradeId
+          });
+
+        const accessibleSubjectIds = (accessibleSubjects || []).map((item: any) => item.id);
+
+        // Filter events by accessible subjects
+        filteredData = filteredData.filter((event: any) => {
+          const subjectId = event.study_plan_schedules?.subjects?.id;
+          return subjectId && accessibleSubjectIds.includes(subjectId);
+        });
+      }
+
+      setTodayEvents(filteredData);
     } catch (error) {
       console.error('Error fetching today events:', error);
       setTodayEvents([]);
