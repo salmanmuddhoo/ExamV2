@@ -336,33 +336,51 @@ export function UnifiedPracticeViewer({
         if (mode === 'chapter' && tierName === 'free') {
           setChatLocked(true);
         }
+      }
+    } catch (error) {
+    }
+  };
 
-        // For student/student_lite tiers, check subject restrictions
-        if ((tierName === 'student' || tierName === 'student_lite') && questions.length > 0) {
-          // Get the paper ID from the first question
-          const firstQuestion = questions[0];
-          const { data: questionDetails, error: qError } = await supabase
-            .from('exam_questions')
-            .select('exam_paper_id')
-            .eq('id', firstQuestion.id)
-            .single();
+  // Check chat access for student/student_lite tiers based on subject subscription
+  const checkChatAccessForSubject = async (questionId: string) => {
+    if (!user) return;
 
-          if (!qError && questionDetails) {
-            const { data: canUseChat, error: chatAccessError } = await supabase
-              .rpc('can_user_use_chat_for_paper', {
-                p_user_id: user.id,
-                p_paper_id: questionDetails.exam_paper_id
-              });
+    try {
+      // Get tier name first
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_tiers!inner(name)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
 
-            if (chatAccessError) {
-              console.error('Error checking chat access:', chatAccessError);
-            } else if (canUseChat === false) {
-              setChatLocked(true);
-            }
+      const tierName = subscription?.subscription_tiers?.name;
+
+      // For student/student_lite tiers, check subject restrictions
+      if (tierName === 'student' || tierName === 'student_lite') {
+        // Get the paper ID from the question
+        const { data: questionDetails, error: qError } = await supabase
+          .from('exam_questions')
+          .select('exam_paper_id')
+          .eq('id', questionId)
+          .single();
+
+        if (!qError && questionDetails) {
+          const { data: canUseChat, error: chatAccessError } = await supabase
+            .rpc('can_user_use_chat_for_paper', {
+              p_user_id: user.id,
+              p_paper_id: questionDetails.exam_paper_id
+            });
+
+          if (chatAccessError) {
+            console.error('Error checking chat access:', chatAccessError);
+          } else if (canUseChat === false) {
+            setChatLocked(true);
           }
         }
       }
     } catch (error) {
+      console.error('Error in checkChatAccessForSubject:', error);
     }
   };
 
@@ -670,6 +688,8 @@ export function UnifiedPracticeViewer({
       if (formattedQuestions.length > 0) {
         setCurrentQuestionIndex(0);
         setSelectedQuestion(formattedQuestions[0]);
+        // Check chat access for this subject after questions are loaded
+        await checkChatAccessForSubject(formattedQuestions[0].id);
       }
     } catch (error) {
       setQuestions([]);
