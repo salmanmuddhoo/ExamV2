@@ -138,11 +138,46 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
       if (user) {
         // Calculate accessible subject counts for each grade
+        // Use freshly fetched data instead of state to avoid race conditions
         const counts: Record<string, number> = {};
+        const fetchedPapers = papersRes.data || [];
+        const fetchedSubjects = subjectsRes.data || [];
+
         for (const grade of availableGrades) {
-          const accessibleSubjects = await getAvailableSubjectsForGrade(grade.id);
-          counts[grade.id] = accessibleSubjects.length;
+          try {
+            // Get accessible subjects from RPC
+            const { data: accessibleSubjects, error } = await supabase
+              .rpc('get_accessible_subjects_for_user', {
+                p_user_id: user.id,
+                p_grade_id: grade.id
+              });
+
+            if (error || !accessibleSubjects || accessibleSubjects.length === 0) {
+              counts[grade.id] = 0;
+              continue;
+            }
+
+            // Filter to subjects that:
+            // 1. Have papers in this grade
+            // 2. User has access to (can use chat assistant with)
+            const availableSubjectIds = new Set(
+              fetchedPapers
+                .filter(p => p.grade_level_id === grade.id)
+                .map(p => p.subject_id)
+            );
+
+            const filtered = fetchedSubjects.filter(s =>
+              availableSubjectIds.has(s.id) &&
+              accessibleSubjects?.some((as: any) => as.id === s.id)
+            );
+
+            counts[grade.id] = filtered.length;
+          } catch (error) {
+            console.error('Error calculating subject count for grade:', grade.id, error);
+            counts[grade.id] = 0;
+          }
         }
+
         setAccessibleSubjectCountsByGrade(counts);
 
         // Fetch existing conversations
