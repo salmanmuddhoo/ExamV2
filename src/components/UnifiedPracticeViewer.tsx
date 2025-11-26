@@ -336,6 +336,31 @@ export function UnifiedPracticeViewer({
         if (mode === 'chapter' && tierName === 'free') {
           setChatLocked(true);
         }
+
+        // For student/student_lite tiers, check subject restrictions
+        if ((tierName === 'student' || tierName === 'student_lite') && questions.length > 0) {
+          // Get the paper ID from the first question
+          const firstQuestion = questions[0];
+          const { data: questionDetails, error: qError } = await supabase
+            .from('exam_questions')
+            .select('exam_paper_id')
+            .eq('id', firstQuestion.id)
+            .single();
+
+          if (!qError && questionDetails) {
+            const { data: canUseChat, error: chatAccessError } = await supabase
+              .rpc('can_user_use_chat_for_paper', {
+                p_user_id: user.id,
+                p_paper_id: questionDetails.exam_paper_id
+              });
+
+            if (chatAccessError) {
+              console.error('Error checking chat access:', chatAccessError);
+            } else if (canUseChat === false) {
+              setChatLocked(true);
+            }
+          }
+        }
       }
     } catch (error) {
     }
