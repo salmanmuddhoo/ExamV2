@@ -84,7 +84,7 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
     setError('');
 
     try {
-      // Fetch subjects that have exam papers for the selected grade
+      // Fetch subjects that are active for the selected grade and have exam papers
       const { data: papersData, error: papersError } = await supabase
         .from('exam_papers')
         .select('subject_id, subjects(id, name, description)')
@@ -92,13 +92,25 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
 
       if (papersError) throw papersError;
 
-      // Extract unique subjects from exam papers
+      // Get subject_grade_activation for this grade to check which subjects are active
+      const { data: activations, error: activationsError } = await supabase
+        .from('subject_grade_activation')
+        .select('subject_id, is_active')
+        .eq('grade_id', gradeId)
+        .eq('is_active', true);
+
+      if (activationsError) throw activationsError;
+
+      // Create a set of active subject IDs for this grade
+      const activeSubjectIds = new Set((activations || []).map(a => a.subject_id));
+
+      // Extract unique subjects from exam papers, but only if they're active for this grade
       const subjectsForGrade: Subject[] = [];
       const seenSubjectIds = new Set<string>();
 
       papersData?.forEach(paper => {
         const subject = paper.subjects as any;
-        if (subject && !seenSubjectIds.has(subject.id)) {
+        if (subject && !seenSubjectIds.has(subject.id) && activeSubjectIds.has(subject.id)) {
           seenSubjectIds.add(subject.id);
           subjectsForGrade.push({
             id: subject.id,
