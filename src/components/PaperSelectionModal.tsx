@@ -90,64 +90,19 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
     try {
       setLoading(true);
 
+      // IMPORTANT: All users can view and browse ANY exam paper
+      // Chat access is restricted based on subscription and checked in ExamViewer
+      const [gradesRes, subjectsRes, papersRes] = await Promise.all([
+        supabase.from('grade_levels').select('*').order('display_order'),
+        supabase.from('subjects').select('*').order('name'),
+        supabase.from('exam_papers').select('id, title, year, month, subject_id, grade_level_id').order('year', { ascending: false }).order('title'),
+      ]);
+
+      setGradeLevels(gradesRes.data || []);
+      setSubjects(subjectsRes.data || []);
+      setPapers(papersRes.data || []);
+
       if (user) {
-        // Fetch accessible grades, subjects, and papers based on user's subscription
-        const [accessibleGrades, allSubjects, accessiblePapers] = await Promise.all([
-          supabase.rpc('get_accessible_grades_for_user', { p_user_id: user.id }),
-          supabase.from('subjects').select('*').order('name'),
-          supabase.rpc('get_user_paper_access_status', { p_user_id: user.id }),
-        ]);
-
-        if (accessibleGrades.error) {
-          // Fallback to all grades
-          const { data: allGrades } = await supabase.from('grade_levels').select('*').order('display_order');
-          setGradeLevels(allGrades || []);
-        } else {
-          setGradeLevels(accessibleGrades.data?.map((g: any) => ({
-            id: g.grade_id,
-            name: g.grade_name,
-            display_order: g.display_order
-          })) || []);
-        }
-
-        setSubjects(allSubjects.data || []);
-
-        // Handle RPC errors gracefully (might happen if user just signed up and migrations aren't applied)
-        if (accessiblePapers.error) {
-          console.warn('Could not fetch paper access status. User may need to verify email or migrations may need to be applied:', accessiblePapers.error.message);
-        }
-
-        // Fetch all papers with year/month information
-        const { data: allPapersData } = await supabase
-          .from('exam_papers')
-          .select('id, title, year, month, subject_id, grade_level_id')
-          .order('year', { ascending: false })
-          .order('title');
-
-        // Filter to only accessible papers and map to ExamPaper format
-        if (accessiblePapers.error || !accessiblePapers.data) {
-          // Fallback to all papers if RPC fails
-          setPapers(allPapersData || []);
-        } else {
-          // Get accessible paper IDs from RPC
-          const accessibleIds = new Set(
-            accessiblePapers.data
-              .filter((p: any) => p.is_accessible)
-              .map((p: any) => p.paper_id)
-          );
-
-          // Filter papers to only accessible ones
-          const papers = (allPapersData || [])
-            .filter(p => accessibleIds.has(p.id))
-            .map(p => ({
-              ...p,
-              is_accessible: true,
-              access_status: 'accessible'
-            }));
-
-          setPapers(papers);
-        }
-
         // Fetch existing conversations
         const { data: convs, error } = await supabase
           .from('conversations')
@@ -164,17 +119,6 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
 
         // Fetch user's tier to check chapter_wise_access
         await fetchUserTierAccess();
-      } else {
-        // Not logged in - show all grades and subjects
-        const [gradesRes, subjectsRes, papersRes] = await Promise.all([
-          supabase.from('grade_levels').select('*').order('display_order'),
-          supabase.from('subjects').select('*').order('name'),
-          supabase.from('exam_papers').select('id, title, year, month, subject_id, grade_level_id').order('year', { ascending: false }).order('title'),
-        ]);
-
-        setGradeLevels(gradesRes.data || []);
-        setSubjects(subjectsRes.data || []);
-        setPapers(papersRes.data || []);
       }
 
     } catch (error) {
@@ -217,54 +161,14 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   };
 
   const getAvailableSubjectsForGrade = async (gradeId: string) => {
-    if (!user) {
-      // For non-logged in users, show all subjects for this grade
-      const subjectIds = new Set(
-        papers
-          .filter(p => p.grade_level_id === gradeId)
-          .map(p => p.subject_id)
-      );
-      return subjects.filter(s => subjectIds.has(s.id));
-    }
-
-    // For logged in users, fetch accessible subjects
-    try {
-      const { data: accessibleSubjects, error } = await supabase
-        .rpc('get_accessible_subjects_for_user', {
-          p_user_id: user.id,
-          p_grade_id: gradeId
-        });
-
-      if (error) {
-        // Fallback to all subjects for this grade
-        const subjectIds = new Set(
-          papers
-            .filter(p => p.grade_level_id === gradeId)
-            .map(p => p.subject_id)
-        );
-        return subjects.filter(s => subjectIds.has(s.id));
-      }
-
-      // Filter to only subjects that have papers in this grade
-      const availableSubjectIds = new Set(
-        papers
-          .filter(p => p.grade_level_id === gradeId)
-          .map(p => p.subject_id)
-      );
-
-      return subjects.filter(s =>
-        availableSubjectIds.has(s.id) &&
-        accessibleSubjects?.some((as: any) => as.id === s.id)
-      );
-    } catch (error) {
-      // Fallback
-      const subjectIds = new Set(
-        papers
-          .filter(p => p.grade_level_id === gradeId)
-          .map(p => p.subject_id)
-      );
-      return subjects.filter(s => subjectIds.has(s.id));
-    }
+    // IMPORTANT: All users can view and browse all subjects
+    // Show all subjects that have papers in this grade
+    const subjectIds = new Set(
+      papers
+        .filter(p => p.grade_level_id === gradeId)
+        .map(p => p.subject_id)
+    );
+    return subjects.filter(s => subjectIds.has(s.id));
   };
 
   const getPapersForSubjectAndGrade = (subjectId: string, gradeId: string) => {
