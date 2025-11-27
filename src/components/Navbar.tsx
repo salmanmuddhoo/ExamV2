@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Menu, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User } from 'lucide-react';
+import { Menu, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User, Gift } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -17,12 +17,13 @@ interface Props {
   onNavigateStudyPlan?: () => void;
   onNavigateBlog?: () => void;
   onNavigateProfile?: () => void;
+  onNavigateReferrals?: () => void;
   onSelectGrade: (gradeId: string, gradeName: string) => void;
   currentView: string;
   hideSignInButton?: boolean;
 }
 
-export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateStudyPlan, onNavigateBlog, onNavigateProfile, onSelectGrade, currentView, hideSignInButton = false }: Props) {
+export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateStudyPlan, onNavigateBlog, onNavigateProfile, onNavigateReferrals, onSelectGrade, currentView, hideSignInButton = false }: Props) {
   const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
@@ -201,6 +202,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                         <span>My Study Plan</span>
                       </button>
                     )}
+                    {onNavigateReferrals && (
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          onNavigateReferrals();
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <Gift className="w-4 h-4" />
+                        <span>Referrals</span>
+                      </button>
+                    )}
                     {profile?.role === 'admin' && (
                       <>
                         <div className="border-t border-gray-200 my-1" />
@@ -317,6 +330,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                     >
                       <Calendar className="w-4 h-4" />
                       <span>My Study Plan</span>
+                    </button>
+                  )}
+                  {onNavigateReferrals && (
+                    <button
+                      onClick={() => {
+                        onNavigateReferrals();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <Gift className="w-4 h-4" />
+                      <span>Referrals</span>
                     </button>
                   )}
                   {profile?.role === 'admin' && (
