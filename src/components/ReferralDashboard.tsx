@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { StudentPackageSelector } from './StudentPackageSelector';
 import {
   Gift,
   Copy,
@@ -37,6 +38,7 @@ interface SubscriptionTier {
   display_name: string;
   points_cost: number;
   referral_points_awarded: number;
+  max_subjects: number | null;
 }
 
 export function ReferralDashboard() {
@@ -49,6 +51,7 @@ export function ReferralDashboard() {
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier | null>(null);
   const [redeeming, setRedeeming] = useState(false);
+  const [showPackageSelector, setShowPackageSelector] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -82,7 +85,7 @@ export function ReferralDashboard() {
           .limit(10),
         supabase
           .from('subscription_tiers')
-          .select('id, name, display_name, points_cost, referral_points_awarded')
+          .select('id, name, display_name, points_cost, referral_points_awarded, max_subjects')
           .gt('points_cost', 0)
           .order('points_cost', { ascending: true })
       ]);
@@ -137,7 +140,20 @@ export function ReferralDashboard() {
     }
   };
 
-  const handleRedeemPoints = async () => {
+  const handleTierSelection = (tier: SubscriptionTier) => {
+    setSelectedTier(tier);
+
+    // Check if this is a Student or Student Lite tier that needs package selection
+    const needsPackageSelection = tier.name === 'student' || tier.name === 'student_lite';
+
+    if (needsPackageSelection) {
+      // Close tier selection modal and show package selector
+      setShowRedeemModal(false);
+      setShowPackageSelector(true);
+    }
+  };
+
+  const handlePackageSelectionComplete = async (gradeId: string, subjectIds: string[]) => {
     if (!selectedTier || !user) return;
 
     try {
@@ -145,14 +161,16 @@ export function ReferralDashboard() {
 
       const { data, error } = await supabase.rpc('redeem_points_for_subscription', {
         p_user_id: user.id,
-        p_tier_id: selectedTier.id
+        p_tier_id: selectedTier.id,
+        p_grade_id: gradeId,
+        p_subject_ids: subjectIds
       });
 
       if (error) throw error;
 
       // Refresh data
       await fetchReferralData();
-      setShowRedeemModal(false);
+      setShowPackageSelector(false);
       setSelectedTier(null);
 
       // Show success message
@@ -163,6 +181,47 @@ export function ReferralDashboard() {
     } finally {
       setRedeeming(false);
     }
+  };
+
+  const handleRedeemPoints = async () => {
+    if (!selectedTier || !user) return;
+
+    // For Pro tier, redeem directly without package selection
+    if (selectedTier.name === 'pro') {
+      try {
+        setRedeeming(true);
+
+        const { data, error } = await supabase.rpc('redeem_points_for_subscription', {
+          p_user_id: user.id,
+          p_tier_id: selectedTier.id
+        });
+
+        if (error) throw error;
+
+        // Refresh data
+        await fetchReferralData();
+        setShowRedeemModal(false);
+        setSelectedTier(null);
+
+        // Show success message
+        alert(`Successfully redeemed ${selectedTier.points_cost} points for ${selectedTier.display_name} tier!`);
+      } catch (error: any) {
+        console.error('Error redeeming points:', error);
+        alert(error.message || 'Failed to redeem points. Please try again.');
+      } finally {
+        setRedeeming(false);
+      }
+    } else {
+      // For Student/Student Lite, this shouldn't happen since we handle it in handleTierSelection
+      // But keep this as fallback
+      handleTierSelection(selectedTier);
+    }
+  };
+
+  const handleCancelPackageSelection = () => {
+    setShowPackageSelector(false);
+    setSelectedTier(null);
+    setShowRedeemModal(true);
   };
 
   if (loading) {
@@ -356,13 +415,16 @@ export function ReferralDashboard() {
             <div className="space-y-3 mb-6">
               {tiers.map(tier => {
                 const canAfford = stats.pointsBalance >= tier.points_cost;
+                const isSelected = selectedTier?.id === tier.id;
+                const needsPackageSelection = tier.name === 'student' || tier.name === 'student_lite';
+
                 return (
                   <button
                     key={tier.id}
-                    onClick={() => setSelectedTier(tier)}
+                    onClick={() => handleTierSelection(tier)}
                     disabled={!canAfford}
                     className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                      selectedTier?.id === tier.id
+                      isSelected
                         ? 'border-blue-600 bg-blue-50'
                         : canAfford
                         ? 'border-gray-200 hover:border-gray-300'
@@ -373,6 +435,9 @@ export function ReferralDashboard() {
                       <div>
                         <p className="font-bold text-gray-900">{tier.display_name}</p>
                         <p className="text-sm text-gray-600 mt-1">Cost: {tier.points_cost} points</p>
+                        {needsPackageSelection && (
+                          <p className="text-xs text-blue-600 mt-1">→ Select subjects after clicking</p>
+                        )}
                       </div>
                       {!canAfford && (
                         <span className="text-sm text-red-600 font-medium">Insufficient Points</span>
@@ -393,21 +458,36 @@ export function ReferralDashboard() {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleRedeemPoints}
-                disabled={!selectedTier || redeeming}
-                className="flex-1 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              >
-                {redeeming ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Redeeming...</span>
-                  </>
-                ) : (
-                  <span>Redeem Points</span>
-                )}
-              </button>
+              {selectedTier?.name === 'pro' && (
+                <button
+                  onClick={handleRedeemPoints}
+                  disabled={redeeming}
+                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {redeeming ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Redeeming...</span>
+                    </>
+                  ) : (
+                    <span>Redeem Points</span>
+                  )}
+                </button>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Package Selector Modal for Student/Student Lite Tiers */}
+      {showPackageSelector && selectedTier && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <StudentPackageSelector
+              onComplete={handlePackageSelectionComplete}
+              onCancel={handleCancelPackageSelection}
+              maxSubjects={selectedTier.max_subjects || 3}
+            />
           </div>
         </div>
       )}
