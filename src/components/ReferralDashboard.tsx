@@ -487,6 +487,7 @@ export function ReferralDashboard() {
               onComplete={handlePackageSelectionComplete}
               onCancel={handleCancelPackageSelection}
               maxSubjects={selectedTier.max_subjects || 3}
+              mode="redemption"
             />
           </div>
         </div>

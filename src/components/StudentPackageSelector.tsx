@@ -18,9 +18,10 @@ interface StudentPackageSelectorProps {
   onComplete: (gradeId: string, subjectIds: string[]) => void;
   onCancel: () => void;
   maxSubjects?: number;
+  mode?: 'payment' | 'redemption'; // 'payment' = regular purchase, 'redemption' = points redemption
 }
 
-export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }: StudentPackageSelectorProps) {
+export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3, mode = 'payment' }: StudentPackageSelectorProps) {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
@@ -440,7 +441,7 @@ export function StudentPackageSelector({ onComplete, onCancel, maxSubjects = 3 }
             disabled={selectedSubjectIds.length === 0}
             className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium flex items-center justify-center space-x-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>Continue to Payment</span>
+            <span>{mode === 'redemption' ? 'Redeem with Points' : 'Continue to Payment'}</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         )}
