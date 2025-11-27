@@ -458,7 +458,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               Share & Earn Points
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Invite your friends and earn points when they subscribe. Use your points to get free subscription tiers!
+              Invite your friends and earn points every time they subscribe or renew. Use your points to get free subscription tiers!
             </p>
           </div>
 
@@ -481,7 +481,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Friends Subscribe</h3>
               <p className="text-gray-600">
-                When your friends use your code to purchase a paid subscription, you automatically earn points!
+                When your friends use your code to purchase a paid subscription, you earn points! Plus, earn points every time they renew!
               </p>
             </div>
 
@@ -506,8 +506,8 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
                   <TrendingUp className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-1">Earn Unlimited Points</h4>
-                  <p className="text-gray-600 text-sm">No cap on how many points you can earn. Refer more, earn more!</p>
+                  <h4 className="font-semibold text-gray-900 mb-1">Earn on Every Purchase</h4>
+                  <p className="text-gray-600 text-sm">Get points when friends subscribe AND every time they renew. Unlimited earning potential!</p>
                 </div>
               </div>
 
