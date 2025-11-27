@@ -118,7 +118,8 @@ export function ReferralDashboard() {
       const { data: referralData } = await supabase
         .from('referrals')
         .select(`
-          referrer:referrer_id (
+          *,
+          profiles!referrer_id (
             id,
             first_name,
             last_name,
@@ -128,8 +129,8 @@ export function ReferralDashboard() {
         .eq('referred_id', user.id)
         .single();
 
-      if (referralData && referralData.referrer) {
-        const referrer = referralData.referrer as any;
+      if (referralData && referralData.profiles) {
+        const referrer = referralData.profiles as any;
         setReferrerInfo({
           firstName: referrer.first_name,
           lastName: referrer.last_name,
