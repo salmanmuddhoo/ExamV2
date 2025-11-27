@@ -67,6 +67,7 @@ export function PaymentMethodSelector({
         .from('payment_methods')
         .select('*')
         .eq('is_active', true)
+        .neq('name', 'referral_points') // Exclude referral points - only redeemable from referral dashboard
         .order('name');
 
       if (error) throw error;
