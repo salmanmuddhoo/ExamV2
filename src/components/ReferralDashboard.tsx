@@ -114,28 +114,28 @@ export function ReferralDashboard() {
       setTransactions(transactionsRes.data || []);
       setTiers(tiersRes.data || []);
 
-      // Check if user was referred by someone
+      // Check if user was referred by someone - use two separate queries
       const { data: referralData } = await supabase
         .from('referrals')
-        .select(`
-          *,
-          profiles!referrer_id (
-            id,
-            first_name,
-            last_name,
-            email
-          )
-        `)
+        .select('referrer_id')
         .eq('referred_id', user.id)
         .single();
 
-      if (referralData && referralData.profiles) {
-        const referrer = referralData.profiles as any;
-        setReferrerInfo({
-          firstName: referrer.first_name,
-          lastName: referrer.last_name,
-          email: referrer.email
-        });
+      if (referralData && referralData.referrer_id) {
+        // Fetch referrer profile separately
+        const { data: referrerProfile } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email')
+          .eq('id', referralData.referrer_id)
+          .single();
+
+        if (referrerProfile) {
+          setReferrerInfo({
+            firstName: referrerProfile.first_name,
+            lastName: referrerProfile.last_name,
+            email: referrerProfile.email
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching referral data:', error);
