@@ -1,0 +1,167 @@
+-- Add "Referral Points" as a payment method
+INSERT INTO payment_methods (name, display_name, requires_manual_approval, currency, is_active)
+VALUES ('referral_points', 'Referral Points', false, 'POINTS', true)
+ON CONFLICT (name) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  is_active = EXCLUDED.is_active;
+
+-- Update redeem_points_for_subscription to create payment transaction records
+CREATE OR REPLACE FUNCTION redeem_points_for_subscription(
+  p_user_id UUID,
+  p_tier_id UUID,
+  p_grade_id UUID DEFAULT NULL,
+  p_subject_ids UUID[] DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_tier RECORD;
+  v_points RECORD;
+  v_new_balance INTEGER;
+  v_subscription_id UUID;
+  v_payment_method_id UUID;
+  v_payment_transaction_id UUID;
+BEGIN
+  -- Get tier details
+  SELECT id, name, display_name, points_cost
+  INTO v_tier
+  FROM subscription_tiers
+  WHERE id = p_tier_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Tier not found';
+  END IF;
+
+  -- Check if tier can be purchased with points
+  IF v_tier.points_cost IS NULL OR v_tier.points_cost <= 0 THEN
+    RAISE EXCEPTION 'This tier cannot be purchased with points';
+  END IF;
+
+  -- Get user's points balance
+  SELECT points_balance INTO v_points
+  FROM user_referral_points
+  WHERE user_id = p_user_id;
+
+  IF NOT FOUND OR v_points.points_balance < v_tier.points_cost THEN
+    RAISE EXCEPTION 'Insufficient points';
+  END IF;
+
+  -- Get Referral Points payment method ID
+  SELECT id INTO v_payment_method_id
+  FROM payment_methods
+  WHERE name = 'referral_points';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Referral Points payment method not configured';
+  END IF;
+
+  -- Deduct points
+  UPDATE user_referral_points
+  SET points_balance = points_balance - v_tier.points_cost,
+      total_spent = total_spent + v_tier.points_cost,
+      updated_at = NOW()
+  WHERE user_id = p_user_id
+  RETURNING points_balance INTO v_new_balance;
+
+  -- Create payment transaction record
+  INSERT INTO payment_transactions (
+    user_id,
+    tier_id,
+    payment_method_id,
+    amount,
+    currency,
+    billing_cycle,
+    status,
+    selected_grade_id,
+    selected_subject_ids,
+    metadata
+  )
+  VALUES (
+    p_user_id,
+    p_tier_id,
+    v_payment_method_id,
+    0, -- Amount is 0 since paid with points
+    'POINTS',
+    'monthly',
+    'completed', -- Instant completion for points
+    p_grade_id,
+    p_subject_ids,
+    jsonb_build_object(
+      'points_spent', v_tier.points_cost,
+      'points_balance_after', v_new_balance,
+      'tier_name', v_tier.name,
+      'tier_display_name', v_tier.display_name
+    )
+  )
+  RETURNING id INTO v_payment_transaction_id;
+
+  -- Create or update subscription (1 month duration for points redemption)
+  INSERT INTO user_subscriptions (
+    user_id,
+    tier_id,
+    status,
+    billing_cycle,
+    is_recurring,
+    start_date,
+    end_date,
+    selected_grade_id,
+    selected_subject_ids,
+    payment_provider,
+    period_start_date,
+    period_end_date
+  )
+  VALUES (
+    p_user_id,
+    p_tier_id,
+    'active',
+    'monthly',
+    FALSE, -- Not recurring for points redemption
+    NOW(),
+    NOW() + INTERVAL '1 month', -- Standard 1 month duration
+    p_grade_id,
+    p_subject_ids,
+    'points', -- Track that this was purchased with points
+    NOW(),
+    NOW() + INTERVAL '1 month'
+  )
+  ON CONFLICT (user_id)
+  WHERE status = 'active'
+  DO UPDATE SET
+    tier_id = EXCLUDED.tier_id,
+    billing_cycle = EXCLUDED.billing_cycle,
+    is_recurring = EXCLUDED.is_recurring,
+    start_date = EXCLUDED.start_date,
+    end_date = EXCLUDED.end_date,
+    selected_grade_id = COALESCE(EXCLUDED.selected_grade_id, user_subscriptions.selected_grade_id),
+    selected_subject_ids = COALESCE(EXCLUDED.selected_subject_ids, user_subscriptions.selected_subject_ids),
+    payment_provider = EXCLUDED.payment_provider,
+    period_start_date = EXCLUDED.period_start_date,
+    period_end_date = EXCLUDED.period_end_date,
+    tokens_used_current_period = 0,
+    papers_accessed_current_period = 0,
+    updated_at = NOW()
+  RETURNING id INTO v_subscription_id;
+
+  -- Record transaction in referral_transactions table
+  INSERT INTO referral_transactions (
+    user_id,
+    transaction_type,
+    points,
+    balance_after,
+    subscription_id,
+    description
+  )
+  VALUES (
+    p_user_id,
+    'spent',
+    -v_tier.points_cost,
+    v_new_balance,
+    v_subscription_id,
+    format('Redeemed %s points for %s tier subscription', v_tier.points_cost, v_tier.display_name)
+  );
+
+  RETURN v_subscription_id;
+END;
+$$;

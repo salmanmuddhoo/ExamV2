@@ -11,6 +11,12 @@ interface TransactionWithDetails extends PaymentTransaction {
   payment_methods?: {
     display_name: string;
   };
+  metadata?: {
+    points_spent?: number;
+    points_balance_after?: number;
+    tier_name?: string;
+    tier_display_name?: string;
+  };
 }
 
 export function PaymentHistory() {
@@ -138,7 +144,10 @@ export function PaymentHistory() {
 
             <div className="text-right">
               <p className="font-semibold text-gray-900 text-sm">
-                {transaction.currency} {transaction.amount.toLocaleString()}
+                {transaction.payment_methods?.display_name === 'Referral Points' && transaction.metadata?.points_spent
+                  ? `${transaction.metadata.points_spent} Points`
+                  : `${transaction.currency} ${transaction.amount.toLocaleString()}`
+                }
               </p>
               <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadge(transaction.status)}`}>
                 {getStatusText(transaction.status)}
