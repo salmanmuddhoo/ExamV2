@@ -1,4 +1,4 @@
-import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight, Smartphone, Calendar, TrendingUp, Clock, FolderTree, BarChart3, Cpu } from 'lucide-react';
+import { BookOpen, Brain, Lock, Zap, CheckCircle, ArrowRight, Sparkles, Crown, Rocket, Star, ChevronLeft, ChevronRight, Smartphone, Calendar, TrendingUp, Clock, FolderTree, BarChart3, Cpu, Gift, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatTokenCount } from '../lib/formatUtils';
@@ -442,6 +442,117 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
             <p className="text-sm text-gray-600">
               All plans include full access to our AI tutor and comprehensive exam library. Cancel anytime.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Referral Program Section */}
+      <section className="border-b border-gray-200 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-sm font-medium mb-4 shadow-lg">
+              <Gift className="w-4 h-4" />
+              <span>Earn Rewards</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Share & Earn Points
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Invite your friends and earn points when they subscribe. Use your points to get free subscription tiers!
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-10">
+            {/* Step 1 */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-100 hover:shadow-xl transition-all">
+              <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mb-4">
+                1
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Get Your Code</h3>
+              <p className="text-gray-600">
+                Sign up and receive your unique referral code. Share it with friends via link, email, or social media.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-100 hover:shadow-xl transition-all">
+              <div className="bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mb-4">
+                2
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Friends Subscribe</h3>
+              <p className="text-gray-600">
+                When your friends use your code to purchase a paid subscription, you automatically earn points!
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-gray-100 hover:shadow-xl transition-all">
+              <div className="bg-gradient-to-br from-pink-600 to-red-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mb-4">
+                3
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Redeem Points</h3>
+              <p className="text-gray-600">
+                Use your accumulated points to unlock subscription tiers for free. The more you refer, the more you earn!
+              </p>
+            </div>
+          </div>
+
+          {/* Benefits Grid */}
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-gray-100">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Why Join Our Referral Program?</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-4">
+                <div className="bg-blue-100 text-blue-600 rounded-lg p-2 flex-shrink-0">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Earn Unlimited Points</h4>
+                  <p className="text-gray-600 text-sm">No cap on how many points you can earn. Refer more, earn more!</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="bg-purple-100 text-purple-600 rounded-lg p-2 flex-shrink-0">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Help Your Friends</h4>
+                  <p className="text-gray-600 text-sm">Give your friends access to premium study tools while earning rewards.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="bg-pink-100 text-pink-600 rounded-lg p-2 flex-shrink-0">
+                  <Gift className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Free Subscriptions</h4>
+                  <p className="text-gray-600 text-sm">Redeem your points for any subscription tier - completely free!</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="bg-green-100 text-green-600 rounded-lg p-2 flex-shrink-0">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Instant Rewards</h4>
+                  <p className="text-gray-600 text-sm">Points are credited immediately when your referral subscribes.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="mt-10 text-center">
+            <button
+              onClick={onGetStarted}
+              className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              <Gift className="w-5 h-5" />
+              <span>Start Earning Points Today</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </section>

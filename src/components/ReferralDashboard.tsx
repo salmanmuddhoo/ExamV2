@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { StudentPackageSelector } from './StudentPackageSelector';
+import { Modal } from './Modal';
 import {
   Gift,
   Copy,
@@ -52,6 +53,8 @@ export function ReferralDashboard() {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [showPackageSelector, setShowPackageSelector] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -174,10 +177,12 @@ export function ReferralDashboard() {
       setSelectedTier(null);
 
       // Show success message
-      alert(`Successfully redeemed ${selectedTier.points_cost} points for ${selectedTier.display_name} tier!`);
+      setSuccessMessage(`Successfully redeemed ${selectedTier.points_cost} points for ${selectedTier.display_name} tier!`);
+      setShowSuccessModal(true);
     } catch (error: any) {
       console.error('Error redeeming points:', error);
-      alert(error.message || 'Failed to redeem points. Please try again.');
+      setSuccessMessage(error.message || 'Failed to redeem points. Please try again.');
+      setShowSuccessModal(true);
     } finally {
       setRedeeming(false);
     }
@@ -204,10 +209,12 @@ export function ReferralDashboard() {
         setSelectedTier(null);
 
         // Show success message
-        alert(`Successfully redeemed ${selectedTier.points_cost} points for ${selectedTier.display_name} tier!`);
+        setSuccessMessage(`Successfully redeemed ${selectedTier.points_cost} points for ${selectedTier.display_name} tier!`);
+        setShowSuccessModal(true);
       } catch (error: any) {
         console.error('Error redeeming points:', error);
-        alert(error.message || 'Failed to redeem points. Please try again.');
+        setSuccessMessage(error.message || 'Failed to redeem points. Please try again.');
+        setShowSuccessModal(true);
       } finally {
         setRedeeming(false);
       }
@@ -492,6 +499,15 @@ export function ReferralDashboard() {
           </div>
         </div>
       )}
+
+      {/* Success/Error Modal */}
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successMessage.includes('Successfully') ? 'Success!' : 'Error'}
+        message={successMessage}
+        type={successMessage.includes('Successfully') ? 'success' : 'error'}
+      />
     </div>
   );
 }
