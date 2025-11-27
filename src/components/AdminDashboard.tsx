@@ -17,6 +17,7 @@ import { SystemSettings } from './SystemSettings';
 import { CouponCodeManager } from './CouponCodeManager';
 import { CurrencyExchangeManager } from './CurrencyExchangeManager';
 import { AIModelSettings } from './AIModelSettings';
+import { ReferralConfigManager } from './ReferralConfigManager';
 
 interface AdminDashboardProps {
   onNavigateHome?: () => void;
@@ -26,7 +27,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'referral-config' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings';
 
 interface MenuItem {
   id: Tab;
@@ -76,6 +77,7 @@ export function AdminDashboard({
       items: [
         { id: 'users' as Tab, label: 'Users', icon: UserCog },
         { id: 'subscriptions' as Tab, label: 'Subscriptions', icon: Users },
+        { id: 'referral-config' as Tab, label: 'Referral System', icon: TrendingUp },
       ],
     },
     {
@@ -341,6 +343,7 @@ export function AdminDashboard({
             {activeTab === 'system-settings' && <SystemSettings />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
+            {activeTab === 'referral-config' && <ReferralConfigManager />}
             {activeTab === 'payments' && <AdminPaymentApproval />}
             {activeTab === 'payment-methods' && <PaymentMethodManager />}
             {activeTab === 'coupons' && <CouponCodeManager />}

@@ -18,12 +18,13 @@ import { EmailVerification } from './components/EmailVerification';
 import { BlogList } from './components/BlogList';
 import { BlogPost } from './components/BlogPost';
 import { StudyPlanCalendar } from './components/StudyPlanCalendar';
+import { ReferralDashboard } from './components/ReferralDashboard';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { HintTutorialManager } from './components/HintTutorialManager';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
-type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'email-verification' | 'blog' | 'blog-post' | 'study-plan';
+type View = 'home' | 'login' | 'admin' | 'exam-viewer' | 'chat-hub' | 'papers-browser' | 'unified-viewer' | 'payment' | 'reset-password' | 'email-verification' | 'blog' | 'blog-post' | 'study-plan' | 'referrals';
 
 // Helper function to map URL pathname to view
 function getViewFromPathname(pathname: string): View {
@@ -38,6 +39,7 @@ function getViewFromPathname(pathname: string): View {
   if (path === '/' || path === '/home') return 'home';
   if (path === '/blog') return 'blog';
   if (path === '/study-plan' || path === '/my-study-plan') return 'study-plan';
+  if (path === '/referrals' || path === '/refer') return 'referrals';
   if (path === '/login') return 'login';
   if (path === '/payment' || path === '/pricing') return 'payment';
   if (path === '/email-verification' || path === '/verify-email') return 'email-verification';
@@ -57,6 +59,7 @@ function getPathnameFromView(view: View): string {
   switch (view) {
     case 'blog': return '/blog';
     case 'study-plan': return '/study-plan';
+    case 'referrals': return '/referrals';
     case 'papers-browser': return '/papers';
     case 'chat-hub': return '/chat';
     case 'login': return '/login';
@@ -746,6 +749,11 @@ function App() {
     setView('study-plan');
   };
 
+  // Referrals navigation handler
+  const handleNavigateToReferrals = () => {
+    setView('referrals');
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -801,6 +809,7 @@ function App() {
           onNavigateChatHub={handleNavigateToChatHub}
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
+          onNavigateReferrals={handleNavigateToReferrals}
           onSelectGrade={handleSelectGrade}
           currentView={view}
           hideSignInButton={true}
@@ -829,6 +838,7 @@ function App() {
             onNavigateChatHub={handleNavigateToChatHub}
             onNavigateStudyPlan={handleNavigateToStudyPlan}
             onNavigateBlog={handleNavigateToBlog}
+            onNavigateReferrals={handleNavigateToReferrals}
             onSelectGrade={handleSelectGrade}
             currentView={view}
           />
@@ -855,6 +865,7 @@ function App() {
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
+          onNavigateReferrals={handleNavigateToReferrals}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -914,6 +925,7 @@ function App() {
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
+          onNavigateReferrals={handleNavigateToReferrals}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -969,6 +981,7 @@ function App() {
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
+          onNavigateReferrals={handleNavigateToReferrals}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -992,6 +1005,7 @@ function App() {
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
+          onNavigateReferrals={handleNavigateToReferrals}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -1016,6 +1030,7 @@ function App() {
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
+          onNavigateReferrals={handleNavigateToReferrals}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -1038,6 +1053,28 @@ function App() {
     );
   }
 
+  // Referrals view
+  if (view === 'referrals' && user) {
+    return (
+      <>
+        <Navbar
+          onNavigateHome={handleBackToHome}
+          onNavigateAdmin={handleNavigateToAdmin}
+          onNavigateLogin={handleNavigateToLogin}
+          onNavigateChatHub={handleNavigateToChatHub}
+          onNavigateStudyPlan={handleNavigateToStudyPlan}
+          onNavigateBlog={handleNavigateToBlog}
+          onNavigateProfile={handleNavigateToProfile}
+          onNavigateReferrals={handleNavigateToReferrals}
+          onSelectGrade={handleSelectGrade}
+          currentView={view}
+        />
+        <ReferralDashboard />
+        <PWAInstallBanner variant="floating" />
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar
@@ -1048,6 +1085,7 @@ function App() {
         onNavigateStudyPlan={handleNavigateToStudyPlan}
         onNavigateBlog={handleNavigateToBlog}
         onNavigateProfile={handleNavigateToProfile}
+        onNavigateReferrals={handleNavigateToReferrals}
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
