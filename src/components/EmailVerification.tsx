@@ -9,21 +9,28 @@ export function EmailVerification() {
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        // Get the hash from URL (Supabase sends the token in the hash)
-        const hash = window.location.hash;
+        // Check if user has a valid session (email was verified successfully)
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        // Get query parameters (Supabase also sends verification code as query param)
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-
-        if ((hash && hash.includes('access_token')) || code) {
-          // Email verification doesn't auto-sign users in
-          // Just show success message and redirect to login
+        if (session?.user) {
+          // User has a valid session - email was verified successfully
           setStatus('success');
         } else {
-          setStatus('error');
+          // Check URL parameters as fallback
+          const hash = window.location.hash;
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get('code');
+          const type = urlParams.get('type');
+
+          // Check for email verification type or tokens in URL
+          if (type === 'signup' || (hash && hash.includes('access_token')) || code) {
+            setStatus('success');
+          } else {
+            setStatus('error');
+          }
         }
       } catch (error) {
+        console.error('Email verification error:', error);
         setStatus('error');
       }
     };
