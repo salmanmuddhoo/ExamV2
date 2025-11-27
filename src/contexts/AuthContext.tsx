@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, firstName: string, lastName: string, role?: 'admin' | 'student') => Promise<void>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, role?: 'admin' | 'student') => Promise<{user: User | null}>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   signOut: () => Promise<void>;
@@ -279,33 +279,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) throw error;
 
-    if (data.user) {
-      // Wait a bit for the trigger to create the profile
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Try to upsert the profile to ensure first_name and last_name are set
-      // If this fails due to RLS (user not verified yet), the trigger should have already set it
-      try {
-        await supabase
-          .from('profiles')
-          .upsert({
-            id: data.user.id,
-            email: data.user.email,
-            role,
-            first_name: firstName,
-            last_name: lastName,
-            is_active: true
-          }, {
-            onConflict: 'id'
-          });
-
-        // Try to fetch the profile (may fail if email verification is required)
-        await fetchProfile(data.user.id);
-      } catch (profileError) {
-        // If profile operations fail, it's likely because email verification is required
-        // This is fine - the trigger should have created the profile with first_name and last_name from metadata
-      }
-    }
+    // Return the user data so referral code can be applied in LoginForm
+    return data;
   };
 
   const signIn = async (email: string, password: string) => {
