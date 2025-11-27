@@ -42,6 +42,12 @@ interface SubscriptionTier {
   max_subjects: number | null;
 }
 
+interface ReferrerInfo {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 export function ReferralDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<ReferralStats | null>(null);
@@ -55,6 +61,7 @@ export function ReferralDashboard() {
   const [showPackageSelector, setShowPackageSelector] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [referrerInfo, setReferrerInfo] = useState<ReferrerInfo | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -106,6 +113,29 @@ export function ReferralDashboard() {
 
       setTransactions(transactionsRes.data || []);
       setTiers(tiersRes.data || []);
+
+      // Check if user was referred by someone
+      const { data: referralData } = await supabase
+        .from('referrals')
+        .select(`
+          referrer:referrer_id (
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('referred_id', user.id)
+        .single();
+
+      if (referralData && referralData.referrer) {
+        const referrer = referralData.referrer as any;
+        setReferrerInfo({
+          firstName: referrer.first_name,
+          lastName: referrer.last_name,
+          email: referrer.email
+        });
+      }
     } catch (error) {
       console.error('Error fetching referral data:', error);
     } finally {
@@ -116,7 +146,7 @@ export function ReferralDashboard() {
   const getReferralLink = () => {
     if (!stats) return '';
     const baseUrl = window.location.origin;
-    return `${baseUrl}/signup?ref=${stats.code}`;
+    return `${baseUrl}/login?ref=${stats.code}`;
   };
 
   const copyReferralLink = async () => {
@@ -258,6 +288,29 @@ export function ReferralDashboard() {
         </div>
         <Gift className="w-12 h-12 text-blue-600" />
       </div>
+
+      {/* Referrer Info Card (if user was referred) */}
+      {referrerInfo && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6">
+          <div className="flex items-start space-x-4">
+            <div className="bg-green-600 text-white rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0">
+              <Users className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">You Were Referred By</h3>
+              <p className="text-gray-700">
+                <span className="font-semibold">{referrerInfo.firstName} {referrerInfo.lastName}</span>
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                {referrerInfo.email}
+              </p>
+              <p className="text-sm text-green-700 mt-2 font-medium">
+                ✨ Your friend will earn points when you subscribe to a paid tier!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Points Balance Card */}
       <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl">

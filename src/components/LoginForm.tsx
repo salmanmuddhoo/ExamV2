@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth, OAuthProvider } from '../contexts/AuthContext';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { Modal } from './Modal';
 import { isValidEmail, getDisposableEmailError } from '../utils/emailValidation';
+import { supabase } from '../lib/supabase';
 
 interface LoginFormProps {
   onLoginSuccess?: () => void;
@@ -30,7 +31,27 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const { signIn, signUp, signInWithOAuth } = useAuth();
+
+  // Capture referral code from URL on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      setReferralCode(refCode);
+      // Store in sessionStorage so it persists during signup
+      sessionStorage.setItem('referralCode', refCode);
+      // Switch to signup mode if referral link is clicked
+      setIsSignUp(true);
+    } else {
+      // Check if we have a stored referral code
+      const storedCode = sessionStorage.getItem('referralCode');
+      if (storedCode) {
+        setReferralCode(storedCode);
+      }
+    }
+  }, []);
 
   const calculatePasswordStrength = (pwd: string): PasswordStrength => {
     let score = 0;
@@ -120,7 +141,23 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
         }
 
         // Always create user as "student"
-        await signUp(email, password, firstName.trim(), lastName.trim(), 'student');
+        const result = await signUp(email, password, firstName.trim(), lastName.trim(), 'student');
+
+        // Apply referral code if one exists
+        if (referralCode && result?.user?.id) {
+          try {
+            await supabase.rpc('apply_referral_code', {
+              p_referred_user_id: result.user.id,
+              p_referral_code: referralCode
+            });
+            // Clear stored referral code after successful application
+            sessionStorage.removeItem('referralCode');
+          } catch (refError) {
+            console.error('Failed to apply referral code:', refError);
+            // Don't show error to user, just log it
+          }
+        }
+
         setShowSuccessModal(true);
       } else {
         await signIn(email, password);
@@ -258,6 +295,15 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps = {}) {
                   ? 'Sign up to access exam papers'
                   : 'Sign in to manage the platform'}
               </p>
+
+          {referralCode && isSignUp && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg">
+              <p className="text-sm text-center">
+                <span className="font-semibold text-blue-700">🎁 You've been referred!</span>
+                <span className="text-gray-700 block mt-1">Complete signup to earn rewards for your friend</span>
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
