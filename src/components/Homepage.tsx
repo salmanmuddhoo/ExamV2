@@ -7,6 +7,7 @@ import { formatPrice } from '../utils/currency';
 interface Props {
   onGetStarted: () => void;
   onOpenSubscriptions?: () => void;
+  onOpenReferrals?: () => void;
   isLoggedIn?: boolean;
 }
 
@@ -22,7 +23,7 @@ interface TierConfig {
   coming_soon: boolean;
 }
 
-export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false }: Props) {
+export function Homepage({ onGetStarted, onOpenSubscriptions, onOpenReferrals, isLoggedIn = false }: Props) {
   const [tiers, setTiers] = useState<{
     free?: TierConfig;
     student_lite?: TierConfig;
@@ -97,18 +98,15 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <button
-                  onClick={onGetStarted}
-                  className="group inline-flex items-center justify-center space-x-2 px-8 py-4 bg-black text-white rounded-xl hover:bg-gray-800 transition-all text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                >
-                  <span>Get Started Free</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </button>
-                
-
-
-
-                
+                {!isLoggedIn && (
+                  <button
+                    onClick={onGetStarted}
+                    className="group inline-flex items-center justify-center space-x-2 px-8 py-4 bg-black text-white rounded-xl hover:bg-gray-800 transition-all text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    <span>Get Started Free</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                )}
               </div>
               
               <div className="mt-8 flex items-center justify-center lg:justify-start space-x-6 text-sm text-gray-600">
@@ -546,7 +544,7 @@ export function Homepage({ onGetStarted, onOpenSubscriptions, isLoggedIn = false
           {/* CTA */}
           <div className="mt-10 text-center">
             <button
-              onClick={onGetStarted}
+              onClick={isLoggedIn && onOpenReferrals ? onOpenReferrals : onGetStarted}
               className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               <Gift className="w-5 h-5" />

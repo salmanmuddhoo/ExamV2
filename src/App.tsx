@@ -1092,6 +1092,7 @@ function App() {
       <Homepage
         onGetStarted={handleNavigateToLogin}
         onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+        onOpenReferrals={handleNavigateToReferrals}
         isLoggedIn={!!user}
       />
 
