@@ -317,8 +317,8 @@ export function ChatHub({
             title,
             year,
             month,
-            subjects:subject_id (name),
-            grade_levels:grade_level_id (name)
+            subject_id,
+            grade_level_id
           ),
           syllabus_chapters (
             chapter_number,
@@ -328,10 +328,57 @@ export function ChatHub({
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      // Extract unique subject and grade IDs
+      const subjectIds = [...new Set(data.map((conv: any) => conv.exam_papers?.subject_id).filter(Boolean))];
+      const gradeIds = [...new Set(data.map((conv: any) => conv.exam_papers?.grade_level_id).filter(Boolean))];
+
+      // Batch fetch all subjects and grades in just 2 queries
+      const [subjectsResult, gradesResult] = await Promise.all([
+        supabase
+          .from('subjects')
+          .select('id, name')
+          .in('id', subjectIds),
+        supabase
+          .from('grade_levels')
+          .select('id, name')
+          .in('id', gradeIds)
+      ]);
+
+      // Create lookup maps for O(1) access
+      const subjectsMap = new Map(
+        (subjectsResult.data || []).map(s => [s.id, s.name])
+      );
+      const gradesMap = new Map(
+        (gradesResult.data || []).map(g => [g.id, g.name])
+      );
+
+      // Map the data with subjects and grades
+      const conversationsWithDetails = data.map((conv: any) => {
+        const subjectId = conv.exam_papers?.subject_id;
+        const gradeId = conv.exam_papers?.grade_level_id;
+
+        return {
+          ...conv,
+          exam_papers: {
+            ...conv.exam_papers,
+            subjects: subjectId ? { name: subjectsMap.get(subjectId) } : null,
+            grade_levels: gradeId ? { name: gradesMap.get(gradeId) } : null
+          }
+        };
+      });
 
       // Filter out conversations with null grade_levels or subjects
-      const validConversations = (data || []).filter(conv =>
+      const validConversations = conversationsWithDetails.filter((conv: any) =>
         conv.exam_papers?.grade_levels && conv.exam_papers?.subjects
       );
 
