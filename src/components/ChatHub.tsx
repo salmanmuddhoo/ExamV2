@@ -126,6 +126,30 @@ export function ChatHub({
     }
   }, [user]);
 
+  // Auto-refresh conversations when window/tab becomes visible
+  // This ensures new conversations appear after returning from practice viewer
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        fetchConversations();
+      }
+    };
+
+    const handleFocus = () => {
+      if (user) {
+        fetchConversations();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
+
   // Persist subscription modal state to sessionStorage
   useEffect(() => {
     sessionStorage.setItem('showSubscriptionModal', showSubscription.toString());
@@ -289,12 +313,12 @@ export function ChatHub({
           exam_paper_id,
           practice_mode,
           chapter_id,
-          exam_papers (
+          exam_papers!inner (
             title,
             year,
             month,
-            subjects (name),
-            grade_levels (name)
+            subjects:subject_id (name),
+            grade_levels:grade_level_id (name)
           ),
           syllabus_chapters (
             chapter_number,
@@ -313,13 +337,24 @@ export function ChatHub({
 
       setConversations(validConversations);
 
-      // On initial load, keep everything expanded so users can see their conversations
-      // Don't collapse anything by default for better user experience
+      // On initial load, collapse all grades, subjects, and folders
       if (isInitialLoad && validConversations.length > 0) {
-        // Leave all sets empty = everything is expanded
-        setCollapsedGrades(new Set());
-        setCollapsedSubjects(new Set());
-        setCollapsedFolders(new Set());
+        const grades = new Set(validConversations.map(conv => conv.exam_papers.grade_levels!.name));
+        setCollapsedGrades(grades);
+
+        const subjects = new Set<string>();
+        const folders = new Set<string>();
+
+        validConversations.forEach(conv => {
+          const gradeName = conv.exam_papers.grade_levels!.name;
+          const subjectName = conv.exam_papers.subjects!.name;
+          subjects.add(`${gradeName}:${subjectName}`);
+          folders.add(`${gradeName}:${subjectName}:year`);
+          folders.add(`${gradeName}:${subjectName}:chapter`);
+        });
+
+        setCollapsedSubjects(subjects);
+        setCollapsedFolders(folders);
 
         setIsInitialLoad(false);
       }
