@@ -333,36 +333,49 @@ export function ChatHub({
         throw error;
       }
 
-      console.log('Raw conversations data:', data);
+      if (!data || data.length === 0) {
+        setConversations([]);
+        return;
+      }
 
-      // Now fetch subjects and grade_levels separately for each conversation
-      const conversationsWithDetails = await Promise.all(
-        (data || []).map(async (conv: any) => {
-          const [subjectResult, gradeResult] = await Promise.all([
-            supabase
-              .from('subjects')
-              .select('name')
-              .eq('id', conv.exam_papers.subject_id)
-              .single(),
-            supabase
-              .from('grade_levels')
-              .select('name')
-              .eq('id', conv.exam_papers.grade_level_id)
-              .single()
-          ]);
+      // Extract unique subject and grade IDs
+      const subjectIds = [...new Set(data.map((conv: any) => conv.exam_papers?.subject_id).filter(Boolean))];
+      const gradeIds = [...new Set(data.map((conv: any) => conv.exam_papers?.grade_level_id).filter(Boolean))];
 
-          return {
-            ...conv,
-            exam_papers: {
-              ...conv.exam_papers,
-              subjects: subjectResult.data ? { name: subjectResult.data.name } : null,
-              grade_levels: gradeResult.data ? { name: gradeResult.data.name } : null
-            }
-          };
-        })
+      // Batch fetch all subjects and grades in just 2 queries
+      const [subjectsResult, gradesResult] = await Promise.all([
+        supabase
+          .from('subjects')
+          .select('id, name')
+          .in('id', subjectIds),
+        supabase
+          .from('grade_levels')
+          .select('id, name')
+          .in('id', gradeIds)
+      ]);
+
+      // Create lookup maps for O(1) access
+      const subjectsMap = new Map(
+        (subjectsResult.data || []).map(s => [s.id, s.name])
+      );
+      const gradesMap = new Map(
+        (gradesResult.data || []).map(g => [g.id, g.name])
       );
 
-      console.log('Conversations with details:', conversationsWithDetails);
+      // Map the data with subjects and grades
+      const conversationsWithDetails = data.map((conv: any) => {
+        const subjectId = conv.exam_papers?.subject_id;
+        const gradeId = conv.exam_papers?.grade_level_id;
+
+        return {
+          ...conv,
+          exam_papers: {
+            ...conv.exam_papers,
+            subjects: subjectId ? { name: subjectsMap.get(subjectId) } : null,
+            grade_levels: gradeId ? { name: gradesMap.get(gradeId) } : null
+          }
+        };
+      });
 
       // Filter out conversations with null grade_levels or subjects
       const validConversations = conversationsWithDetails.filter((conv: any) =>
