@@ -313,24 +313,13 @@ export function ChatHub({
 
       setConversations(validConversations);
 
-      // On initial load, collapse all grades, subjects, and folders
+      // On initial load, keep everything expanded so users can see their conversations
+      // Don't collapse anything by default for better user experience
       if (isInitialLoad && validConversations.length > 0) {
-        const grades = new Set(validConversations.map(conv => conv.exam_papers.grade_levels!.name));
-        setCollapsedGrades(grades);
-
-        const subjects = new Set<string>();
-        const folders = new Set<string>();
-
-        validConversations.forEach(conv => {
-          const gradeName = conv.exam_papers.grade_levels!.name;
-          const subjectName = conv.exam_papers.subjects!.name;
-          subjects.add(`${gradeName}:${subjectName}`);
-          folders.add(`${gradeName}:${subjectName}:year`);
-          folders.add(`${gradeName}:${subjectName}:chapter`);
-        });
-
-        setCollapsedSubjects(subjects);
-        setCollapsedFolders(folders);
+        // Leave all sets empty = everything is expanded
+        setCollapsedGrades(new Set());
+        setCollapsedSubjects(new Set());
+        setCollapsedFolders(new Set());
 
         setIsInitialLoad(false);
       }
@@ -772,9 +761,12 @@ export function ChatHub({
                                                       <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
                                                         selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
                                                       }`} />
-                                                      <p className={`text-sm truncate font-medium ${
-                                                        selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
-                                                      }`}>
+                                                      <p
+                                                        className={`text-sm truncate font-medium ${
+                                                          selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
+                                                        }`}
+                                                        title={`${conv.exam_papers.title} - Yr ${conv.exam_papers.year}${conv.exam_papers.month ? ` ${MONTHS[conv.exam_papers.month - 1]}` : ''}`}
+                                                      >
                                                         {conv.exam_papers.title} - Yr {conv.exam_papers.year}{conv.exam_papers.month ? ` ${MONTHS[conv.exam_papers.month - 1]}` : ''}
                                                       </p>
                                                     </div>
@@ -841,9 +833,14 @@ export function ChatHub({
                                                       <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${
                                                         selectedConversation === conv.id ? 'text-blue-600' : 'text-gray-500'
                                                       }`} />
-                                                      <p className={`text-sm truncate font-medium ${
-                                                        selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
-                                                      }`}>
+                                                      <p
+                                                        className={`text-sm truncate font-medium ${
+                                                          selectedConversation === conv.id ? 'text-blue-900' : 'text-gray-900'
+                                                        }`}
+                                                        title={conv.syllabus_chapters
+                                                          ? `Ch ${conv.syllabus_chapters.chapter_number}: ${conv.syllabus_chapters.chapter_title}`
+                                                          : conv.title}
+                                                      >
                                                         {conv.syllabus_chapters
                                                           ? `Ch ${conv.syllabus_chapters.chapter_number}: ${conv.syllabus_chapters.chapter_title}`
                                                           : conv.title}
