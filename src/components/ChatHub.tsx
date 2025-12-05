@@ -317,8 +317,8 @@ export function ChatHub({
             title,
             year,
             month,
-            subjects:subject_id (name),
-            grade_levels:grade_level_id (name)
+            subject_id,
+            grade_level_id
           ),
           syllabus_chapters (
             chapter_number,
@@ -328,10 +328,44 @@ export function ChatHub({
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        throw error;
+      }
+
+      console.log('Raw conversations data:', data);
+
+      // Now fetch subjects and grade_levels separately for each conversation
+      const conversationsWithDetails = await Promise.all(
+        (data || []).map(async (conv: any) => {
+          const [subjectResult, gradeResult] = await Promise.all([
+            supabase
+              .from('subjects')
+              .select('name')
+              .eq('id', conv.exam_papers.subject_id)
+              .single(),
+            supabase
+              .from('grade_levels')
+              .select('name')
+              .eq('id', conv.exam_papers.grade_level_id)
+              .single()
+          ]);
+
+          return {
+            ...conv,
+            exam_papers: {
+              ...conv.exam_papers,
+              subjects: subjectResult.data ? { name: subjectResult.data.name } : null,
+              grade_levels: gradeResult.data ? { name: gradeResult.data.name } : null
+            }
+          };
+        })
+      );
+
+      console.log('Conversations with details:', conversationsWithDetails);
 
       // Filter out conversations with null grade_levels or subjects
-      const validConversations = (data || []).filter(conv =>
+      const validConversations = conversationsWithDetails.filter((conv: any) =>
         conv.exam_papers?.grade_levels && conv.exam_papers?.subjects
       );
 
