@@ -85,6 +85,8 @@ Instead of downgrading, users should:
 - User confirms cancellation
 
 **Step 2: Marked for Cancellation**
+
+**For MONTHLY Subscriptions:**
 ```sql
 cancel_at_period_end = TRUE
 is_recurring = FALSE (stops auto-renewal)
@@ -92,19 +94,30 @@ cancellation_requested_at = NOW()
 status = 'active' (still active!)
 ```
 
+**For YEARLY Subscriptions:**
+```sql
+cancel_at_period_end = TRUE
+is_recurring = TRUE (keeps monthly token refills!)
+cancellation_requested_at = NOW()
+status = 'active' (still active!)
+```
+⚠️ **Important:** Yearly subscriptions keep `is_recurring = TRUE` even when cancelled because users have paid for the full year and should continue receiving monthly token refills until `subscription_end_date` is reached.
+
 **Step 3: Retention Period**
 - Yellow warning banner shows expiration date
 - User keeps **full access** to all features
 - Can still use tokens, access papers, chat with AI
+- **For yearly subscriptions**: Monthly token refills continue until year ends
 - "Reactivate Subscription" button available
 
 **Step 4: Automatic Downgrade**
 - Daily cron job runs: `process_subscription_expirations()`
-- At `period_end_date`, subscription status → 'cancelled'
+- **For monthly**: Downgrades at `period_end_date` (1 month)
+- **For yearly**: Downgrades at `subscription_end_date` (1 year)
 - New Free tier subscription is created automatically
 - User retains account but with Free tier limits
 
-**Example Timeline:**
+**Example Timeline (Monthly):**
 ```
 Day 1: User cancels Student Package ($15/month)
 ↓
@@ -115,6 +128,20 @@ Day 30: Period ends
 ↓ Automatic process runs
 ↓
 Day 31: User now on Free tier (2 papers, 50K tokens)
+```
+
+**Example Timeline (Yearly):**
+```
+Month 1, Day 1: User cancels Yearly Student Package
+↓
+Months 1-12: Full Student Package access continues
+↓ Monthly token refills continue each month!
+↓ (Yellow banner shows: "Ending on [date in 1 year]")
+↓
+Month 12, Day 30: Yearly subscription ends
+↓ Automatic process runs
+↓
+Month 13: User now on Free tier (2 papers, 50K tokens)
 ```
 
 ---
