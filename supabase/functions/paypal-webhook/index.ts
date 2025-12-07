@@ -183,19 +183,30 @@ async function handlePaymentCaptureCompleted(event: any, supabase: any) {
     return;
   }
 
-  // Update transaction if status is pending
-  if (transaction.status === 'pending') {
+  // Update transaction if status is pending or needs webhook verification
+  if (transaction.status === 'pending' || transaction.status === 'completed') {
+    // Merge webhook data with existing metadata
+    const updatedMetadata = {
+      ...transaction.metadata,
+      paypal_capture_id: captureId,
+      webhook_verified: true,
+      webhook_timestamp: new Date().toISOString(),
+      paypal_capture_details: {
+        id: captureId,
+        amount: amount,
+        currency: currency,
+        status: capture.status,
+        create_time: capture.create_time,
+        update_time: capture.update_time
+      }
+    };
+
     const { error: updateError } = await supabase
       .from('payment_transactions')
       .update({
         status: 'completed',
         external_transaction_id: captureId, // Update with capture ID
-        metadata: {
-          ...transaction.metadata,
-          paypal_capture_id: captureId,
-          webhook_verified: true,
-          webhook_timestamp: new Date().toISOString()
-        }
+        metadata: updatedMetadata
       })
       .eq('id', transaction.id);
 
@@ -204,9 +215,9 @@ async function handlePaymentCaptureCompleted(event: any, supabase: any) {
       throw updateError;
     }
 
-    console.log('Transaction updated to completed:', transaction.id);
+    console.log('Transaction updated with webhook verification:', transaction.id);
   } else {
-    console.log('Transaction already in final state:', transaction.status);
+    console.log('Transaction in final state, not updating:', transaction.status);
   }
 }
 
@@ -273,16 +284,31 @@ async function handleSubscriptionCreated(event: any, supabase: any) {
 
   console.log('Subscription created:', subscriptionId);
 
-  // Find transaction by subscription ID
+  // Fetch existing transaction to preserve metadata
+  const { data: existingTx, error: fetchError } = await supabase
+    .from('payment_transactions')
+    .select('metadata')
+    .eq('paypal_subscription_id', subscriptionId)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching transaction:', fetchError);
+    return;
+  }
+
+  // Merge webhook data with existing metadata
+  const updatedMetadata = {
+    ...existingTx.metadata,
+    subscription_created: true,
+    subscription_create_time: subscription.create_time,
+    subscription_status: subscription.status,
+    webhook_create_time: new Date().toISOString()
+  };
+
+  // Update transaction with merged metadata
   const { error } = await supabase
     .from('payment_transactions')
-    .update({
-      metadata: {
-        subscription_created: true,
-        subscription_create_time: subscription.create_time,
-        subscription_status: subscription.status
-      }
-    })
+    .update({ metadata: updatedMetadata })
     .eq('paypal_subscription_id', subscriptionId);
 
   if (error) {
@@ -297,16 +323,42 @@ async function handleSubscriptionActivated(event: any, supabase: any) {
 
   console.log('Subscription activated:', subscriptionId);
 
-  // Update transaction to completed status
+  // First, fetch existing transaction to preserve metadata
+  const { data: existingTx, error: fetchError } = await supabase
+    .from('payment_transactions')
+    .select('metadata')
+    .eq('paypal_subscription_id', subscriptionId)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching transaction:', fetchError);
+    return;
+  }
+
+  // Merge webhook data with existing metadata
+  const updatedMetadata = {
+    ...existingTx.metadata,
+    subscription_activated: true,
+    subscription_start_time: subscription.start_time,
+    subscription_status: subscription.status,
+    subscription_billing_info: subscription.billing_info,
+    paypal_plan_id: subscription.plan_id,
+    webhook_activation_time: new Date().toISOString(),
+    paypal_subscription_details: {
+      id: subscription.id,
+      status: subscription.status,
+      status_update_time: subscription.status_update_time,
+      create_time: subscription.create_time,
+      start_time: subscription.start_time
+    }
+  };
+
+  // Update transaction with merged metadata
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'completed',
-      metadata: {
-        subscription_activated: true,
-        subscription_start_time: subscription.start_time,
-        subscription_status: subscription.status
-      }
+      metadata: updatedMetadata
     })
     .eq('paypal_subscription_id', subscriptionId);
 
@@ -314,8 +366,7 @@ async function handleSubscriptionActivated(event: any, supabase: any) {
     console.error('Error activating subscription:', error);
   }
 
-  // Subscription activation will trigger the database trigger to activate user subscription
-  console.log('Subscription activated successfully');
+  console.log('Subscription activated and metadata updated successfully');
 }
 
 // Handle subscription cancelled event
@@ -325,16 +376,38 @@ async function handleSubscriptionCancelled(event: any, supabase: any) {
 
   console.log('Subscription cancelled:', subscriptionId);
 
+  // Fetch existing transaction to preserve metadata
+  const { data: existingTx, error: fetchError } = await supabase
+    .from('payment_transactions')
+    .select('metadata')
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring')
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching transaction:', fetchError);
+    return;
+  }
+
+  // Merge webhook data with existing metadata
+  const updatedMetadata = {
+    ...existingTx.metadata,
+    subscription_cancelled: true,
+    subscription_cancel_time: new Date().toISOString(),
+    cancellation_note: subscription.status_update_reason || 'User cancelled via PayPal',
+    paypal_cancellation_details: {
+      status: subscription.status,
+      status_update_time: subscription.status_update_time,
+      reason: subscription.status_update_reason
+    }
+  };
+
   // Mark subscription as cancelled
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'cancelled',
-      metadata: {
-        subscription_cancelled: true,
-        subscription_cancel_time: new Date().toISOString(),
-        cancellation_note: subscription.status_update_reason || 'User cancelled'
-      }
+      metadata: updatedMetadata
     })
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring');
@@ -343,8 +416,7 @@ async function handleSubscriptionCancelled(event: any, supabase: any) {
     console.error('Error cancelling subscription:', error);
   }
 
-  // Note: User retains access until period end (handled by existing logic)
-  console.log('Subscription marked as cancelled');
+  console.log('Subscription marked as cancelled with full details');
 }
 
 // Handle subscription suspended event
@@ -354,16 +426,38 @@ async function handleSubscriptionSuspended(event: any, supabase: any) {
 
   console.log('Subscription suspended:', subscriptionId);
 
+  // Fetch existing transaction to preserve metadata
+  const { data: existingTx, error: fetchError } = await supabase
+    .from('payment_transactions')
+    .select('metadata')
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring')
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching transaction:', fetchError);
+    return;
+  }
+
+  // Merge webhook data with existing metadata
+  const updatedMetadata = {
+    ...existingTx.metadata,
+    subscription_suspended: true,
+    suspension_time: new Date().toISOString(),
+    suspension_reason: subscription.status_update_reason || 'Payment failure',
+    paypal_suspension_details: {
+      status: subscription.status,
+      status_update_time: subscription.status_update_time,
+      reason: subscription.status_update_reason
+    }
+  };
+
   // Mark subscription as suspended
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'suspended',
-      metadata: {
-        subscription_suspended: true,
-        suspension_time: new Date().toISOString(),
-        suspension_reason: subscription.status_update_reason || 'Unknown'
-      }
+      metadata: updatedMetadata
     })
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring');
@@ -372,7 +466,7 @@ async function handleSubscriptionSuspended(event: any, supabase: any) {
     console.error('Error suspending subscription:', error);
   }
 
-  console.log('Subscription suspended - usually due to payment failure');
+  console.log('Subscription suspended with full details - usually due to payment failure');
 }
 
 // Handle subscription expired event
@@ -382,15 +476,36 @@ async function handleSubscriptionExpired(event: any, supabase: any) {
 
   console.log('Subscription expired:', subscriptionId);
 
+  // Fetch existing transaction to preserve metadata
+  const { data: existingTx, error: fetchError } = await supabase
+    .from('payment_transactions')
+    .select('metadata')
+    .eq('paypal_subscription_id', subscriptionId)
+    .eq('payment_type', 'recurring')
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching transaction:', fetchError);
+    return;
+  }
+
+  // Merge webhook data with existing metadata
+  const updatedMetadata = {
+    ...existingTx.metadata,
+    subscription_expired: true,
+    expiration_time: new Date().toISOString(),
+    paypal_expiration_details: {
+      status: subscription.status,
+      status_update_time: subscription.status_update_time
+    }
+  };
+
   // Mark subscription as expired
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'expired',
-      metadata: {
-        subscription_expired: true,
-        expiration_time: new Date().toISOString()
-      }
+      metadata: updatedMetadata
     })
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring');
@@ -399,7 +514,7 @@ async function handleSubscriptionExpired(event: any, supabase: any) {
     console.error('Error expiring subscription:', error);
   }
 
-  console.log('Subscription expired - user will be downgraded to free tier');
+  console.log('Subscription expired with full details - user will be downgraded to free tier');
 }
 
 // Handle recurring payment event (monthly/yearly charge)
@@ -425,7 +540,7 @@ async function handleRecurringPayment(event: any, supabase: any) {
     return;
   }
 
-  // Create new transaction record for the recurring payment
+  // Create new transaction record for the recurring payment with comprehensive metadata
   const { error } = await supabase
     .from('payment_transactions')
     .insert({
@@ -443,8 +558,27 @@ async function handleRecurringPayment(event: any, supabase: any) {
       selected_subject_ids: originalTransaction.selected_subject_ids,
       metadata: {
         recurring_payment: true,
-        sale_data: sale,
-        payment_date: new Date().toISOString()
+        payment_date: new Date().toISOString(),
+        webhook_verified: true,
+        paypal_sale_details: {
+          id: saleId,
+          amount: {
+            total: sale.amount.total,
+            currency: sale.amount.currency,
+            details: sale.amount.details
+          },
+          state: sale.state,
+          payment_mode: sale.payment_mode,
+          protection_eligibility: sale.protection_eligibility,
+          create_time: sale.create_time,
+          update_time: sale.update_time,
+          billing_agreement_id: subscriptionId
+        },
+        renewal_info: {
+          cycle_number: sale.custom || 'N/A',
+          is_auto_renewal: true,
+          billing_cycle: originalTransaction.billing_cycle
+        }
       }
     });
 
@@ -453,7 +587,7 @@ async function handleRecurringPayment(event: any, supabase: any) {
     return;
   }
 
-  console.log('Recurring payment recorded - user limits will be reset by trigger');
+  console.log('Recurring payment recorded with full PayPal details - user limits will be reset by trigger');
 }
 
 // Verify webhook signature (for production use)
