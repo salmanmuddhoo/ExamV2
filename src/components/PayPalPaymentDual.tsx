@@ -292,7 +292,7 @@ export function PayPalPaymentDual({
                   amount: displayFinalUSD,
                   currency: 'USD',
                   billing_cycle: paymentData.billingCycle,
-                  status: 'pending_activation',
+                  status: 'pending',
                   payment_type: 'recurring',
                   external_transaction_id: data.subscriptionID,
                   paypal_subscription_id: data.subscriptionID,
