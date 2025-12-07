@@ -541,7 +541,7 @@ async function handleRecurringPayment(event: any, supabase: any) {
   }
 
   // Create new transaction record for the recurring payment with comprehensive metadata
-  const { error } = await supabase
+  const { data: transaction, error } = await supabase
     .from('payment_transactions')
     .insert({
       user_id: originalTransaction.user_id,
@@ -580,7 +580,9 @@ async function handleRecurringPayment(event: any, supabase: any) {
           billing_cycle: originalTransaction.billing_cycle
         }
       }
-    });
+    })
+    .select()
+    .single();
 
   if (error) {
     console.error('Error recording recurring payment:', error);
@@ -588,6 +590,23 @@ async function handleRecurringPayment(event: any, supabase: any) {
   }
 
   console.log('Recurring payment recorded with full PayPal details - user limits will be reset by trigger');
+
+  // Send receipt email for the recurring payment
+  try {
+    const { error: emailError } = await supabase.functions.invoke('send-receipt-email', {
+      body: { transactionId: transaction.id }
+    });
+
+    if (emailError) {
+      console.error('Error sending receipt email for recurring payment:', emailError);
+      // Don't fail the webhook - email is non-critical
+    } else {
+      console.log('Receipt email sent successfully for recurring payment:', transaction.id);
+    }
+  } catch (emailErr) {
+    console.error('Failed to send receipt email:', emailErr);
+    // Don't fail the webhook - email is non-critical
+  }
 }
 
 // Verify webhook signature (for production use)
