@@ -292,7 +292,7 @@ export function PayPalPaymentDual({
                   amount: displayFinalUSD,
                   currency: 'USD',
                   billing_cycle: paymentData.billingCycle,
-                  status: 'pending',
+                  status: 'completed',
                   payment_type: 'recurring',
                   external_transaction_id: data.subscriptionID,
                   paypal_subscription_id: data.subscriptionID,
@@ -310,7 +310,9 @@ export function PayPalPaymentDual({
 
               if (transactionError) throw transactionError;
 
-              // Subscription will be activated by webhook
+              // Subscription activated immediately (PayPal already approved)
+              // Webhook will update metadata if needed
+              sendReceiptEmailWithRetry(transaction.id).catch(() => {});
               setSucceeded(true);
               setTimeout(() => onSuccess(), 2000);
             } catch (err: any) {
