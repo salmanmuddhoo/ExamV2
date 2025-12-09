@@ -16,7 +16,7 @@ export interface PaymentTransaction {
   payment_method_id: string;
   amount: number;
   currency: string;
-  billing_cycle: 'monthly' | 'yearly';
+  billing_cycle: 'daily' | 'monthly' | 'yearly';
   status: 'pending' | 'approved' | 'completed' | 'failed' | 'cancelled' | 'refunded';
   external_transaction_id?: string;
   payment_proof_url?: string;
@@ -38,7 +38,7 @@ export interface PaymentSelectionData {
   tierName: string;
   amount: number;
   currency: string;
-  billingCycle: 'monthly' | 'yearly';
+  billingCycle: 'daily' | 'monthly' | 'yearly';
   selectedGradeId?: string;
   selectedSubjectIds?: string[];
 }

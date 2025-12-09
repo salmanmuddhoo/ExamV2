@@ -527,10 +527,10 @@ async function handleRecurringPayment(event: any, supabase: any) {
 
   console.log('Recurring payment received:', saleId, 'for subscription:', subscriptionId);
 
-  // Find the original subscription transaction
+  // Find the original subscription transaction (to get user_id and payment_method_id)
   const { data: originalTransaction } = await supabase
     .from('payment_transactions')
-    .select('user_id, tier_id, payment_method_id, billing_cycle, selected_grade_id, selected_subject_ids')
+    .select('user_id, payment_method_id, billing_cycle')
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring')
     .single();
@@ -540,12 +540,43 @@ async function handleRecurringPayment(event: any, supabase: any) {
     return;
   }
 
+  // Fetch user's CURRENT active subscription to get current tier and selections
+  // This ensures receipts and payment history reflect any admin-made changes (upgrades/downgrades)
+  const { data: currentSubscription, error: subError } = await supabase
+    .from('user_subscriptions')
+    .select('tier_id, selected_grade_id, selected_subject_ids')
+    .eq('user_id', originalTransaction.user_id)
+    .eq('status', 'active')
+    .single();
+
+  if (subError || !currentSubscription) {
+    console.error('Current subscription not found for user:', originalTransaction.user_id, subError);
+    // Fallback: Try to get tier from original transaction if current subscription not found
+    const { data: fallbackTx } = await supabase
+      .from('payment_transactions')
+      .select('tier_id, selected_grade_id, selected_subject_ids')
+      .eq('paypal_subscription_id', subscriptionId)
+      .eq('payment_type', 'recurring')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!fallbackTx) {
+      console.error('Cannot determine tier for recurring payment');
+      return;
+    }
+
+    // Use fallback tier information
+    currentSubscription = fallbackTx;
+  }
+
   // Create new transaction record for the recurring payment with comprehensive metadata
-  const { error } = await supabase
+  // Uses CURRENT subscription tier/selections to reflect any admin changes
+  const { data: transaction, error } = await supabase
     .from('payment_transactions')
     .insert({
       user_id: originalTransaction.user_id,
-      tier_id: originalTransaction.tier_id,
+      tier_id: currentSubscription.tier_id, // Use current tier (reflects upgrades/downgrades)
       payment_method_id: originalTransaction.payment_method_id,
       amount: amount,
       currency: currency,
@@ -554,8 +585,8 @@ async function handleRecurringPayment(event: any, supabase: any) {
       payment_type: 'recurring',
       external_transaction_id: saleId,
       paypal_subscription_id: subscriptionId,
-      selected_grade_id: originalTransaction.selected_grade_id,
-      selected_subject_ids: originalTransaction.selected_subject_ids,
+      selected_grade_id: currentSubscription.selected_grade_id, // Use current grade
+      selected_subject_ids: currentSubscription.selected_subject_ids, // Use current subjects
       metadata: {
         recurring_payment: true,
         payment_date: new Date().toISOString(),
@@ -577,10 +608,14 @@ async function handleRecurringPayment(event: any, supabase: any) {
         renewal_info: {
           cycle_number: sale.custom || 'N/A',
           is_auto_renewal: true,
-          billing_cycle: originalTransaction.billing_cycle
+          billing_cycle: originalTransaction.billing_cycle,
+          uses_current_tier: true, // Transaction reflects user's current subscription tier
+          note: 'Tier and selections are updated to match current active subscription'
         }
       }
-    });
+    })
+    .select()
+    .single();
 
   if (error) {
     console.error('Error recording recurring payment:', error);
@@ -588,6 +623,23 @@ async function handleRecurringPayment(event: any, supabase: any) {
   }
 
   console.log('Recurring payment recorded with full PayPal details - user limits will be reset by trigger');
+
+  // Send receipt email for the recurring payment
+  try {
+    const { error: emailError } = await supabase.functions.invoke('send-receipt-email', {
+      body: { transactionId: transaction.id }
+    });
+
+    if (emailError) {
+      console.error('Error sending receipt email for recurring payment:', emailError);
+      // Don't fail the webhook - email is non-critical
+    } else {
+      console.log('Receipt email sent successfully for recurring payment:', transaction.id);
+    }
+  } catch (emailErr) {
+    console.error('Failed to send receipt email:', emailErr);
+    // Don't fail the webhook - email is non-critical
+  }
 }
 
 // Verify webhook signature (for production use)
