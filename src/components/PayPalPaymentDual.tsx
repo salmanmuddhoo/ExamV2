@@ -382,7 +382,10 @@ export function PayPalPaymentDual({
         )}
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Pay with PayPal</h2>
         <p className="text-gray-600">
-          Complete your payment for <strong>{paymentData.tierName}</strong> - {paymentData.billingCycle === 'monthly' ? 'Monthly' : 'Yearly'}
+          Complete your payment for <strong>{paymentData.tierName}</strong> - {
+            paymentData.billingCycle === 'daily' ? 'Daily' :
+            paymentData.billingCycle === 'monthly' ? 'Monthly' : 'Yearly'
+          }
         </p>
       </div>
 
@@ -424,8 +427,13 @@ export function PayPalPaymentDual({
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
               {recurringAvailable
-                ? `Automatically renew your subscription every ${paymentData.billingCycle === 'monthly' ? 'month' : 'year'}. Cancel anytime.`
-                : 'Auto-renewal is not configured for this tier yet.'
+                ? `Automatically renew your subscription every ${
+                    paymentData.billingCycle === 'daily' ? 'day' :
+                    paymentData.billingCycle === 'monthly' ? 'month' : 'year'
+                  }. Cancel anytime.`
+                : `Auto-renewal is not configured for this tier yet. ${
+                    paymentData.billingCycle === 'daily' ? 'Daily recurring plans must be set up in PayPal first.' : ''
+                  }`
               }
             </p>
           </div>
