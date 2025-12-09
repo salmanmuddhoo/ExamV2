@@ -169,9 +169,20 @@ async function createPlan(accessToken, productId, planConfig) {
   console.log(`\n📋 Creating plan: ${tier_display_name} ${billing_cycle}...`);
 
   // Determine billing frequency
-  const frequency = billing_cycle === 'monthly'
-    ? { interval_unit: 'MONTH', interval_count: 1 }
-    : { interval_unit: 'YEAR', interval_count: 1 };
+  let frequency;
+  switch (billing_cycle) {
+    case 'daily':
+      frequency = { interval_unit: 'DAY', interval_count: 1 };
+      break;
+    case 'monthly':
+      frequency = { interval_unit: 'MONTH', interval_count: 1 };
+      break;
+    case 'yearly':
+      frequency = { interval_unit: 'YEAR', interval_count: 1 };
+      break;
+    default:
+      throw new Error(`Unsupported billing cycle: ${billing_cycle}`);
+  }
 
   const planData = {
     product_id: productId,
@@ -228,7 +239,11 @@ async function createPlan(accessToken, productId, planConfig) {
 
   console.log(`✅ Plan created and activated: ${plan.id}`);
   console.log(`   Name: ${plan.name}`);
-  console.log(`   Price: $${price} USD per ${billing_cycle === 'monthly' ? 'month' : 'year'}`);
+
+  // Display price with appropriate period
+  const period = billing_cycle === 'daily' ? 'day' :
+                 billing_cycle === 'monthly' ? 'month' : 'year';
+  console.log(`   Price: $${price} USD per ${period}`);
 
   return {
     tier_name,
@@ -266,7 +281,7 @@ function generateSQL(plans) {
   console.log(`CREATE TABLE IF NOT EXISTS paypal_subscription_plans (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tier_id UUID REFERENCES subscription_tiers(id) NOT NULL,
-  billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('monthly', 'yearly')),
+  billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('daily', 'monthly', 'yearly')),
   paypal_plan_id TEXT NOT NULL UNIQUE,
   price DECIMAL(10, 2) NOT NULL,
   currency TEXT NOT NULL DEFAULT 'USD',
