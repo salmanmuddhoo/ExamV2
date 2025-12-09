@@ -25,7 +25,7 @@ export interface UserSubscription {
   user_id: string;
   tier_id: string;
   status: 'active' | 'cancelled' | 'expired' | 'suspended';
-  billing_cycle: 'monthly' | 'yearly' | 'lifetime' | null;
+  billing_cycle: 'daily' | 'monthly' | 'yearly' | 'lifetime' | null;
   is_recurring: boolean;
 
   // Student package specific
