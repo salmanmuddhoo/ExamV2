@@ -3,6 +3,7 @@ export interface SubscriptionTier {
   name: 'free' | 'student' | 'pro';
   display_name: string;
   description: string | null;
+  price_daily?: number; // Optional: Daily pricing
   price_monthly: number;
   price_yearly: number;
   currency: string; // e.g., 'USD', 'EUR', 'MUR'

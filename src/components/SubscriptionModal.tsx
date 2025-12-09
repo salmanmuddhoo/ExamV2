@@ -31,9 +31,11 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
     const hasCachedSubscription = sessionStorage.getItem('subscription_current');
     return !(hasCachedTiers && hasCachedSubscription);
   });
-  const [selectedBillingCycle, setSelectedBillingCycle] = useState<'monthly' | 'yearly'>(() => {
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<'daily' | 'monthly' | 'yearly'>(() => {
     const saved = sessionStorage.getItem('subscription_billingCycle');
-    return (saved === 'yearly' ? 'yearly' : 'monthly') as 'monthly' | 'yearly';
+    if (saved === 'daily') return 'daily';
+    if (saved === 'yearly') return 'yearly';
+    return 'monthly';
   });
   const [showStudentSelector, setShowStudentSelector] = useState(() => {
     return sessionStorage.getItem('subscription_showStudentSelector') === 'true';
@@ -124,6 +126,10 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
   };
 
   const getPrice = (tier: SubscriptionTier) => {
+    if (selectedBillingCycle === 'daily') {
+      // Use price_daily if available, otherwise fallback to monthly price
+      return tier.price_daily || tier.price_monthly;
+    }
     return selectedBillingCycle === 'monthly' ? tier.price_monthly : tier.price_yearly;
   };
 
@@ -396,7 +402,17 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
 
           {/* Billing Cycle Toggle */}
           <div className="flex justify-center mb-3 sm:mb-4">
-            <div className="inline-flex bg-gray-100 rounded-lg p-0.5 w-full max-w-xs sm:w-auto">
+            <div className="inline-flex bg-gray-100 rounded-lg p-0.5 w-full max-w-md sm:w-auto">
+              <button
+                onClick={() => setSelectedBillingCycle('daily')}
+                className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
+                  selectedBillingCycle === 'daily'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Daily
+              </button>
               <button
                 onClick={() => setSelectedBillingCycle('monthly')}
                 className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
@@ -472,7 +488,10 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
                     <p className="text-[10px] text-gray-600 mb-2">{tier.description}</p>
                     <div className="flex items-baseline justify-center">
                       <span className="text-2xl font-bold text-gray-900">{getCurrencySymbol(tier.currency)}{price}</span>
-                      <span className="text-gray-600 ml-1 text-xs">/{selectedBillingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                      <span className="text-gray-600 ml-1 text-xs">/{
+                        selectedBillingCycle === 'daily' ? 'day' :
+                        selectedBillingCycle === 'monthly' ? 'mo' : 'yr'
+                      }</span>
                     </div>
                   </div>
 
