@@ -86,27 +86,49 @@ export function PayPalPaymentDual({
   useEffect(() => {
     const checkAndFetchPlan = async () => {
       setLoadingPlan(true);
+
+      console.log('🔍 [PayPal Plan Check] Starting plan lookup...');
+      console.log('   Tier ID:', paymentData.tierId);
+      console.log('   Billing Cycle:', paymentData.billingCycle);
+      console.log('   Tier Name:', paymentData.tierName);
+
       try {
         const { data, error } = await supabase
           .from('paypal_subscription_plans')
-          .select('paypal_plan_id')
+          .select('paypal_plan_id, tier_id, billing_cycle, is_active, price')
           .eq('tier_id', paymentData.tierId)
           .eq('billing_cycle', paymentData.billingCycle)
           .eq('is_active', true)
           .maybeSingle(); // Use maybeSingle to avoid 406 error when no rows found
 
+        console.log('📊 [PayPal Plan Query Result]');
+        console.log('   Error:', error);
+        console.log('   Data:', data);
+
         if (!error && data) {
+          console.log('✅ [PayPal Plan Found] Plan exists for daily billing');
+          console.log('   Plan ID:', data.paypal_plan_id);
+          console.log('   Setting recurringAvailable = true');
+          console.log('   Keeping isRecurring = true (checkbox will be checked)');
+
           setPaypalPlanId(data.paypal_plan_id);
           setRecurringAvailable(true);
           // Keep isRecurring as true (default) when plan is available
         } else {
+          console.log('❌ [PayPal Plan NOT Found] No matching plan');
+          console.log('   Setting recurringAvailable = false');
+          console.log('   Setting isRecurring = false (checkbox will be UNCHECKED)');
+          if (error) {
+            console.log('   Error details:', error.message, error.code);
+          }
+
           setPaypalPlanId(null);
           setRecurringAvailable(false);
           // Set to one-time payment if no recurring plan available
           setIsRecurring(false);
         }
       } catch (err) {
-        console.error('Error fetching PayPal plan:', err);
+        console.error('❌ [PayPal Plan Exception]', err);
         setPaypalPlanId(null);
         setRecurringAvailable(false);
         setIsRecurring(false);
