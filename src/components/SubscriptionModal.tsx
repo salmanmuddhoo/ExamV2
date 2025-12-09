@@ -51,6 +51,7 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
     const saved = sessionStorage.getItem('subscription_paymentData');
     return saved ? JSON.parse(saved) : null;
   });
+  const [hasDailyPlans, setHasDailyPlans] = useState(false);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -86,6 +87,41 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
       sessionStorage.removeItem('subscription_paymentData');
     }
   }, [paymentData]);
+
+  // Check if daily plans exist (for testing only, not production)
+  useEffect(() => {
+    const checkDailyPlans = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('paypal_subscription_plans')
+          .select('id')
+          .eq('billing_cycle', 'daily')
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data) {
+          setHasDailyPlans(true);
+        } else {
+          setHasDailyPlans(false);
+          // If daily is selected but no daily plans exist, reset to monthly
+          if (selectedBillingCycle === 'daily') {
+            setSelectedBillingCycle('monthly');
+          }
+        }
+      } catch (err) {
+        console.error('Error checking for daily plans:', err);
+        setHasDailyPlans(false);
+        if (selectedBillingCycle === 'daily') {
+          setSelectedBillingCycle('monthly');
+        }
+      }
+    };
+
+    if (isOpen) {
+      checkDailyPlans();
+    }
+  }, [isOpen]);
 
   const fetchData = async () => {
     try {
@@ -403,16 +439,18 @@ export function SubscriptionModal({ isOpen, onClose, onSuccess, onNavigateToPaym
           {/* Billing Cycle Toggle */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="inline-flex bg-gray-100 rounded-lg p-0.5 w-full max-w-md sm:w-auto">
-              <button
-                onClick={() => setSelectedBillingCycle('daily')}
-                className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
-                  selectedBillingCycle === 'daily'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Daily
-              </button>
+              {hasDailyPlans && (
+                <button
+                  onClick={() => setSelectedBillingCycle('daily')}
+                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
+                    selectedBillingCycle === 'daily'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Daily
+                </button>
+              )}
               <button
                 onClick={() => setSelectedBillingCycle('monthly')}
                 className={`flex-1 sm:flex-none px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
