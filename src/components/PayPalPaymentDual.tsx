@@ -171,31 +171,67 @@ export function PayPalPaymentDual({
       return;
     }
 
+    console.log('[PayPal SDK] Starting to load PayPal SDK...');
+    console.log('[PayPal SDK] User Agent:', navigator.userAgent);
+    console.log('[PayPal SDK] Is PWA:', window.matchMedia('(display-mode: standalone)').matches);
+
+    // Timeout to detect if SDK fails to load (important for PWA)
+    const loadTimeout = setTimeout(() => {
+      if (!sdkReady) {
+        console.error('[PayPal SDK] Timeout: SDK failed to load after 30 seconds');
+        setError('PayPal is taking too long to load. Please check your internet connection and try again.');
+      }
+    }, 30000); // 30 second timeout
+
     const script = document.createElement('script');
     // Remove intent parameter to support both createOrder (one-time) and createSubscription (recurring)
     // vault=true enables subscription support without forcing it
     // Removed disable-funding=card to allow guest checkout with debit/credit cards
     script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&vault=true`;
-    script.addEventListener('load', () => setSdkReady(true));
-    script.addEventListener('error', () => {
+
+    script.addEventListener('load', () => {
+      console.log('[PayPal SDK] ✅ SDK loaded successfully');
+      clearTimeout(loadTimeout);
+      setSdkReady(true);
+    });
+
+    script.addEventListener('error', (e) => {
+      console.error('[PayPal SDK] ❌ Failed to load:', e);
+      clearTimeout(loadTimeout);
       setError('Failed to load PayPal. Please try again or contact support.');
     });
+
     document.body.appendChild(script);
+    console.log('[PayPal SDK] Script tag added to body');
 
     return () => {
+      clearTimeout(loadTimeout);
       if (document.body.contains(script)) {
         document.body.removeChild(script);
+        console.log('[PayPal SDK] Script removed from body');
       }
     };
   }, [PAYPAL_CLIENT_ID]);
 
   // Render PayPal buttons
   useEffect(() => {
+    console.log('[PayPal Buttons] Render check:', {
+      sdkReady,
+      hasPaypal: !!window.paypal,
+      exchangeRate,
+      isRecurring,
+      paypalPlanId,
+      paymentType
+    });
+
     if (sdkReady && window.paypal && exchangeRate) {
       // Don't render until we have plan ID for recurring
       if (isRecurring && !paypalPlanId) {
+        console.log('[PayPal Buttons] ⏳ Waiting for plan ID (recurring payment)');
         return;
       }
+
+      console.log('[PayPal Buttons] ✅ All conditions met, rendering buttons...');
 
       const container = document.querySelector('#paypal-button-container');
       if (container) {

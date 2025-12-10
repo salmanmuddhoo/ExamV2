@@ -92,6 +92,16 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
               }
             }
+          },
+          {
+            // CRITICAL: PayPal SDK must NEVER be cached
+            // Always fetch fresh from network to ensure payment security and SDK functionality
+            // Caching PayPal SDK breaks PWA payment flows
+            urlPattern: ({ url }) => url.origin === 'https://www.paypal.com',
+            handler: 'NetworkOnly',
+            options: {
+              networkTimeoutSeconds: 30 // Allow up to 30s for PayPal SDK to load
+            }
           }
         ],
         // Skip waiting to activate new service worker immediately
