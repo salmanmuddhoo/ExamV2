@@ -94,13 +94,18 @@ export default defineConfig({
             }
           },
           {
-            // CRITICAL: PayPal SDK must NEVER be cached
-            // Always fetch fresh from network to ensure payment security and SDK functionality
-            // Caching PayPal SDK breaks PWA payment flows
+            // CRITICAL: PayPal SDK - always fetch fresh from network
+            // NetworkFirst with short cache ensures payment security while providing fallback
+            // Cache only used if network completely fails (offline scenario)
             urlPattern: ({ url }) => url.origin === 'https://www.paypal.com',
-            handler: 'NetworkOnly',
+            handler: 'NetworkFirst',
             options: {
-              networkTimeoutSeconds: 30 // Allow up to 30s for PayPal SDK to load
+              cacheName: 'paypal-sdk-cache-v1',
+              networkTimeoutSeconds: 30, // Allow up to 30s for network request
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 5 // 5 minutes - very short cache
+              }
             }
           }
         ],
