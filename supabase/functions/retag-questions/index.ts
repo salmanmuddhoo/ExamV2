@@ -181,9 +181,13 @@ async function tagQuestionsWithChapters(
 
   const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters from the provided PDF.
 
-**REFERENCE CHAPTERS:**
-${chapterInfo.map(ch => `ID: ${ch.id}
-Chapter ${ch.number}: ${ch.title}`).join('\n\n')}
+**REFERENCE CHAPTERS (YOU MUST USE THESE EXACT IDs):**
+${chapterInfo.map(ch => `
+┌─────────────────────────────────────────
+│ Chapter Number: ${ch.number}
+│ Chapter Title: ${ch.title}
+│ UUID (USE THIS EXACT VALUE): ${ch.id}
+└─────────────────────────────────────────`).join('\n')}
 
 **QUESTIONS:**
 ${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
@@ -192,14 +196,25 @@ ${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
 Read the FULL SYLLABUS PDF provided and compare each question against the COMPLETE CONTENT of each chapter in the PDF.
 For each question, identify which chapter(s) it belongs to by reading the detailed content, subtopics, and learning objectives in the PDF.
 
-**Instructions:**
+**CRITICAL INSTRUCTIONS:**
 1. Read through the ENTIRE syllabus PDF to understand all chapter content
 2. For each question, carefully compare it against the full chapter content in the PDF (not just the titles above)
 3. Match questions to chapters based on the detailed content, subtopics, and concepts in the PDF
 4. A question may relate to multiple chapters if it spans multiple topics
-5. Use the chapter reference list above ONLY to get the correct chapter IDs - the PDF is your source for content matching
 
-**IMPORTANT:** Use the EXACT chapter IDs from the "Reference Chapters" list above. Match the chapter numbers from the PDF to the IDs in the list.
+**⚠️ EXTREMELY IMPORTANT - chapterId FIELD:**
+- The "chapterId" field MUST be the EXACT UUID string shown above (e.g., "5afd0da8-9afc-4b05-85c7-11542132639a")
+- DO NOT use chapter numbers (1, 2, 3, etc.) as the chapterId
+- DO NOT make up UUIDs
+- COPY the UUID exactly from the reference list above
+- Match the chapter number from the PDF to find the correct UUID in the reference list
+
+**Example - CORRECT:**
+"chapterId": "5afd0da8-9afc-4b05-85c7-11542132639a"  ✅ (Full UUID)
+
+**Example - WRONG:**
+"chapterId": "5"  ❌ (Chapter number, not UUID)
+"chapterId": 5    ❌ (Number instead of string)
 
 Return a JSON array with this format:
 [
@@ -207,8 +222,8 @@ Return a JSON array with this format:
     "questionNumber": "1",
     "matches": [
       {
-        "chapterId": "<exact-uuid-from-ID-field>",
-        "chapterNumber": 1,
+        "chapterId": "5afd0da8-9afc-4b05-85c7-11542132639a",
+        "chapterNumber": 5,
         "confidence": 0.95,
         "isPrimary": true,
         "reasoning": "Question tests concepts from this chapter based on PDF content"
@@ -221,10 +236,10 @@ Return a JSON array with this format:
 1. confidence should be a number from 0.00 to 1.00 (1.00 = perfect match)
 2. Only include matches with confidence >= 0.60
 3. Mark ONE chapter as isPrimary: true (the best match)
-4. **CRITICAL:** Use the EXACT chapter UUID from the reference list above
-5. reasoning should explain what content in the PDF matched the question
-6. If a question doesn't match any chapter well, return empty matches array
-7. chapterNumber should be the integer chapter number
+4. **CRITICAL:** chapterId MUST be the full UUID string from the reference list (e.g., "5afd0da8-9afc-4b05-85c7-11542132639a")
+5. chapterNumber should be the integer chapter number (e.g., 5)
+6. reasoning should explain what content in the PDF matched the question
+7. If a question doesn't match any chapter well, return empty matches array
 
 Return ONLY the JSON array, no other text.`;
 
@@ -290,6 +305,14 @@ Return ONLY the JSON array, no other text.`;
     const taggingResults = JSON.parse(jsonMatch[0]);
     console.log(`AI returned tagging for ${taggingResults.length} questions`);
 
+    // Create mapping from chapter number to UUID for validation
+    const chapterNumberToUuid = new Map<number, string>();
+    chapters.forEach(ch => {
+      chapterNumberToUuid.set(ch.chapter_number, ch.id);
+    });
+
+    console.log('Chapter number to UUID mapping:', Array.from(chapterNumberToUuid.entries()));
+
     // Save tags to database
     let taggedCount = 0;
 
@@ -308,18 +331,56 @@ Return ONLY the JSON array, no other text.`;
 
       // Insert tags for each match
       for (const match of result.matches) {
-        const { error } = await supabase.from('question_chapter_tags').insert({
+        // Validate and fix chapter_id
+        let chapterId = match.chapterId;
+
+        // Check if chapterId is a number or looks like a chapter number instead of UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(chapterId));
+
+        if (!isUuid) {
+          // AI returned chapter number instead of UUID - try to map it
+          const chapterNum = parseInt(String(chapterId));
+          if (!isNaN(chapterNum) && chapterNumberToUuid.has(chapterNum)) {
+            const mappedUuid = chapterNumberToUuid.get(chapterNum)!;
+            console.warn(`⚠️ AI returned chapter number ${chapterNum} instead of UUID. Mapping to: ${mappedUuid}`);
+            chapterId = mappedUuid;
+          } else {
+            console.error(`❌ Invalid chapter ID for Q${result.questionNumber}: "${match.chapterId}" - not a UUID and couldn't map to chapter number`);
+            continue;
+          }
+        }
+
+        // Verify the UUID exists in our chapters list
+        const chapterExists = chapters.some(ch => ch.id === chapterId);
+        if (!chapterExists) {
+          console.error(`❌ Chapter UUID ${chapterId} not found in syllabus chapters for Q${result.questionNumber}`);
+          continue;
+        }
+
+        // Validate confidence score
+        const confidenceScore = parseFloat(String(match.confidence));
+        if (isNaN(confidenceScore) || confidenceScore < 0 || confidenceScore > 1) {
+          console.error(`Invalid confidence score for Q${result.questionNumber}: ${match.confidence}`);
+          continue;
+        }
+
+        const insertData = {
           question_id: question.id,
-          chapter_id: match.chapterId,
-          confidence_score: match.confidence,
+          chapter_id: chapterId,
+          confidence_score: confidenceScore,
           is_primary: match.isPrimary || false,
           match_reasoning: match.reasoning,
           is_manually_set: false
-        });
+        };
+
+        console.log(`Inserting tag for Q${result.questionNumber}:`, JSON.stringify(insertData));
+
+        const { error } = await supabase.from('question_chapter_tags').insert(insertData);
 
         if (error) {
           console.error(`Error inserting tag for question ${result.questionNumber}:`, error);
         } else {
+          console.log(`✅ Tagged Q${result.questionNumber} with Chapter ${match.chapterNumber} (UUID: ${chapterId}, confidence: ${confidenceScore})`);
           taggedCount++;
         }
       }
