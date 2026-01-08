@@ -13,12 +13,23 @@ Gemini 2.5 Pro is now available as an AI model option for subscription tiers. Th
 
 ## Pricing & Token Consumption
 
-### Gemini API Pricing
+### Gemini 2.5 Pro Official API Pricing
+
+**For prompts ≤ 200k tokens:**
 - **Input**: $1.25 per 1M tokens
-- **Output**: $5.00 per 1M tokens
+- **Output**: $10.00 per 1M tokens (includes thinking tokens)
+- **Context caching**: $0.125 per 1M tokens
+- **Storage**: $4.50 per 1M tokens per hour
+
+**For prompts > 200k tokens:**
+- **Input**: $2.50 per 1M tokens (2x higher)
+- **Output**: $15.00 per 1M tokens (1.5x higher)
+- **Context caching**: $0.25 per 1M tokens
+
+> Note: Most chat conversations stay under 200k tokens, so the lower pricing tier applies.
 
 ### Token Multiplier
-Gemini 2.5 Pro consumes **approximately 16-17x more tokens** than Gemini 2.0 Flash baseline.
+Gemini 2.5 Pro consumes **approximately 27x more tokens** than Gemini 2.0 Flash baseline.
 
 ### Cost Calculation Example
 For a conversation with 1,000 input tokens and 500 output tokens:
@@ -28,9 +39,9 @@ For a conversation with 1,000 input tokens and 500 output tokens:
 - Tokens deducted: **1,500 tokens**
 
 **Gemini 2.5 Pro:**
-- Cost: (1000 / 1M) × $1.25 + (500 / 1M) × $5.00 = **$0.00375**
-- Cost ratio: $0.00375 / $0.000225 = **16.67x**
-- Tokens deducted: 1,500 × 16.67 = **25,005 tokens**
+- Cost: (1000 / 1M) × $1.25 + (500 / 1M) × $10.00 = **$0.00625**
+- Cost ratio: $0.00625 / $0.000225 = **27.78x**
+- Tokens deducted: 1,500 × 27.78 = **41,670 tokens**
 
 The system automatically calculates and deducts the appropriate number of tokens based on actual API costs using the `calculate_cost_based_token_consumption()` database function.
 
@@ -73,8 +84,8 @@ display_name: Gemini 2.5 Pro
 provider: gemini
 model_name: gemini-2.5-pro
 input_cost: 1.25
-output_cost: 5.00
-token_multiplier: 16.7
+output_cost: 10.00
+token_multiplier: 27.0
 is_active: true
 ```
 
@@ -120,7 +131,7 @@ Once a tier is assigned Gemini 2.5 Pro:
 1. Users on that tier open the **Chat Assistant**
 2. The system automatically uses Gemini 2.5 Pro for their conversations
 3. Token consumption is automatically calculated based on actual costs
-4. Users consume 16-17x more tokens per interaction
+4. Users consume 27x more tokens per interaction
 
 ### Study Plan Generation
 
@@ -133,17 +144,17 @@ When users on a Gemini 2.5 Pro tier create study plans:
 
 ## Token Limit Recommendations
 
-Since Gemini 2.5 Pro consumes 16-17x more tokens, consider adjusting token limits:
+Since Gemini 2.5 Pro consumes 27x more tokens, consider adjusting token limits:
 
 | Tier | Current Token Limit | With Gemini 2.0 Flash | With Gemini 2.5 Pro |
 |------|--------------------|-----------------------|---------------------|
-| Free | 10,000 | ~10-15 conversations | ~1 conversation |
-| Student Lite | 50,000 | ~50-75 conversations | ~3-5 conversations |
-| Student Package | 200,000 | ~200-300 conversations | ~12-18 conversations |
+| Free | 10,000 | ~10-15 conversations | ~0.5 conversations |
+| Student Lite | 50,000 | ~50-75 conversations | ~2-3 conversations |
+| Student Package | 200,000 | ~200-300 conversations | ~7-10 conversations |
 | Professional | Unlimited | Unlimited conversations | Unlimited conversations |
 
 **Recommendation**: If assigning Gemini 2.5 Pro to a tier with token limits, either:
-- Increase the token limit by 15-20x to maintain the same usage capacity
+- Increase the token limit by 25-30x to maintain the same usage capacity
 - Keep the limit and communicate the premium model's capabilities justify lower usage volume
 - Use unlimited tokens for premium tiers with Gemini 2.5 Pro
 
@@ -178,9 +189,9 @@ The calculation is handled by `calculate_cost_based_token_consumption()`:
 SELECT calculate_cost_based_token_consumption(
   1000,  -- prompt tokens
   500,   -- completion tokens
-  0.00375 -- actual cost in USD
+  0.00625 -- actual cost in USD (Gemini 2.5 Pro)
 );
--- Returns: 25005 (tokens to deduct from user balance)
+-- Returns: 41670 (tokens to deduct from user balance)
 ```
 
 ## Monitoring & Analytics
@@ -262,9 +273,9 @@ LIMIT 20;
 **Problem**: Users on Gemini 2.5 Pro tier consuming tokens very fast
 
 **Solutions**:
-1. This is expected - Gemini 2.5 Pro uses 16-17x more tokens
+1. This is expected - Gemini 2.5 Pro uses 27x more tokens
 2. Options:
-   - Increase token limit for that tier
+   - Increase token limit for that tier by 25-30x
    - Switch tier back to Gemini 2.0 Flash
    - Communicate the premium model's value to users
    - Make the tier unlimited tokens
@@ -304,7 +315,7 @@ LIMIT 10;
 
 **Solution**:
 - Check `adjusted_tokens_consumed` field
-- Should be ~16-17x higher for Gemini 2.5 Pro vs Gemini 2.0 Flash
+- Should be ~27x higher for Gemini 2.5 Pro vs Gemini 2.0 Flash
 - If not, verify `calculate_cost_based_token_consumption()` function exists and works
 
 ## Best Practices
@@ -318,11 +329,16 @@ LIMIT 10;
 
 3. **Monitor Costs**: Regularly check token usage analytics to ensure costs are predictable
 
-4. **Adjust Token Limits**: Increase token allocations by 15-20x for tiers using Gemini 2.5 Pro
+4. **Adjust Token Limits**: Increase token allocations by 25-30x for tiers using Gemini 2.5 Pro
 
 5. **Test First**: Try Gemini 2.5 Pro on a single tier first, monitor costs, then expand
 
 6. **Consider Hybrid Approach**: Use Gemini 2.5 Pro only for study plan generation (complex task) and Gemini 2.0 Flash for chat (frequent, simpler queries)
+
+7. **Understand Pricing Tiers**: Gemini 2.5 Pro has two pricing tiers:
+   - Prompts ≤ 200k tokens: $1.25 input / $10.00 output (most common)
+   - Prompts > 200k tokens: $2.50 input / $15.00 output (rare for chat)
+   - The system automatically calculates costs based on actual usage
 
 ## Support
 
@@ -334,4 +350,4 @@ If you encounter issues with Gemini 2.5 Pro:
 
 ## Changelog
 
-- **2026-01-08**: Initial release - Added Gemini 2.5 Pro model with 16.7x token multiplier
+- **2026-01-08**: Initial release - Added Gemini 2.5 Pro model with 27x token multiplier (updated with official pricing)

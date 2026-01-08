@@ -2,20 +2,28 @@
 -- Description: Adds Gemini 2.5 Pro as an available AI model for subscription tiers
 -- Date: 2026-01-08
 --
--- Gemini 2.5 Pro Pricing (as of Jan 2026):
--- - Input:  $1.25 per 1M tokens
--- - Output: $5.00 per 1M tokens
+-- Gemini 2.5 Pro Official Pricing (as of Jan 2026):
+-- For prompts <= 200k tokens:
+--   - Input:  $1.25 per 1M tokens
+--   - Output: $10.00 per 1M tokens (includes thinking tokens)
+--   - Context caching: $0.125 per 1M tokens
+-- For prompts > 200k tokens:
+--   - Input:  $2.50 per 1M tokens
+--   - Output: $15.00 per 1M tokens
+--   - Context caching: $0.25 per 1M tokens
+--
+-- Note: Most chat conversations are under 200k tokens, so we use the lower tier pricing
 --
 -- Cost Calculation (compared to Gemini 2.0 Flash baseline):
 -- Gemini 2.0 Flash: $0.075 input, $0.30 output
--- Gemini 2.5 Pro:   $1.25 input, $5.00 output
+-- Gemini 2.5 Pro:   $1.25 input, $10.00 output (using <= 200k pricing)
 --
 -- Using weighted average (70% input, 30% output for typical chat):
 -- - Gemini 2.0 Flash: (0.075 * 0.7) + (0.30 * 0.3) = $0.1425 per 1M tokens
--- - Gemini 2.5 Pro:   (1.25 * 0.7) + (5.00 * 0.3) = $2.375 per 1M tokens
--- - Token Multiplier: 2.375 / 0.1425 ≈ 16.67x
+-- - Gemini 2.5 Pro:   (1.25 * 0.7) + (10.00 * 0.3) = $3.875 per 1M tokens
+-- - Token Multiplier: 3.875 / 0.1425 ≈ 27.19x
 --
--- This means users on Gemini 2.5 Pro will consume approximately 16-17x more
+-- This means users on Gemini 2.5 Pro will consume approximately 27x more
 -- tokens from their allocation compared to Gemini 2.0 Flash users.
 
 -- =====================================================
@@ -42,14 +50,14 @@ INSERT INTO ai_models (
   'gemini',
   'gemini-2.5-pro',
   'Gemini 2.5 Pro',
-  'Advanced reasoning model with superior problem-solving capabilities. Consumes approximately 16-17x more tokens than Gemini 2.0 Flash. Best for complex mathematical and analytical tasks.',
+  'Advanced reasoning model with superior problem-solving capabilities. Consumes approximately 27x more tokens than Gemini 2.0 Flash. Best for complex mathematical and analytical tasks.',
   true,  -- supports_vision
-  true,  -- supports_caching (Gemini models support context caching)
+  true,  -- supports_caching (Gemini models support context caching at $0.125 per 1M tokens)
   2000000,  -- max_context_tokens (2M tokens)
   8192,  -- max_output_tokens
-  1.25,  -- input_token_cost_per_million ($1.25 per 1M input tokens)
-  5.00,  -- output_token_cost_per_million ($5.00 per 1M output tokens)
-  16.7,  -- token_multiplier (approximately 16.67x more expensive than Gemini 2.0 Flash)
+  1.25,  -- input_token_cost_per_million ($1.25 per 1M input tokens for <= 200k prompts)
+  10.00,  -- output_token_cost_per_million ($10.00 per 1M output tokens for <= 200k prompts)
+  27.0,  -- token_multiplier (approximately 27x more expensive than Gemini 2.0 Flash)
   true,  -- is_active (available for selection)
   false, -- is_default (not the default model)
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro',
@@ -83,13 +91,17 @@ ON CONFLICT (model_name) DO UPDATE SET
 --   (1000 / 1000000) * $0.075 + (500 / 1000000) * $0.30 = $0.000225
 --
 -- Gemini 2.5 Pro cost:
---   (1000 / 1000000) * $1.25 + (500 / 1000000) * $5.00 = $0.00375
+--   (1000 / 1000000) * $1.25 + (500 / 1000000) * $10.00 = $0.00625
 --
--- Cost ratio: $0.00375 / $0.000225 = 16.67x
--- Tokens to deduct: 1500 * 16.67 = 25,005 tokens
+-- Cost ratio: $0.00625 / $0.000225 = 27.78x
+-- Tokens to deduct: 1500 * 27.78 = 41,670 tokens
 --
 -- This ensures platform costs remain predictable regardless of which
 -- model users select, as the token deduction scales with actual cost.
+--
+-- Note: For prompts > 200k tokens, costs double ($2.50 input, $15.00 output),
+-- resulting in even higher token deductions. This is automatically handled
+-- by the cost-based calculation function.
 
 -- =====================================================
 -- 3. ADD COMMENTS FOR DOCUMENTATION
