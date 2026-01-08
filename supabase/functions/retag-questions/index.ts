@@ -185,13 +185,19 @@ async function tagQuestionsWithChapters(
 
   const CHAPTER_TAGGING_PROMPT = `You are analyzing exam questions to match them with syllabus chapters from the provided PDF.
 
-**REFERENCE CHAPTERS (YOU MUST USE THESE EXACT IDs):**
+**⚠️ CRITICAL WARNING: UUIDs DO NOT MATCH CHAPTER NUMBERS!**
+Chapter 5 might have a UUID starting with "4afd..." NOT "5afd..."
+You MUST copy the EXACT UUID string character-by-character.
+DO NOT try to make the UUID "match" the chapter number!
+
+**REFERENCE CHAPTERS - COPY THESE EXACT UUIDs:**
 ${chapterInfo.map(ch => `
-┌─────────────────────────────────────────
-│ Chapter Number: ${ch.number}
-│ Chapter Title: ${ch.title}
-│ UUID (USE THIS EXACT VALUE): ${ch.id}
-└─────────────────────────────────────────`).join('\n')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 Chapter ${ch.number}: ${ch.title}
+🔑 UUID: ${ch.id}
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   COPY THIS EXACT STRING - DO NOT MODIFY!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`).join('\n\n')}
 
 **QUESTIONS:**
 ${questionInfo.map(q => `Question ${q.number}: ${q.text}`).join('\n\n')}
@@ -207,18 +213,21 @@ For each question, identify which chapter(s) it belongs to by reading the detail
 4. A question may relate to multiple chapters if it spans multiple topics
 
 **⚠️ EXTREMELY IMPORTANT - chapterId FIELD:**
-- The "chapterId" field MUST be the EXACT UUID string shown above (e.g., "5afd0da8-9afc-4b05-85c7-11542132639a")
-- DO NOT use chapter numbers (1, 2, 3, etc.) as the chapterId
-- DO NOT make up UUIDs
-- COPY the UUID exactly from the reference list above
-- Match the chapter number from the PDF to find the correct UUID in the reference list
+- COPY the UUID string EXACTLY as shown above - character by character
+- DO NOT modify, change, or "improve" the UUID
+- DO NOT try to make the UUID start with the chapter number
+- Example: Chapter 5 UUID might be "4afd..." NOT "5afd..."
+- UUIDs are random - they don't follow patterns
+- If you see Chapter 5: Mensuration with UUID "4afd0da8-9afc-4b05-85c7-11542132639a"
+  Then use EXACTLY "4afd0da8-9afc-4b05-85c7-11542132639a" (NOT "5afd...")
 
 **Example - CORRECT:**
-"chapterId": "5afd0da8-9afc-4b05-85c7-11542132639a"  ✅ (Full UUID)
+Chapter 5 matches → Copy exact UUID → "chapterId": "4afd0da8-9afc-4b05-85c7-11542132639a"  ✅
 
 **Example - WRONG:**
-"chapterId": "5"  ❌ (Chapter number, not UUID)
-"chapterId": 5    ❌ (Number instead of string)
+Chapter 5 matches → Make UUID start with 5 → "chapterId": "5afd0da8..."  ❌ HALLUCINATION!
+"chapterId": "5"  ❌ (Chapter number)
+"chapterId": 5    ❌ (Number)
 
 Return a JSON array with this format:
 [
