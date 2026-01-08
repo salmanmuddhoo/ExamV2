@@ -305,13 +305,38 @@ IMPORTANT: Focus on extracting the actual teaching/learning content structure, n
     // Parse JSON from response
     let extractedData;
     try {
-      // Remove markdown code blocks if present
-      const cleanedText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      console.log('Cleaned response text:', cleanedText.substring(0, 500));
+      // Remove markdown code blocks if present - try multiple approaches
+      let cleanedText = responseText.trim();
+
+      // Method 1: Remove code fences with regex
+      cleanedText = cleanedText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+
+      // Method 2: If still has backticks, try extracting JSON manually
+      if (cleanedText.startsWith('```')) {
+        const match = cleanedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (match) {
+          cleanedText = match[1].trim();
+        } else {
+          // Last resort: remove all backticks
+          cleanedText = cleanedText.replace(/```/g, '').trim();
+        }
+      }
+
+      // Method 3: Extract only the JSON object/array
+      const jsonMatch = cleanedText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+      if (jsonMatch) {
+        cleanedText = jsonMatch[1];
+      }
+
+      console.log('Cleaned response text (first 500 chars):', cleanedText.substring(0, 500));
+      console.log('Cleaned response text (last 100 chars):', cleanedText.substring(Math.max(0, cleanedText.length - 100)));
+
       extractedData = JSON.parse(cleanedText);
     } catch (parseError) {
-      console.error('Failed to parse JSON from Gemini response:', responseText);
-      throw new Error('Could not extract valid JSON from AI response');
+      console.error('Failed to parse JSON from Gemini response:', parseError.message);
+      console.error('First 1000 chars of original response:', responseText.substring(0, 1000));
+      console.error('Last 500 chars of original response:', responseText.substring(Math.max(0, responseText.length - 500)));
+      throw new Error(`Could not extract valid JSON from AI response: ${parseError.message}`);
     }
     // Validate extracted data
     if (!extractedData.chapters || !Array.isArray(extractedData.chapters)) {
