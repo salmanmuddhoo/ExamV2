@@ -274,9 +274,9 @@ async function extractAndSplitQuestions(
 
 **CRITICAL INSTRUCTIONS:**
 1. Return ONLY a JSON array - no other text
-2. Keep "fullText" SHORT - just the first 100 characters of each question
+2. Keep "fullText" EXTREMELY SHORT - maximum 30 characters per question (just enough to identify it)
 3. In "fullText", replace ALL newlines and line breaks with spaces
-4. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Question 1: ...","hasSubParts":false}]
+4. Format: [{"questionNumber":"1","startPage":1,"endPage":1,"fullText":"Work out (a) 6 - 2...","hasSubParts":false}]
 
 **IMPORTANT FOR MULTI-PAGE QUESTIONS:**
 - Look CAREFULLY at where each question ENDS
@@ -298,9 +298,11 @@ Result: Q1 spans pages 1-2, Q2 starts page 3
 
 **Example output:**
 [
-  {"questionNumber":"1","startPage":1,"endPage":2,"fullText":"Question 1: Calculate the derivative...","hasSubParts":false},
-  {"questionNumber":"2","startPage":3,"endPage":3,"fullText":"Question 2: Explain the process...","hasSubParts":true}
+  {"questionNumber":"1","startPage":1,"endPage":2,"fullText":"Calculate the derivative","hasSubParts":false},
+  {"questionNumber":"2","startPage":3,"endPage":3,"fullText":"Explain the process","hasSubParts":true}
 ]
+
+**REMEMBER:** fullText must be 30 characters or less. Truncate with "..." if needed.
 
 Return ONLY the JSON array, nothing else.`;
 
@@ -324,7 +326,7 @@ Return ONLY the JSON array, nothing else.`;
             temperature: 0.1,
             topP: 0.8,
             topK: 40,
-            maxOutputTokens: 16384,
+            maxOutputTokens: 65536, // Increased to handle exams with 50+ questions
             responseMimeType: "application/json",
           }
         }),
@@ -362,7 +364,10 @@ Return ONLY the JSON array, nothing else.`;
     
     const finishReason = data?.candidates?.[0]?.finishReason;
     if (finishReason && finishReason !== 'STOP') {
-      console.warn(`Response may be incomplete. Finish reason: ${finishReason}`);
+      console.warn(`⚠️ Response may be incomplete. Finish reason: ${finishReason}`);
+      if (finishReason === 'MAX_TOKENS') {
+        console.error('❌ Response truncated due to MAX_TOKENS limit. Increase maxOutputTokens or simplify prompt.');
+      }
     }
 
     let jsonText = rawText.trim();
@@ -402,21 +407,65 @@ Return ONLY the JSON array, nothing else.`;
     } catch (parseError) {
       console.error("JSON parse error:", parseError.message);
       console.error("First 500 chars of problematic JSON:", jsonText.substring(0, 500));
+      console.error("Last 500 chars of problematic JSON:", jsonText.substring(Math.max(0, jsonText.length - 500)));
 
       try {
-        // Try to salvage partial response
-        const lastCompleteMatch = jsonText.match(/\{[^}]*\}(?=\s*,|\s*\])/g);
+        // Try to salvage partial response by finding the last complete object
+        console.log("Attempting to salvage truncated JSON...");
 
-        if (lastCompleteMatch && lastCompleteMatch.length > 0) {
-          const salvaged = '[' + lastCompleteMatch.join(',') + ']';
-          questions = JSON.parse(salvaged);
-          console.log(`Salvaged ${questions.length} complete questions from truncated response`);
-        } else {
-          throw parseError;
+        // Find the position of the last complete closing brace before the error
+        let lastValidPosition = jsonText.length;
+        let braceCount = 0;
+        let inString = false;
+        let escape = false;
+
+        // Scan backwards to find valid JSON
+        for (let i = jsonText.length - 1; i >= 0; i--) {
+          const char = jsonText[i];
+
+          if (escape) {
+            escape = false;
+            continue;
+          }
+
+          if (char === '\\') {
+            escape = true;
+            continue;
+          }
+
+          if (char === '"' && !escape) {
+            inString = !inString;
+            continue;
+          }
+
+          if (!inString) {
+            if (char === '}') braceCount++;
+            if (char === '{') braceCount--;
+
+            // Found a complete array of objects
+            if (char === ']' && braceCount === 0) {
+              lastValidPosition = i + 1;
+              break;
+            }
+          }
         }
+
+        // Try to parse the truncated but valid portion
+        const salvaged = jsonText.substring(0, lastValidPosition);
+
+        // If it doesn't end with ], add it
+        if (!salvaged.trim().endsWith(']')) {
+          // Try to close the array properly
+          const closedJson = salvaged.trim().replace(/,\s*$/, '') + ']';
+          questions = JSON.parse(closedJson);
+        } else {
+          questions = JSON.parse(salvaged);
+        }
+
+        console.log(`✅ Salvaged ${questions.length} questions from truncated response`);
       } catch (salvageError) {
         console.error("Salvage also failed:", salvageError.message);
-        throw new Error(`JSON parse failed. The response may be too large or malformed.`);
+        throw new Error(`JSON parse failed. The response was truncated and could not be salvaged. Try uploading a shorter exam paper or contact support.`);
       }
     }
 
