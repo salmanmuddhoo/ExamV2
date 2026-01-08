@@ -161,10 +161,14 @@ async function tagQuestionsWithChapters(
     text: q.ocr_text || ''
   }));
 
+  console.log('=== Chapter Tagging Debug Info ===');
+  console.log('Total chapters available:', chapters.length);
   console.log('Chapter info being sent to AI:');
   chapterInfo.forEach(ch => {
-    console.log(`  - ID: ${ch.id}, Chapter ${ch.number}: ${ch.title}`);
+    console.log(`  - UUID: ${ch.id} | Chapter ${ch.number}: ${ch.title}`);
   });
+  console.log('Total questions to tag:', questions.length);
+  console.log('===================================');
 
   console.log('Fetching syllabus PDF from:', fileUrl);
 
@@ -354,6 +358,11 @@ Return ONLY the JSON array, no other text.`;
         const chapterExists = chapters.some(ch => ch.id === chapterId);
         if (!chapterExists) {
           console.error(`❌ Chapter UUID ${chapterId} not found in syllabus chapters for Q${result.questionNumber}`);
+          console.error(`   Available chapter UUIDs:`);
+          chapters.forEach(ch => {
+            console.error(`   - ${ch.id} (Chapter ${ch.chapter_number}: ${ch.chapter_title})`);
+          });
+          console.error(`   AI may have hallucinated this UUID or used wrong syllabus`);
           continue;
         }
 
