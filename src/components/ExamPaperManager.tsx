@@ -199,6 +199,43 @@ export function ExamPaperManager() {
     }
   };
 
+  const fetchUntaggedCountForPaper = async (paperId: string) => {
+    try {
+      // Get all questions for this paper
+      const { data: allQuestions } = await supabase
+        .from('exam_questions')
+        .select('id')
+        .eq('exam_paper_id', paperId);
+
+      if (allQuestions && allQuestions.length > 0) {
+        const questionIds = allQuestions.map(q => q.id);
+
+        // Get questions that have at least one tag
+        const { data: taggedQuestions } = await supabase
+          .from('question_chapter_tags')
+          .select('question_id')
+          .in('question_id', questionIds);
+
+        const taggedQuestionIds = new Set(taggedQuestions?.map(t => t.question_id) || []);
+        const untaggedCount = allQuestions.filter(q => !taggedQuestionIds.has(q.id)).length;
+
+        setUntaggedCounts(prev => {
+          const newCounts = new Map(prev);
+          newCounts.set(paperId, untaggedCount);
+          return newCounts;
+        });
+      } else {
+        setUntaggedCounts(prev => {
+          const newCounts = new Map(prev);
+          newCounts.set(paperId, 0);
+          return newCounts;
+        });
+      }
+    } catch (error) {
+      // Silently fail
+    }
+  };
+
   const fetchSyllabuses = async () => {
     try {
       const { data, error } = await supabase
@@ -268,6 +305,8 @@ export function ExamPaperManager() {
     try {
       await retagQuestionsWithNewSyllabus(paper.id, paper.syllabus_id);
       showAlert('Questions have been re-tagged with chapter information successfully!', 'Retag Complete', 'success');
+      // Refresh the untagged count for this paper
+      await fetchUntaggedCountForPaper(paper.id);
     } catch (error: any) {
       showAlert(`Failed to retag questions: ${error.message}`, 'Retag Failed', 'error');
     } finally {
@@ -327,6 +366,8 @@ export function ExamPaperManager() {
         try {
           await retagQuestionsWithNewSyllabus(editingId, newSyllabusId);
           showAlert('Exam paper and questions updated successfully!', 'Success', 'success');
+          // Refresh the untagged count for this paper
+          await fetchUntaggedCountForPaper(editingId);
         } catch (retagError: any) {
           showAlert(`Exam paper updated, but re-tagging failed: ${retagError.message}`, 'Partial Success', 'warning');
         }
@@ -1043,7 +1084,7 @@ export function ExamPaperManager() {
                                           {paper.syllabus.title || 'Syllabus'}
                                         </span>
                                       )}
-                                      {untaggedCounts.get(paper.id) && untaggedCounts.get(paper.id)! > 0 && (
+                                      {(untaggedCounts.get(paper.id) || 0) > 0 && (
                                         <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="Number of questions not tagged to any chapter">
                                           {untaggedCounts.get(paper.id)} question{untaggedCounts.get(paper.id)! !== 1 ? 's' : ''} untagged
                                         </span>
