@@ -86,6 +86,22 @@ export function SubjectManager() {
           .eq('id', editingId);
 
         if (error) throw error;
+
+        // Update grade activations for editing
+        const activationRecords = grades.map(grade => ({
+          subject_id: editingId,
+          grade_id: grade.id,
+          is_active: selectedGrades.has(grade.id)
+        }));
+
+        // Upsert activation records (insert if not exists, update if exists)
+        const { error: activationError } = await supabase
+          .from('subject_grade_activation')
+          .upsert(activationRecords, {
+            onConflict: 'subject_id,grade_id'
+          });
+
+        if (activationError) throw activationError;
       } else {
         // Insert new subject
         const { data: newSubject, error } = await supabase
@@ -134,6 +150,13 @@ export function SubjectManager() {
       description: subject.description || '',
       ai_prompt_id: subject.ai_prompt_id || ''
     });
+
+    // Load current grade activations for this subject
+    const currentGrades = activations
+      .filter(a => a.subject_id === subject.id && a.is_active)
+      .map(a => a.grade_id);
+    setSelectedGrades(new Set(currentGrades));
+
     setIsAdding(true);
   };
 
@@ -333,53 +356,57 @@ export function SubjectManager() {
               </p>
             </div>
 
-            {!editingId && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-900">
-                    Assign to Grades
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSelectAllGrades}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-gray-300">|</span>
-                    <button
-                      type="button"
-                      onClick={handleDeselectAllGrades}
-                      className="text-xs text-gray-600 hover:text-gray-700 font-medium"
-                    >
-                      Deselect All
-                    </button>
-                  </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-900">
+                  Assign to Grades
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllGrades}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllGrades}
+                    className="text-xs text-gray-600 hover:text-gray-700 font-medium"
+                  >
+                    Deselect All
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-white border border-gray-200 rounded-lg">
-                  {grades.map((grade) => (
-                    <label
-                      key={grade.id}
-                      className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedGrades.has(grade.id)}
-                        onChange={() => handleGradeToggle(grade.id)}
-                        className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
-                      />
-                      <span className="text-sm text-gray-900">{grade.name}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {selectedGrades.size === 0
-                    ? 'No grades selected. Subject will be assigned to all grades by default.'
-                    : `Subject will be assigned to ${selectedGrades.size} grade${selectedGrades.size !== 1 ? 's' : ''}.`}
-                </p>
               </div>
-            )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-white border border-gray-200 rounded-lg">
+                {grades.map((grade) => (
+                  <label
+                    key={grade.id}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedGrades.has(grade.id)}
+                      onChange={() => handleGradeToggle(grade.id)}
+                      className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
+                    />
+                    <span className="text-sm text-gray-900">{grade.name}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {editingId ? (
+                  selectedGrades.size === 0
+                    ? 'No grades selected. Subject will be deactivated for all grades.'
+                    : `Subject will be active for ${selectedGrades.size} grade${selectedGrades.size !== 1 ? 's' : ''}.`
+                ) : (
+                  selectedGrades.size === 0
+                    ? 'No grades selected. Subject will be assigned to all grades by default.'
+                    : `Subject will be assigned to ${selectedGrades.size} grade${selectedGrades.size !== 1 ? 's' : ''}.`
+                )}
+              </p>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button
