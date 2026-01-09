@@ -651,15 +651,17 @@ Deno.serve(async (req) => {
     // Build context-aware system prompt
     let contextualSystemPrompt = SYSTEM_PROMPT;
 
-    // Fetch exam paper details including subject, grade, and AI prompt
+    // Fetch exam paper details including subject, grade, and AI prompt from subject level
     try {
       const { data: examPaper, error: examPaperError } = await supabase
         .from('exam_papers')
         .select(`
           title,
-          subjects (name),
-          grade_levels (name),
-          ai_prompts (system_prompt)
+          subjects (
+            name,
+            ai_prompts (system_prompt)
+          ),
+          grade_levels (name)
         `)
         .eq('id', examPaperId)
         .single();
@@ -672,14 +674,14 @@ Deno.serve(async (req) => {
         const grade = examPaper.grade_levels?.name || 'Unknown';
         const examTitle = examPaper.title || 'Unknown';
 
-        // Use custom AI prompt if available, otherwise use default
-        if (examPaper.ai_prompts?.system_prompt) {
-          contextualSystemPrompt = examPaper.ai_prompts.system_prompt
+        // Use custom AI prompt from subject if available, otherwise use default
+        if (examPaper.subjects?.ai_prompts?.system_prompt) {
+          contextualSystemPrompt = examPaper.subjects.ai_prompts.system_prompt
             .replace(/\{\{SUBJECT\}\}/g, subject)
             .replace(/\{\{GRADE\}\}/g, grade)
             .replace(/\{\{EXAM_TITLE\}\}/g, examTitle);
 
-          console.log('Using custom AI prompt with context');
+          console.log('Using custom AI prompt from subject with context');
         } else {
           // Add context to default prompt
           contextualSystemPrompt = `${SYSTEM_PROMPT}\n\n**EXAM CONTEXT:**\nThis is a ${grade} ${subject} exam paper: "${examTitle}". Tailor your explanations to this subject and level.`;

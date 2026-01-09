@@ -66,7 +66,6 @@ export function ExamPaperManager() {
     syllabus_id: '',
     year: new Date().getFullYear(),
     month: '' as string,
-    ai_prompt_id: '',
   });
 
   const MONTHS = [
@@ -236,7 +235,6 @@ export function ExamPaperManager() {
       syllabus_id: paper.syllabus_id || '',
       year: paper.year,
       month: paper.month ? paper.month.toString() : '',
-      ai_prompt_id: paper.ai_prompt_id || '',
     });
     setIsAdding(true);
   };
@@ -269,7 +267,6 @@ export function ExamPaperManager() {
           syllabus_id: newSyllabusId,
           year: formData.year,
           month: formData.month ? parseInt(formData.month) : null,
-          ai_prompt_id: formData.ai_prompt_id || null,
         })
         .eq('id', editingId);
 
@@ -296,7 +293,6 @@ export function ExamPaperManager() {
         syllabus_id: '',
         year: new Date().getFullYear(),
         month: '',
-        ai_prompt_id: '',
       });
       setIsAdding(false);
       setEditingId(null);
@@ -340,7 +336,6 @@ export function ExamPaperManager() {
             syllabus_id: formData.syllabus_id || null,
             year: formData.year,
             month: formData.month ? parseInt(formData.month) : null,
-            ai_prompt_id: formData.ai_prompt_id || null,
             pdf_url: examPaperUpload.url,
             pdf_path: examPaperUpload.path,
             uploaded_by: user.id,
@@ -417,7 +412,7 @@ export function ExamPaperManager() {
         const processingResult = await processingResponse.json();
 
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -431,7 +426,7 @@ export function ExamPaperManager() {
         }
       } catch (processingError: any) {
         setProcessingStatus('');
-        setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
+        setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
@@ -563,7 +558,7 @@ export function ExamPaperManager() {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '', ai_prompt_id: '' });
+    setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
     setExamPaperFile(null);
     setMarkingSchemeFile(null);
     if (examPaperPreviewUrl) {
@@ -774,29 +769,6 @@ export function ExamPaperManager() {
                   placeholder="e.g., 2024"
                 />
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="ai_prompt" className="block text-sm font-medium text-gray-900 mb-1">
-                AI Assistant Prompt (Optional)
-              </label>
-              <select
-                id="ai_prompt"
-                value={formData.ai_prompt_id}
-                onChange={(e) => setFormData({ ...formData, ai_prompt_id: e.target.value })}
-                className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-black hover:border-gray-400 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="">Use default prompt</option>
-                {aiPrompts.map((prompt) => (
-                  <option key={prompt.id} value={prompt.id}>
-                    {prompt.name}
-                    {prompt.description ? ` - ${prompt.description}` : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-gray-600">
-                Select a custom AI prompt for this exam paper. Subject and grade will be automatically included.
-              </p>
             </div>
 
             {!editingId && (

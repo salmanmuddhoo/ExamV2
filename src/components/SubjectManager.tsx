@@ -9,6 +9,8 @@ interface Subject {
   name: string;
   description: string | null;
   is_active: boolean;
+  ai_prompt_id: string | null;
+  ai_prompts?: { name: string } | null;
 }
 
 interface GradeLevel {
@@ -23,14 +25,22 @@ interface SubjectGradeActivation {
   is_active: boolean;
 }
 
+interface AIPrompt {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 export function SubjectManager() {
   const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [grades, setGrades] = useState<GradeLevel[]>([]);
   const [activations, setActivations] = useState<SubjectGradeActivation[]>([]);
+  const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', ai_prompt_id: '' });
+  const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,19 +49,22 @@ export function SubjectManager() {
 
   const fetchData = async () => {
     try {
-      const [subjectsRes, gradesRes, activationsRes] = await Promise.all([
-        supabase.from('subjects').select('*').order('name'),
+      const [subjectsRes, gradesRes, activationsRes, promptsRes] = await Promise.all([
+        supabase.from('subjects').select('*, ai_prompts(name)').order('name'),
         supabase.from('grade_levels').select('*').order('display_order'),
-        supabase.from('subject_grade_activation').select('*')
+        supabase.from('subject_grade_activation').select('*'),
+        supabase.from('ai_prompts').select('id, name, description').eq('prompt_type', 'ai_assistant').order('name')
       ]);
 
       if (subjectsRes.error) throw subjectsRes.error;
       if (gradesRes.error) throw gradesRes.error;
       if (activationsRes.error) throw activationsRes.error;
+      if (promptsRes.error) throw promptsRes.error;
 
       setSubjects(subjectsRes.data || []);
       setGrades(gradesRes.data || []);
       setActivations(activationsRes.data || []);
+      setAiPrompts(promptsRes.data || []);
     } catch (error) {
     } finally {
       setLoading(false);
@@ -65,7 +78,11 @@ export function SubjectManager() {
       if (editingId) {
         const { error } = await supabase
           .from('subjects')
-          .update({ name: formData.name, description: formData.description || null })
+          .update({
+            name: formData.name,
+            description: formData.description || null,
+            ai_prompt_id: formData.ai_prompt_id || null
+          })
           .eq('id', editingId);
 
         if (error) throw error;
@@ -73,17 +90,22 @@ export function SubjectManager() {
         // Insert new subject
         const { data: newSubject, error } = await supabase
           .from('subjects')
-          .insert([{ name: formData.name, description: formData.description || null }])
+          .insert([{
+            name: formData.name,
+            description: formData.description || null,
+            ai_prompt_id: formData.ai_prompt_id || null
+          }])
           .select()
           .single();
 
         if (error) throw error;
 
-        // Create activation records for all grades
+        // Create activation records for selected grades only
         if (newSubject) {
-          const activationRecords = grades.map(grade => ({
+          const gradesToActivate = selectedGrades.size > 0 ? Array.from(selectedGrades) : grades.map(g => g.id);
+          const activationRecords = gradesToActivate.map(gradeId => ({
             subject_id: newSubject.id,
-            grade_id: grade.id,
+            grade_id: gradeId,
             is_active: true
           }));
 
@@ -95,9 +117,10 @@ export function SubjectManager() {
         }
       }
 
-      setFormData({ name: '', description: '' });
+      setFormData({ name: '', description: '', ai_prompt_id: '' });
       setIsAdding(false);
       setEditingId(null);
+      setSelectedGrades(new Set());
       fetchData();
     } catch (error: any) {
       showAlert(error.message, 'Error', 'error');
@@ -106,7 +129,11 @@ export function SubjectManager() {
 
   const handleEdit = (subject: Subject) => {
     setEditingId(subject.id);
-    setFormData({ name: subject.name, description: subject.description || '' });
+    setFormData({
+      name: subject.name,
+      description: subject.description || '',
+      ai_prompt_id: subject.ai_prompt_id || ''
+    });
     setIsAdding(true);
   };
 
@@ -152,7 +179,26 @@ export function SubjectManager() {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ name: '', description: '' });
+    setFormData({ name: '', description: '', ai_prompt_id: '' });
+    setSelectedGrades(new Set());
+  };
+
+  const handleGradeToggle = (gradeId: string) => {
+    const newSelected = new Set(selectedGrades);
+    if (newSelected.has(gradeId)) {
+      newSelected.delete(gradeId);
+    } else {
+      newSelected.add(gradeId);
+    }
+    setSelectedGrades(newSelected);
+  };
+
+  const handleSelectAllGrades = () => {
+    setSelectedGrades(new Set(grades.map(g => g.id)));
+  };
+
+  const handleDeselectAllGrades = () => {
+    setSelectedGrades(new Set());
   };
 
   const handleToggleActive = async (subjectId: string, gradeId: string, currentStatus: boolean) => {
@@ -264,6 +310,77 @@ export function SubjectManager() {
               />
             </div>
 
+            <div>
+              <label htmlFor="ai_prompt_id" className="block text-sm font-medium text-gray-900 mb-1">
+                AI Assistant Prompt (Optional)
+              </label>
+              <select
+                id="ai_prompt_id"
+                value={formData.ai_prompt_id}
+                onChange={(e) => setFormData({ ...formData, ai_prompt_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black bg-white"
+              >
+                <option value="">Default AI Prompt</option>
+                {aiPrompts.map((prompt) => (
+                  <option key={prompt.id} value={prompt.id}>
+                    {prompt.name}
+                    {prompt.description ? ` - ${prompt.description}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                This AI prompt will be used for all exam papers in this subject
+              </p>
+            </div>
+
+            {!editingId && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-900">
+                    Assign to Grades
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllGrades}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllGrades}
+                      className="text-xs text-gray-600 hover:text-gray-700 font-medium"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-white border border-gray-200 rounded-lg">
+                  {grades.map((grade) => (
+                    <label
+                      key={grade.id}
+                      className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedGrades.has(grade.id)}
+                        onChange={() => handleGradeToggle(grade.id)}
+                        className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
+                      />
+                      <span className="text-sm text-gray-900">{grade.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedGrades.size === 0
+                    ? 'No grades selected. Subject will be assigned to all grades by default.'
+                    : `Subject will be assigned to ${selectedGrades.size} grade${selectedGrades.size !== 1 ? 's' : ''}.`}
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="submit"
@@ -313,6 +430,13 @@ export function SubjectManager() {
                     {subject.description && (
                       <p className={`text-sm mb-3 break-words ${isActiveForAnyGrade ? 'text-gray-600' : 'text-gray-400'}`}>
                         {subject.description}
+                      </p>
+                    )}
+
+                    {/* AI Prompt indicator */}
+                    {subject.ai_prompts && (
+                      <p className="text-xs text-gray-500 mb-2">
+                        <span className="font-medium">AI Prompt:</span> {subject.ai_prompts.name}
                       </p>
                     )}
 
