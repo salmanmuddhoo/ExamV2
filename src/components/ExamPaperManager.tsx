@@ -147,40 +147,55 @@ export function ExamPaperManager() {
       setGradeLevels(gradesRes.data || []);
       setAiPrompts(promptsRes.data || []);
 
-      // Fetch untagged question counts for each exam paper
+      // Fetch untagged question counts in the background (non-blocking)
       if (papersRes.data && papersRes.data.length > 0) {
-        const counts = new Map<string, number>();
-
-        for (const paper of papersRes.data) {
-          // Get all questions for this paper
-          const { data: allQuestions } = await supabase
-            .from('exam_questions')
-            .select('id')
-            .eq('exam_paper_id', paper.id);
-
-          if (allQuestions && allQuestions.length > 0) {
-            const questionIds = allQuestions.map(q => q.id);
-
-            // Get questions that have at least one tag
-            const { data: taggedQuestions } = await supabase
-              .from('question_chapter_tags')
-              .select('question_id')
-              .in('question_id', questionIds);
-
-            const taggedQuestionIds = new Set(taggedQuestions?.map(t => t.question_id) || []);
-            const untaggedCount = allQuestions.filter(q => !taggedQuestionIds.has(q.id)).length;
-
-            counts.set(paper.id, untaggedCount);
-          } else {
-            counts.set(paper.id, 0);
-          }
-        }
-
-        setUntaggedCounts(counts);
+        fetchUntaggedCounts(papersRes.data);
       }
     } catch (error) {
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUntaggedCounts = async (papers: ExamPaper[]) => {
+    try {
+      const counts = new Map<string, number>();
+
+      // Fetch counts in parallel for better performance
+      const countPromises = papers.map(async (paper) => {
+        // Get all questions for this paper
+        const { data: allQuestions } = await supabase
+          .from('exam_questions')
+          .select('id')
+          .eq('exam_paper_id', paper.id);
+
+        if (allQuestions && allQuestions.length > 0) {
+          const questionIds = allQuestions.map(q => q.id);
+
+          // Get questions that have at least one tag
+          const { data: taggedQuestions } = await supabase
+            .from('question_chapter_tags')
+            .select('question_id')
+            .in('question_id', questionIds);
+
+          const taggedQuestionIds = new Set(taggedQuestions?.map(t => t.question_id) || []);
+          const untaggedCount = allQuestions.filter(q => !taggedQuestionIds.has(q.id)).length;
+
+          return { paperId: paper.id, count: untaggedCount };
+        } else {
+          return { paperId: paper.id, count: 0 };
+        }
+      });
+
+      const results = await Promise.all(countPromises);
+
+      results.forEach(({ paperId, count }) => {
+        counts.set(paperId, count);
+      });
+
+      setUntaggedCounts(counts);
+    } catch (error) {
+      // Silently fail - untagged counts are not critical
     }
   };
 
