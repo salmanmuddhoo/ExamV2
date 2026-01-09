@@ -55,6 +55,7 @@ export function ExamPaperManager() {
   const [examPapers, setExamPapers] = useState<ExamPaper[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [gradeLevels, setGradeLevels] = useState<GradeLevel[]>([]);
+  const [untaggedCounts, setUntaggedCounts] = useState<Map<string, number>>(new Map());
   const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
   const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -97,6 +98,7 @@ export function ExamPaperManager() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
+  const [formKey, setFormKey] = useState(0);
   const [collapsedGrades, setCollapsedGrades] = useState<Set<string>>(new Set());
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [viewingSummaryPaper, setViewingSummaryPaper] = useState<{ id: string; title: string; syllabus_id: string | null } | null>(null);
@@ -144,6 +146,38 @@ export function ExamPaperManager() {
       setSubjects(subjectsRes.data || []);
       setGradeLevels(gradesRes.data || []);
       setAiPrompts(promptsRes.data || []);
+
+      // Fetch untagged question counts for each exam paper
+      if (papersRes.data && papersRes.data.length > 0) {
+        const counts = new Map<string, number>();
+
+        for (const paper of papersRes.data) {
+          // Get all questions for this paper
+          const { data: allQuestions } = await supabase
+            .from('exam_questions')
+            .select('id')
+            .eq('exam_paper_id', paper.id);
+
+          if (allQuestions && allQuestions.length > 0) {
+            const questionIds = allQuestions.map(q => q.id);
+
+            // Get questions that have at least one tag
+            const { data: taggedQuestions } = await supabase
+              .from('question_chapter_tags')
+              .select('question_id')
+              .in('question_id', questionIds);
+
+            const taggedQuestionIds = new Set(taggedQuestions?.map(t => t.question_id) || []);
+            const untaggedCount = allQuestions.filter(q => !taggedQuestionIds.has(q.id)).length;
+
+            counts.set(paper.id, untaggedCount);
+          } else {
+            counts.set(paper.id, 0);
+          }
+        }
+
+        setUntaggedCounts(counts);
+      }
     } catch (error) {
     } finally {
       setLoading(false);
@@ -416,6 +450,7 @@ export function ExamPaperManager() {
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
+        setFormKey(prev => prev + 1);
         setIsAdding(false);
         fetchData();
 
@@ -430,6 +465,7 @@ export function ExamPaperManager() {
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setExamPaperImages([]);
+        setFormKey(prev => prev + 1);
         setIsAdding(false);
         fetchData();
         showAlert('Exam paper uploaded! Processing error: ' + processingError.message, 'Processing Error', 'warning');
@@ -571,6 +607,7 @@ export function ExamPaperManager() {
     }
     setExamPaperImages([]);
     setSyllabuses([]);
+    setFormKey(prev => prev + 1);
   };
 
   const toggleGrade = (gradeId: string) => {
@@ -784,6 +821,7 @@ export function ExamPaperManager() {
                     {examPaperFile ? examPaperFile.name : 'Choose exam paper PDF'}
                   </span>
                   <input
+                    key={`exam-paper-${formKey}`}
                     id="exam-paper"
                     type="file"
                     accept=".pdf"
@@ -840,6 +878,7 @@ export function ExamPaperManager() {
                     {markingSchemeFile ? markingSchemeFile.name : 'Choose marking scheme PDF'}
                   </span>
                   <input
+                    key={`marking-scheme-${formKey}`}
                     id="marking-scheme"
                     type="file"
                     accept=".pdf"
@@ -987,6 +1026,11 @@ export function ExamPaperManager() {
                                       {paper.syllabus && (
                                         <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded truncate max-w-[100px] sm:max-w-none" title={paper.syllabus.region ? `Region: ${paper.syllabus.region}` : undefined}>
                                           {paper.syllabus.title || 'Syllabus'}
+                                        </span>
+                                      )}
+                                      {untaggedCounts.get(paper.id) && untaggedCounts.get(paper.id)! > 0 && (
+                                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="Number of questions not tagged to any chapter">
+                                          {untaggedCounts.get(paper.id)} question{untaggedCounts.get(paper.id)! !== 1 ? 's' : ''} untagged
                                         </span>
                                       )}
                                     </div>
