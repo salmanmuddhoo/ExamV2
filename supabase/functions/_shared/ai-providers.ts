@@ -414,6 +414,37 @@ export async function generateAIResponse(
   }
 }
 
+// Helper to get subject's AI model preference
+export async function getSubjectAIModel(
+  supabaseClient: any,
+  subjectId: string
+): Promise<AIModelConfig | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .rpc('get_subject_ai_model', { p_subject_id: subjectId });
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      const modelData = data[0];
+      return {
+        provider: modelData.provider,
+        model_name: modelData.model_name,
+        api_endpoint: modelData.api_endpoint,
+        temperature: modelData.temperature_default,
+        max_output_tokens: modelData.max_output_tokens,
+        supports_vision: modelData.supports_vision,
+        supports_caching: modelData.supports_caching
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching subject AI model:', error);
+    return null;
+  }
+}
+
 // Helper to get user's AI model preference
 export async function getUserAIModel(
   supabaseClient: any,

@@ -11,6 +11,8 @@ interface Subject {
   is_active: boolean;
   ai_prompt_id: string | null;
   ai_prompts?: { name: string } | null;
+  ai_model_id: string | null;
+  ai_models?: { display_name: string } | null;
 }
 
 interface GradeLevel {
@@ -31,15 +33,24 @@ interface AIPrompt {
   description: string | null;
 }
 
+interface AIModel {
+  id: string;
+  display_name: string;
+  provider: string;
+  token_multiplier: number;
+  is_active: boolean;
+}
+
 export function SubjectManager() {
   const { modalState, showAlert, showConfirm, closeModal } = useModal();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [grades, setGrades] = useState<GradeLevel[]>([]);
   const [activations, setActivations] = useState<SubjectGradeActivation[]>([]);
   const [aiPrompts, setAiPrompts] = useState<AIPrompt[]>([]);
+  const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '', ai_prompt_id: '' });
+  const [formData, setFormData] = useState({ name: '', description: '', ai_prompt_id: '', ai_model_id: '' });
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -49,22 +60,25 @@ export function SubjectManager() {
 
   const fetchData = async () => {
     try {
-      const [subjectsRes, gradesRes, activationsRes, promptsRes] = await Promise.all([
-        supabase.from('subjects').select('*, ai_prompts(name)').order('name'),
+      const [subjectsRes, gradesRes, activationsRes, promptsRes, modelsRes] = await Promise.all([
+        supabase.from('subjects').select('*, ai_prompts(name), ai_models(display_name)').order('name'),
         supabase.from('grade_levels').select('*').order('display_order'),
         supabase.from('subject_grade_activation').select('*'),
-        supabase.from('ai_prompts').select('id, name, description').eq('prompt_type', 'ai_assistant').order('name')
+        supabase.from('ai_prompts').select('id, name, description').eq('prompt_type', 'ai_assistant').order('name'),
+        supabase.from('ai_models').select('id, display_name, provider, token_multiplier, is_active').eq('is_active', true).order('token_multiplier')
       ]);
 
       if (subjectsRes.error) throw subjectsRes.error;
       if (gradesRes.error) throw gradesRes.error;
       if (activationsRes.error) throw activationsRes.error;
       if (promptsRes.error) throw promptsRes.error;
+      if (modelsRes.error) throw modelsRes.error;
 
       setSubjects(subjectsRes.data || []);
       setGrades(gradesRes.data || []);
       setActivations(activationsRes.data || []);
       setAiPrompts(promptsRes.data || []);
+      setAiModels(modelsRes.data || []);
     } catch (error) {
     } finally {
       setLoading(false);
@@ -81,7 +95,8 @@ export function SubjectManager() {
           .update({
             name: formData.name,
             description: formData.description || null,
-            ai_prompt_id: formData.ai_prompt_id || null
+            ai_prompt_id: formData.ai_prompt_id || null,
+            ai_model_id: formData.ai_model_id || null
           })
           .eq('id', editingId);
 
@@ -109,7 +124,8 @@ export function SubjectManager() {
           .insert([{
             name: formData.name,
             description: formData.description || null,
-            ai_prompt_id: formData.ai_prompt_id || null
+            ai_prompt_id: formData.ai_prompt_id || null,
+            ai_model_id: formData.ai_model_id || null
           }])
           .select()
           .single();
@@ -133,7 +149,7 @@ export function SubjectManager() {
         }
       }
 
-      setFormData({ name: '', description: '', ai_prompt_id: '' });
+      setFormData({ name: '', description: '', ai_prompt_id: '', ai_model_id: '' });
       setIsAdding(false);
       setEditingId(null);
       setSelectedGrades(new Set());
@@ -148,7 +164,8 @@ export function SubjectManager() {
     setFormData({
       name: subject.name,
       description: subject.description || '',
-      ai_prompt_id: subject.ai_prompt_id || ''
+      ai_prompt_id: subject.ai_prompt_id || '',
+      ai_model_id: subject.ai_model_id || ''
     });
 
     // Load current grade activations for this subject
@@ -202,7 +219,7 @@ export function SubjectManager() {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ name: '', description: '', ai_prompt_id: '' });
+    setFormData({ name: '', description: '', ai_prompt_id: '', ai_model_id: '' });
     setSelectedGrades(new Set());
   };
 
@@ -357,6 +374,29 @@ export function SubjectManager() {
             </div>
 
             <div>
+              <label htmlFor="ai_model_id" className="block text-sm font-medium text-gray-900 mb-1">
+                AI Model (Optional)
+              </label>
+              <select
+                id="ai_model_id"
+                value={formData.ai_model_id}
+                onChange={(e) => setFormData({ ...formData, ai_model_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-black bg-white"
+              >
+                <option value="">Use Tier Default (configured in subscription)</option>
+                {aiModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.display_name} ({model.provider}) - {model.token_multiplier}x cost
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Select a specific AI model for this subject. Example: Claude for Maths, Gemini for English.
+                If not set, the tier default model will be used.
+              </p>
+            </div>
+
+            <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-gray-900">
                   Assign to Grades
@@ -462,8 +502,15 @@ export function SubjectManager() {
 
                     {/* AI Prompt indicator */}
                     {subject.ai_prompts && (
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs text-gray-500 mb-1">
                         <span className="font-medium">AI Prompt:</span> {subject.ai_prompts.name}
+                      </p>
+                    )}
+
+                    {/* AI Model indicator */}
+                    {subject.ai_models && (
+                      <p className="text-xs text-blue-600 mb-2">
+                        <span className="font-medium">AI Model:</span> {subject.ai_models.display_name}
                       </p>
                     )}
 
