@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "./ai-providers.ts";
+import { generateAIResponse, getSubjectAIModel, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "./ai-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -652,11 +652,13 @@ Deno.serve(async (req) => {
     let contextualSystemPrompt = SYSTEM_PROMPT;
 
     // Fetch exam paper details including subject, grade, and AI prompt from subject level
+    let subjectId: string | null = null;
     try {
       const { data: examPaper, error: examPaperError } = await supabase
         .from('exam_papers')
         .select(`
           title,
+          subject_id,
           subjects (
             name,
             ai_prompts (system_prompt)
@@ -665,6 +667,11 @@ Deno.serve(async (req) => {
         `)
         .eq('id', examPaperId)
         .single();
+
+      // Capture subject_id for AI model selection
+      if (examPaper) {
+        subjectId = examPaper.subject_id;
+      }
 
       if (examPaperError) {
         console.error('Error fetching exam paper:', examPaperError);
@@ -752,21 +759,40 @@ Deno.serve(async (req) => {
 
     console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
 
-    // ========== GET USER'S PREFERRED AI MODEL ==========
+    // ========== GET AI MODEL (SUBJECT → USER → DEFAULT) ==========
 
-    console.log("🤖 Fetching user's preferred AI model...");
+    console.log("🤖 Selecting AI model...");
     let aiModel: AIModelConfig | null = null;
+    let modelSource = "default";
 
-    if (userId) {
+    // 1. Try subject-specific AI model first
+    if (subjectId) {
+      console.log("🔍 Checking for subject-specific AI model...");
+      aiModel = await getSubjectAIModel(supabase, subjectId);
+      if (aiModel) {
+        modelSource = "subject";
+        console.log(`📚 Using subject-specific AI model: ${aiModel.display_name}`);
+      }
+    }
+
+    // 2. Fall back to user's preferred AI model
+    if (!aiModel && userId) {
+      console.log("👤 Checking user's preferred AI model...");
       aiModel = await getUserAIModel(supabase, userId);
+      if (aiModel) {
+        modelSource = "user";
+        console.log(`👤 Using user's preferred AI model: ${aiModel.display_name}`);
+      }
     }
 
+    // 3. Fall back to system default
     if (!aiModel) {
-      console.log("📋 No user preference found, using default model");
+      console.log("📋 Using system default AI model");
       aiModel = await getDefaultAIModel(supabase);
+      modelSource = "default";
     }
 
-    console.log(`✅ Using AI model: ${aiModel.display_name} (${aiModel.provider})`);
+    console.log(`✅ AI Model Selected (${modelSource}): ${aiModel.display_name} (${aiModel.provider})`);
     console.log(`   - Model: ${aiModel.model_name}`);
     console.log(`   - Supports Vision: ${aiModel.supports_vision}`);
     console.log(`   - Supports Caching: ${aiModel.supports_caching}`);
