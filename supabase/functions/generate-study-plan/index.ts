@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { generateAIResponse, getUserAIModel, getDefaultAIModel, type AIModelConfig } from "./ai-providers.ts";
+import { generateAIResponse, type AIModelConfig } from "./ai-providers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -306,16 +306,59 @@ Deno.serve(async (req) => {
       console.log("📅 No existing events found - calendar is clear");
     }
 
-    // Get user's preferred AI model
-    console.log("🤖 Fetching user's preferred AI model...");
-    let aiModel: AIModelConfig | null = await getUserAIModel(supabaseClient, user_id);
+    // Get AI model for study plan generation
+    console.log("🤖 Selecting AI model for study plan generation...");
+    // IMPORTANT: Study plans ALWAYS use Gemini 2.0 Flash, regardless of user/subject preferences
+    // This is because study plan generation has been optimized specifically for Gemini
+    console.log("📋 Forcing Gemini 2.0 Flash for study plan generation (ignoring user/subject preferences)");
 
-    if (!aiModel) {
-      console.log("📋 No user preference found, using default model");
-      aiModel = await getDefaultAIModel(supabaseClient);
+    let aiModel: AIModelConfig;
+
+    const { data: geminiModel, error: modelError } = await supabaseClient
+      .from('ai_models')
+      .select('*')
+      .eq('model_name', 'gemini-2.0-flash-exp')
+      .eq('is_active', true)
+      .single();
+
+    if (modelError || !geminiModel) {
+      console.error("❌ Gemini 2.0 Flash Exp not found, trying regular Gemini 2.0 Flash");
+      const { data: geminiModelFallback, error: fallbackError } = await supabaseClient
+        .from('ai_models')
+        .select('*')
+        .eq('model_name', 'gemini-2.0-flash')
+        .eq('is_active', true)
+        .single();
+
+      if (fallbackError || !geminiModelFallback) {
+        throw new Error("Gemini 2.0 Flash model not found. Study plans require Gemini.");
+      }
+
+      aiModel = {
+        provider: geminiModelFallback.provider,
+        model_name: geminiModelFallback.model_name,
+        api_endpoint: geminiModelFallback.api_endpoint,
+        temperature: geminiModelFallback.temperature_default,
+        max_output_tokens: geminiModelFallback.max_output_tokens,
+        supports_vision: geminiModelFallback.supports_vision,
+        supports_caching: geminiModelFallback.supports_caching
+      };
+
+      console.log(`✅ Using AI model: ${geminiModelFallback.display_name} (${aiModel.provider})`);
+    } else {
+      aiModel = {
+        provider: geminiModel.provider,
+        model_name: geminiModel.model_name,
+        api_endpoint: geminiModel.api_endpoint,
+        temperature: geminiModel.temperature_default,
+        max_output_tokens: geminiModel.max_output_tokens,
+        supports_vision: geminiModel.supports_vision,
+        supports_caching: geminiModel.supports_caching
+      };
+
+      console.log(`✅ Using AI model: ${geminiModel.display_name} (${aiModel.provider})`);
     }
 
-    console.log(`✅ Using AI model: ${aiModel.display_name} (${aiModel.provider})`);
     console.log(`   - Model: ${aiModel.model_name}`);
     console.log(`   - Vision: ${aiModel.supports_vision}`);
     console.log(`   - Caching: ${aiModel.supports_caching}`);
