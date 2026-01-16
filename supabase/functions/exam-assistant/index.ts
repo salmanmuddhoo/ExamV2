@@ -540,8 +540,29 @@ Use this marking scheme as internal reference ONLY. Do not mention or quote it i
   prompt += `Student's Question: ${studentQuestion}
 
 Please analyze the exam paper provided and answer.`;
-  
+
   return prompt;
+}
+
+/**
+ * Convert ArrayBuffer to base64 string in chunks to avoid stack overflow
+ * @param buffer - ArrayBuffer to convert
+ * @returns base64 encoded string
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.length;
+  let binary = '';
+
+  // Process in chunks to avoid stack overflow with large images
+  const chunkSize = 8192; // 8KB chunks
+  for (let i = 0; i < len; i += chunkSize) {
+    const end = Math.min(i + chunkSize, len);
+    const chunk = bytes.subarray(i, end);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+
+  return btoa(binary);
 }
 
 Deno.serve(async (req) => {
@@ -795,7 +816,7 @@ Deno.serve(async (req) => {
 
                 if (!downloadError && imageData) {
                   const arrayBuffer = await imageData.arrayBuffer();
-                  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                  const base64 = arrayBufferToBase64(arrayBuffer);
                   finalExamImages.push(base64);
                   console.log(`✅ Loaded insert image: ${file.name}`);
                 }
