@@ -11,6 +11,7 @@ interface ProcessRequest {
   examPaperId: string;
   pageImages: Array<{ pageNumber: number; base64Image: string }>;
   markingSchemeImages?: Array<{ pageNumber: number; base64Image: string }>;
+  insertImages?: Array<{ pageNumber: number; base64Image: string }>;
 }
 
 // Helper function to fetch AI model pricing from database
@@ -49,7 +50,7 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { examPaperId, pageImages, markingSchemeImages }: ProcessRequest = await req.json();
+    const { examPaperId, pageImages, markingSchemeImages, insertImages }: ProcessRequest = await req.json();
 
     if (!examPaperId || !pageImages || pageImages.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -102,18 +103,41 @@ Deno.serve(async (req: Request) => {
       console.log(`Extracted marking scheme for ${markingSchemeData.size} questions`);
     }
 
+    // Detect which questions reference the insert (if insert provided)
+    let insertReferences = new Map<string, boolean>();
+    let insertDetectionTokens = null;
+    if (insertImages && insertImages.length > 0) {
+      console.log(`Detecting which questions reference the insert PDF...`);
+      const { references, tokenUsage: detectTokens } = await detectInsertReferences(
+        questions,
+        geminiApiKey,
+        supabase
+      );
+      insertReferences = references;
+      insertDetectionTokens = detectTokens;
+      console.log(`Detected ${Array.from(references.values()).filter(v => v).length} questions referencing insert`);
+
+      // Store insert images to storage for later retrieval
+      console.log(`Storing ${insertImages.length} insert images to storage...`);
+      await storeInsertImages(insertImages, examPaperId, supabase);
+      console.log(`Insert images stored successfully`);
+    }
+
     console.log(`Saving ${savedQuestions.length} questions to database...`);
-    
+
     let savedCount = 0;
     let errorCount = 0;
-    
+
     for (const q of savedQuestions) {
       const pageNumbersArray = Array.isArray(q.pageNumbers) ? q.pageNumbers : [q.pageNumbers];
       const imageUrlsArray = Array.isArray(q.imageUrls) ? q.imageUrls : [q.imageUrl];
-      
+
       // Get marking scheme text for this question
       const markingSchemeText = markingSchemeData.get(q.questionNumber) || null;
-      
+
+      // Check if this question references the insert
+      const referencesInsert = insertReferences.get(String(q.questionNumber)) || false;
+
       const insertData = {
         exam_paper_id: examPaperId,
         question_number: String(q.questionNumber),
@@ -122,19 +146,20 @@ Deno.serve(async (req: Request) => {
         image_url: q.imageUrl || '',
         image_urls: imageUrlsArray,
         marking_scheme_text: markingSchemeText,
+        references_insert: referencesInsert,
       };
-      
+
       const { error } = await supabase.from('exam_questions').insert(insertData);
-      
+
       if (error) {
         console.error(`Failed to save question ${q.questionNumber}:`, error);
         errorCount++;
       } else {
-        console.log(`Saved question ${q.questionNumber} to database`);
+        console.log(`Saved question ${q.questionNumber} to database (references_insert: ${referencesInsert})`);
         savedCount++;
       }
     }
-    
+
     console.log(`Database save complete: ${savedCount} saved, ${errorCount} errors`);
 
     // NOW tag questions with chapters (after they're saved to database)
@@ -1069,6 +1094,143 @@ Return ONLY the JSON array, no other text.`;
     console.error("Failed to tag questions with chapters:", error);
     return {
       taggedCount: 0,
+      tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
+    };
+  }
+}
+
+/**
+ * Store insert images to Supabase storage
+ */
+async function storeInsertImages(
+  insertImages: Array<{ pageNumber: number; base64Image: string }>,
+  examPaperId: string,
+  supabase: any
+): Promise<void> {
+  try {
+    for (const image of insertImages) {
+      const base64Data = image.base64Image;
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+
+      const byteArray = new Uint8Array(byteNumbers);
+      const storagePath = `inserts/${examPaperId}/page${image.pageNumber}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('inserts')
+        .upload(storagePath, byteArray, {
+          contentType: 'image/jpeg',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error(`Failed to upload insert page ${image.pageNumber}:`, uploadError);
+      } else {
+        console.log(`Uploaded insert page ${image.pageNumber}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error storing insert images:', error);
+    throw error;
+  }
+}
+
+/**
+ * Detect which questions reference the insert PDF
+ */
+async function detectInsertReferences(
+  questions: any[],
+  geminiApiKey: string,
+  supabase: any
+): Promise<{ references: Map<string, boolean>; tokenUsage: any }> {
+  try {
+    const questionList = questions.map(q =>
+      `Question ${q.questionNumber}: "${q.fullText.substring(0, 200)}..."`
+    ).join('\n');
+
+    const AI_PROMPT = `Analyze the following exam questions and determine which ones reference an "insert" or external material.
+
+Common indicators:
+- Phrases like "refer to insert", "see insert", "using the insert", "from the insert"
+- Phrases like "refer to the diagram", "see figure", "using the graph provided"
+- Any mention of external materials, appendices, or supplementary documents
+
+Questions:
+${questionList}
+
+Return a JSON array with the following structure:
+[
+  { "questionNumber": "1", "referencesInsert": true },
+  { "questionNumber": "2", "referencesInsert": false },
+  ...
+]
+
+IMPORTANT: Only include "referencesInsert": true if the question EXPLICITLY mentions insert/diagram/figure/external materials.`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: AI_PROMPT }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2048,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Gemini API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Get token usage for tracking
+    const { promptTokenCount = 0, candidatesTokenCount = 0, totalTokenCount = 0 } = data.usageMetadata || {};
+
+    // Get pricing
+    const { inputCost, outputCost } = await getModelPricing(supabase, 'gemini-2.0-flash-exp');
+    const cost = (promptTokenCount / 1000000) * inputCost + (candidatesTokenCount / 1000000) * outputCost;
+
+    // Parse AI response
+    const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error('Failed to parse insert reference detection response');
+      return {
+        references: new Map(),
+        tokenUsage: { promptTokens: promptTokenCount, completionTokens: candidatesTokenCount, totalTokens: totalTokenCount, cost }
+      };
+    }
+
+    const results = JSON.parse(jsonMatch[0]);
+    const references = new Map<string, boolean>();
+
+    for (const result of results) {
+      references.set(String(result.questionNumber), Boolean(result.referencesInsert));
+    }
+
+    return {
+      references,
+      tokenUsage: {
+        promptTokens: promptTokenCount,
+        completionTokens: candidatesTokenCount,
+        totalTokens: totalTokenCount,
+        cost
+      }
+    };
+
+  } catch (error) {
+    console.error('Error detecting insert references:', error);
+    return {
+      references: new Map(),
       tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
     };
   }

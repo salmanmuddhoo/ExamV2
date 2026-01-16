@@ -16,6 +16,7 @@ interface ExamPaper {
   year: number;
   month: number | null;
   pdf_url: string;
+  insert_pdf_url: string | null;
   ai_prompt_id: string | null;
   subjects: { name: string };
   grade_levels: { name: string };
@@ -91,8 +92,10 @@ export function ExamPaperManager() {
   };
   const [examPaperFile, setExamPaperFile] = useState<File | null>(null);
   const [markingSchemeFile, setMarkingSchemeFile] = useState<File | null>(null);
+  const [insertFile, setInsertFile] = useState<File | null>(null);
   const [examPaperPreviewUrl, setExamPaperPreviewUrl] = useState<string>('');
   const [markingSchemePreviewUrl, setMarkingSchemePreviewUrl] = useState<string>('');
+  const [insertPreviewUrl, setInsertPreviewUrl] = useState<string>('');
   const [examPaperImages, setExamPaperImages] = useState<PdfImagePart[]>([]);
   const [processingPdf, setProcessingPdf] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -416,6 +419,12 @@ export function ExamPaperManager() {
     try {
       const examPaperUpload = await uploadFile(examPaperFile, 'exam-papers', 'papers');
 
+      // Upload insert PDF if provided
+      let insertUpload = null;
+      if (insertFile) {
+        insertUpload = await uploadFile(insertFile, 'inserts', 'inserts');
+      }
+
       const { data: examPaper, error: examError } = await supabase
         .from('exam_papers')
         .insert([
@@ -428,6 +437,8 @@ export function ExamPaperManager() {
             month: formData.month ? parseInt(formData.month) : null,
             pdf_url: examPaperUpload.url,
             pdf_path: examPaperUpload.path,
+            insert_pdf_url: insertUpload?.url || null,
+            insert_pdf_path: insertUpload?.path || null,
             uploaded_by: user.id,
           },
         ])
@@ -465,11 +476,22 @@ export function ExamPaperManager() {
 
 
         let markingSchemeImageData: Array<{ pageNumber: number; base64Image: string }> = [];
-        
+
         if (markingSchemeFile) {
           setProcessingStatus('Converting marking scheme to images...');
           const schemeImages = await convertPdfToBase64Images(markingSchemeFile);
           markingSchemeImageData = schemeImages.map((part, index) => ({
+            pageNumber: index + 1,
+            base64Image: part.inlineData.data,
+          }));
+        }
+
+        let insertImageData: Array<{ pageNumber: number; base64Image: string }> = [];
+
+        if (insertFile) {
+          setProcessingStatus('Converting insert PDF to images...');
+          const insertImages = await convertPdfToBase64Images(insertFile);
+          insertImageData = insertImages.map((part, index) => ({
             pageNumber: index + 1,
             base64Image: part.inlineData.data,
           }));
@@ -489,6 +511,7 @@ export function ExamPaperManager() {
               examPaperId: examPaper.id,
               pageImages: pageImages,
               markingSchemeImages: markingSchemeImageData.length > 0 ? markingSchemeImageData : undefined,
+              insertImages: insertImageData.length > 0 ? insertImageData : undefined,
             }),
           }
         );
@@ -505,6 +528,7 @@ export function ExamPaperManager() {
         setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
+        setInsertFile(null);
         setExamPaperImages([]);
         setFormKey(prev => prev + 1);
         setIsAdding(false);
@@ -520,6 +544,7 @@ export function ExamPaperManager() {
         setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
+        setInsertFile(null);
         setExamPaperImages([]);
         setFormKey(prev => prev + 1);
         setIsAdding(false);
@@ -647,12 +672,26 @@ export function ExamPaperManager() {
     setMarkingSchemePreviewUrl(previewUrl);
   };
 
+  const handleInsertChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (insertPreviewUrl) {
+      revokePdfPreviewUrl(insertPreviewUrl);
+    }
+
+    setInsertFile(file);
+    const previewUrl = createPdfPreviewUrl(file);
+    setInsertPreviewUrl(previewUrl);
+  };
+
   const handleCancel = () => {
     setIsAdding(false);
     setEditingId(null);
     setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
     setExamPaperFile(null);
     setMarkingSchemeFile(null);
+    setInsertFile(null);
     if (examPaperPreviewUrl) {
       revokePdfPreviewUrl(examPaperPreviewUrl);
       setExamPaperPreviewUrl('');
@@ -660,6 +699,10 @@ export function ExamPaperManager() {
     if (markingSchemePreviewUrl) {
       revokePdfPreviewUrl(markingSchemePreviewUrl);
       setMarkingSchemePreviewUrl('');
+    }
+    if (insertPreviewUrl) {
+      revokePdfPreviewUrl(insertPreviewUrl);
+      setInsertPreviewUrl('');
     }
     setExamPaperImages([]);
     setSyllabuses([]);
@@ -961,6 +1004,54 @@ export function ExamPaperManager() {
                   </div>
                   <embed
                     src={markingSchemePreviewUrl}
+                    type="application/pdf"
+                    className="w-full h-96"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="insert" className="block text-sm font-medium text-gray-900 mb-1">
+                Insert PDF (Optional)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Upload additional materials (diagrams, graphs, reference sheets) that questions may reference
+              </p>
+              <div className="flex items-center space-x-3">
+                <label className="flex-1 flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-black transition-colors">
+                  <Upload className="w-5 h-5 text-gray-600 mr-2" />
+                  <span className="text-sm text-gray-600">
+                    {insertFile ? insertFile.name : 'Choose insert PDF'}
+                  </span>
+                  <input
+                    key={`insert-${formKey}`}
+                    id="insert"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleInsertChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {insertPreviewUrl && (
+                <div className="mt-3 border border-gray-300 rounded-lg overflow-hidden">
+                  <div className="bg-gray-100 px-3 py-2 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">Preview</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        revokePdfPreviewUrl(insertPreviewUrl);
+                        setInsertPreviewUrl('');
+                        setInsertFile(null);
+                      }}
+                      className="text-gray-600 hover:text-black"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <embed
+                    src={insertPreviewUrl}
                     type="application/pdf"
                     className="w-full h-96"
                   />
