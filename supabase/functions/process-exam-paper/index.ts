@@ -1110,19 +1110,27 @@ async function storeInsertImages(
   try {
     for (const image of insertImages) {
       const base64Data = image.base64Image;
-      const byteCharacters = atob(base64Data);
-      const byteNumbers = new Array(byteCharacters.length);
 
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      // More efficient base64 to Uint8Array conversion
+      // Decode base64 to binary string
+      const binaryString = atob(base64Data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+
+      // Convert binary string to byte array in chunks to avoid stack overflow
+      const chunkSize = 8192; // Process 8KB at a time
+      for (let i = 0; i < len; i += chunkSize) {
+        const end = Math.min(i + chunkSize, len);
+        for (let j = i; j < end; j++) {
+          bytes[j] = binaryString.charCodeAt(j);
+        }
       }
 
-      const byteArray = new Uint8Array(byteNumbers);
       const storagePath = `inserts/${examPaperId}/page${image.pageNumber}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('inserts')
-        .upload(storagePath, byteArray, {
+        .upload(storagePath, bytes, {
           contentType: 'image/jpeg',
           upsert: true,
         });
