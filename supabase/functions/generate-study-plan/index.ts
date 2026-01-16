@@ -314,14 +314,14 @@ Deno.serve(async (req) => {
 
     let aiModel: AIModelConfig;
 
-    const { data: geminiModel, error: modelError } = await supabaseClient
+    const { data: geminiModel, error: geminiModelError } = await supabaseClient
       .from('ai_models')
       .select('*')
       .eq('model_name', 'gemini-2.0-flash-exp')
       .eq('is_active', true)
       .single();
 
-    if (modelError || !geminiModel) {
+    if (geminiModelError || !geminiModel) {
       console.error("❌ Gemini 2.0 Flash Exp not found, trying regular Gemini 2.0 Flash");
       const { data: geminiModelFallback, error: fallbackError } = await supabaseClient
         .from('ai_models')
