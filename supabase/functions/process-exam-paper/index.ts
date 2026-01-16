@@ -1156,28 +1156,40 @@ async function detectInsertReferences(
   supabase: any
 ): Promise<{ references: Map<string, boolean>; tokenUsage: any }> {
   try {
-    const questionList = questions.map(q =>
-      `Question ${q.questionNumber}: "${q.fullText.substring(0, 200)}..."`
-    ).join('\n');
+    // Use more text for better detection (first 800 characters instead of 200)
+    const questionList = questions.map(q => {
+      const text = q.fullText || '';
+      const preview = text.length > 800 ? text.substring(0, 800) + '...' : text;
+      return `Question ${q.questionNumber}: "${preview}"`;
+    }).join('\n');
 
-    const AI_PROMPT = `Analyze the following exam questions and determine which ones reference an "insert" or external material.
+    console.log(`Analyzing ${questions.length} questions for insert references...`);
 
-Common indicators:
-- Phrases like "refer to insert", "see insert", "using the insert", "from the insert"
-- Phrases like "refer to the diagram", "see figure", "using the graph provided"
-- Any mention of external materials, appendices, or supplementary documents
+    const AI_PROMPT = `Analyze the following exam questions and determine which ones reference an "insert" or external supplementary material.
 
-Questions:
+Common indicators that a question REFERENCES an insert:
+- "Refer to insert" / "refer to the insert"
+- "See insert" / "from the insert" / "using the insert"
+- "Refer to the list/table/diagram/figure in the insert"
+- "The insert shows..." / "Using information from the insert"
+- "Refer to Source A/B" or similar references to external materials
+- Any explicit mention of looking at supplementary documents
+
+DO NOT mark as referencing insert if:
+- The question just mentions "diagram" or "table" without referencing an insert
+- It only talks about concepts without external references
+
+Questions to analyze:
 ${questionList}
 
-Return a JSON array with the following structure:
+Return a JSON array with the following structure (one entry per question):
 [
   { "questionNumber": "1", "referencesInsert": true },
   { "questionNumber": "2", "referencesInsert": false },
   ...
 ]
 
-IMPORTANT: Only include "referencesInsert": true if the question EXPLICITLY mentions insert/diagram/figure/external materials.`;
+Return ONLY the JSON array, no other text.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -1195,11 +1207,15 @@ IMPORTANT: Only include "referencesInsert": true if the question EXPLICITLY ment
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Gemini API failed with status ${response.status}: ${errorText}`);
       throw new Error(`Gemini API failed: ${response.status}`);
     }
 
     const data = await response.json();
     const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    console.log('AI response for insert detection:', aiResponse.substring(0, 500));
 
     // Get token usage for tracking
     const { promptTokenCount = 0, candidatesTokenCount = 0, totalTokenCount = 0 } = data.usageMetadata || {};
@@ -1211,7 +1227,7 @@ IMPORTANT: Only include "referencesInsert": true if the question EXPLICITLY ment
     // Parse AI response
     const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.error('Failed to parse insert reference detection response');
+      console.error('Failed to parse insert reference detection response. AI response was:', aiResponse);
       return {
         references: new Map(),
         tokenUsage: { promptTokens: promptTokenCount, completionTokens: candidatesTokenCount, totalTokens: totalTokenCount, cost }
@@ -1222,8 +1238,17 @@ IMPORTANT: Only include "referencesInsert": true if the question EXPLICITLY ment
     const references = new Map<string, boolean>();
 
     for (const result of results) {
-      references.set(String(result.questionNumber), Boolean(result.referencesInsert));
+      const questionNum = String(result.questionNumber);
+      const referencesInsert = Boolean(result.referencesInsert);
+      references.set(questionNum, referencesInsert);
+
+      if (referencesInsert) {
+        console.log(`✓ Question ${questionNum} references insert`);
+      }
     }
+
+    const totalReferences = Array.from(references.values()).filter(v => v).length;
+    console.log(`Insert detection complete: ${totalReferences} out of ${questions.length} questions reference the insert`);
 
     return {
       references,
@@ -1237,6 +1262,7 @@ IMPORTANT: Only include "referencesInsert": true if the question EXPLICITLY ment
 
   } catch (error) {
     console.error('Error detecting insert references:', error);
+    console.error('Full error details:', JSON.stringify(error, null, 2));
     return {
       references: new Map(),
       tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0 }
