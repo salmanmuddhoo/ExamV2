@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, List, AlertCircle, CheckCircle, BookOpen, Edit2, Save, XCircle } from 'lucide-react';
+import { X, List, AlertCircle, CheckCircle, BookOpen, Edit2, Save, XCircle, FileImage } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface QuestionChapterData {
   question_id: string;
   question_number: number;
+  references_insert: boolean;
   chapters: {
     chapter_id: string;
     chapter_number: string;
@@ -146,6 +147,23 @@ export function QuestionChapterSummary({ examPaperId, examTitle, syllabusId, onC
       alert(`Failed to save changes: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleInsertReference = async (questionId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('exam_questions')
+        .update({ references_insert: !currentValue })
+        .eq('id', questionId);
+
+      if (error) throw error;
+
+      // Refresh the question data
+      await fetchQuestionChapterData();
+    } catch (err: any) {
+      console.error('Error updating insert reference:', err);
+      alert(`Failed to update insert reference: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -327,6 +345,23 @@ export function QuestionChapterSummary({ examPaperId, examTitle, syllabusId, onC
                         </div>
                       </div>
 
+                      {/* Insert Reference Checkbox */}
+                      <div className="flex-shrink-0 flex items-center">
+                        <label className="flex items-center space-x-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={question.references_insert}
+                            onChange={() => handleToggleInsertReference(question.question_id, question.references_insert)}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                            title={question.references_insert ? "Question references insert" : "Question does not reference insert"}
+                          />
+                          <FileImage
+                            className={`w-4 h-4 ${question.references_insert ? 'text-purple-600' : 'text-gray-400'} group-hover:text-purple-500 transition-colors`}
+                            title="Insert"
+                          />
+                        </label>
+                      </div>
+
                       {/* Chapter Tags */}
                       <div className="flex-1 min-w-0">
                         {question.chapters && question.chapters.length > 0 ? (
@@ -392,9 +427,13 @@ export function QuestionChapterSummary({ examPaperId, examTitle, syllabusId, onC
                 <CheckCircle className="w-3 h-3 text-green-600 mr-1" />
                 Primary chapter
               </span>
-              <span className="inline-flex items-center">
+              <span className="inline-flex items-center mr-4">
                 <BookOpen className="w-3 h-3 text-gray-400 mr-1" />
                 Secondary chapter
+              </span>
+              <span className="inline-flex items-center">
+                <FileImage className="w-3 h-3 text-purple-600 mr-1" />
+                Requires insert
               </span>
             </div>
             <button
