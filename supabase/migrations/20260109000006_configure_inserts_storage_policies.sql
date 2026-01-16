@@ -7,51 +7,52 @@
 -- STORAGE POLICIES FOR 'INSERTS' BUCKET
 -- =====================================================
 
+-- Drop existing policies if they exist (to avoid conflicts)
+DROP POLICY IF EXISTS "Allow authenticated users to upload inserts" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public read access to inserts" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to update inserts" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to delete inserts" ON storage.objects;
+
 -- Policy 1: Allow authenticated users to upload inserts
 -- This allows admins to upload insert PDFs and the service role to upload insert images
-INSERT INTO storage.policies (name, bucket_id, operation, definition)
-VALUES (
-  'Allow authenticated users to upload inserts',
-  'inserts',
-  'INSERT',
-  '(auth.role() = ''authenticated'')'::text
-)
-ON CONFLICT (bucket_id, name) DO UPDATE
-SET definition = '(auth.role() = ''authenticated'')'::text;
+CREATE POLICY "Allow authenticated users to upload inserts"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'inserts'
+);
 
 -- Policy 2: Allow public read access to inserts
 -- This allows students to view insert images when querying questions
-INSERT INTO storage.policies (name, bucket_id, operation, definition)
-VALUES (
-  'Allow public read access to inserts',
-  'inserts',
-  'SELECT',
-  'true'::text
-)
-ON CONFLICT (bucket_id, name) DO UPDATE
-SET definition = 'true'::text;
+CREATE POLICY "Allow public read access to inserts"
+ON storage.objects
+FOR SELECT
+TO public
+USING (
+  bucket_id = 'inserts'
+);
 
 -- Policy 3: Allow authenticated users to update inserts (for re-uploads)
-INSERT INTO storage.policies (name, bucket_id, operation, definition)
-VALUES (
-  'Allow authenticated users to update inserts',
-  'inserts',
-  'UPDATE',
-  '(auth.role() = ''authenticated'')'::text
+CREATE POLICY "Allow authenticated users to update inserts"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'inserts'
 )
-ON CONFLICT (bucket_id, name) DO UPDATE
-SET definition = '(auth.role() = ''authenticated'')'::text;
+WITH CHECK (
+  bucket_id = 'inserts'
+);
 
 -- Policy 4: Allow authenticated users to delete inserts
-INSERT INTO storage.policies (name, bucket_id, operation, definition)
-VALUES (
-  'Allow authenticated users to delete inserts',
-  'inserts',
-  'DELETE',
-  '(auth.role() = ''authenticated'')'::text
-)
-ON CONFLICT (bucket_id, name) DO UPDATE
-SET definition = '(auth.role() = ''authenticated'')'::text;
+CREATE POLICY "Allow authenticated users to delete inserts"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'inserts'
+);
 
 -- =====================================================
 -- VERIFICATION
@@ -59,9 +60,11 @@ SET definition = '(auth.role() = ''authenticated'')'::text;
 
 -- Query to verify policies are set up correctly:
 -- SELECT
---   name,
---   operation,
---   definition
--- FROM storage.policies
--- WHERE bucket_id = 'inserts'
--- ORDER BY operation;
+--   policyname,
+--   cmd as operation,
+--   qual as using_expression,
+--   with_check as with_check_expression
+-- FROM pg_policies
+-- WHERE tablename = 'objects'
+--   AND policyname LIKE '%inserts%'
+-- ORDER BY policyname;
