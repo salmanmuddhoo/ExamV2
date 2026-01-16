@@ -757,6 +757,66 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ========== CHECK IF QUESTION REFERENCES INSERT AND LOAD INSERT IMAGES ==========
+    if (detectedQuestionNumber) {
+      try {
+        console.log(`🔍 Checking if question ${detectedQuestionNumber} references insert...`);
+        const { data: questionData, error: questionError } = await supabase
+          .from('exam_questions')
+          .select('references_insert')
+          .eq('exam_paper_id', examPaperId)
+          .eq('question_number', detectedQuestionNumber)
+          .single();
+
+        if (!questionError && questionData?.references_insert) {
+          console.log(`📎 Question ${detectedQuestionNumber} references insert - loading insert images...`);
+
+          // Fetch insert images from storage
+          const { data: examPaper } = await supabase
+            .from('exam_papers')
+            .select('insert_pdf_url')
+            .eq('id', examPaperId)
+            .single();
+
+          if (examPaper?.insert_pdf_url) {
+            // List all insert images for this exam paper
+            const { data: insertFiles, error: listError } = await supabase.storage
+              .from('inserts')
+              .list(`inserts/${examPaperId}`);
+
+            if (!listError && insertFiles && insertFiles.length > 0) {
+              console.log(`📄 Found ${insertFiles.length} insert images`);
+
+              // Download and convert insert images to base64
+              for (const file of insertFiles.sort((a, b) => a.name.localeCompare(b.name))) {
+                const { data: imageData, error: downloadError } = await supabase.storage
+                  .from('inserts')
+                  .download(`inserts/${examPaperId}/${file.name}`);
+
+                if (!downloadError && imageData) {
+                  const arrayBuffer = await imageData.arrayBuffer();
+                  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                  finalExamImages.push(base64);
+                  console.log(`✅ Loaded insert image: ${file.name}`);
+                }
+              }
+
+              console.log(`✅ Total images (question + insert): ${finalExamImages.length}`);
+            } else {
+              console.log(`⚠️ Insert PDF URL exists but no insert images found in storage`);
+            }
+          } else {
+            console.log(`⚠️ Question references insert but exam paper has no insert_pdf_url`);
+          }
+        } else if (!questionError) {
+          console.log(`ℹ️ Question ${detectedQuestionNumber} does not reference insert`);
+        }
+      } catch (insertError) {
+        console.error('Error loading insert images:', insertError);
+        // Continue without insert images - don't fail the request
+      }
+    }
+
     console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
 
     // ========== GET AI MODEL (SUBJECT → USER → DEFAULT) ==========
