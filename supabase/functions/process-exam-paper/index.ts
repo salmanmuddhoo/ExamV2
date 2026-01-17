@@ -108,10 +108,24 @@ Deno.serve(async (req: Request) => {
     let insertDetectionTokens = null;
     if (insertImages && insertImages.length > 0) {
       console.log(`Detecting which questions reference the insert PDF...`);
+
+      // First, check if there's a global insert instruction at the top of the exam paper
+      const hasGlobalInsertInstruction = await checkForGlobalInsertInstruction(
+        pageImages,
+        geminiApiKey,
+        supabase
+      );
+
+      if (hasGlobalInsertInstruction) {
+        console.log(`⚠️ GLOBAL INSERT INSTRUCTION DETECTED - Exam paper has "Refer to insert" at the beginning`);
+        console.log(`This means the insert applies to multiple questions throughout the paper.`);
+      }
+
       const { references, tokenUsage: detectTokens } = await detectInsertReferences(
         questions,
         geminiApiKey,
-        supabase
+        supabase,
+        hasGlobalInsertInstruction
       );
       insertReferences = references;
       insertDetectionTokens = detectTokens;
@@ -1148,12 +1162,82 @@ async function storeInsertImages(
 }
 
 /**
+ * Check if the exam paper has a global insert instruction at the beginning
+ * (e.g., "Refer to the insert for the list of pseudocode functions")
+ */
+async function checkForGlobalInsertInstruction(
+  pageImages: Array<{ pageNumber: number; base64Image: string }>,
+  geminiApiKey: string,
+  supabase: any
+): Promise<boolean> {
+  try {
+    // Only check the first 2 pages where such instructions typically appear
+    const pagesToCheck = pageImages.slice(0, Math.min(2, pageImages.length));
+
+    const imageParts = pagesToCheck.map(img => ({
+      inlineData: {
+        mimeType: 'image/jpeg',
+        data: img.base64Image
+      }
+    }));
+
+    const prompt = `Analyze the top/header section of this exam paper (before the first question starts).
+
+Look for instructions that tell students to refer to an INSERT or supplementary document.
+
+Common patterns:
+- "Refer to the insert for..."
+- "Refer to insert for the list of..."
+- "See insert for..."
+- "The insert contains..."
+- Any instruction directing students to look at an external insert document
+
+Return ONLY "YES" if such an instruction exists, or "NO" if it doesn't exist.`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{ text: prompt }, ...imageParts]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 10,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to check for global insert instruction');
+      return false;
+    }
+
+    const data = await response.json();
+    const aiResponse = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+
+    console.log(`Global insert check response: "${aiResponse}"`);
+
+    return aiResponse.includes('YES');
+
+  } catch (error) {
+    console.error('Error checking for global insert instruction:', error);
+    return false;
+  }
+}
+
+/**
  * Detect which questions reference the insert PDF
  */
 async function detectInsertReferences(
   questions: any[],
   geminiApiKey: string,
-  supabase: any
+  supabase: any,
+  hasGlobalInstruction: boolean = false
 ): Promise<{ references: Map<string, boolean>; tokenUsage: any }> {
   try {
     // Use more text for better detection (first 800 characters instead of 200)
@@ -1164,8 +1248,40 @@ async function detectInsertReferences(
     }).join('\n');
 
     console.log(`Analyzing ${questions.length} questions for insert references...`);
+    if (hasGlobalInstruction) {
+      console.log(`📋 Global insert instruction detected - using context-aware detection`);
+    }
 
-    const AI_PROMPT = `Analyze the following exam questions and determine which ones reference an "insert" or external supplementary material.
+    const AI_PROMPT = hasGlobalInstruction
+      ? `IMPORTANT CONTEXT: This exam paper has a global instruction at the beginning telling students to "Refer to insert" for certain information (e.g., "Refer to the insert for the list of pseudocode functions").
+
+This means the insert is a reference document that applies to MULTIPLE questions throughout the paper.
+
+Analyze each question below and determine which ones actually NEED the insert to answer:
+
+Guidelines for marking "referencesInsert": true:
+- Questions about topics mentioned in the global insert instruction (e.g., if instruction says "refer to insert for pseudocode functions", mark questions about pseudocode as true)
+- Questions that explicitly reference the insert in their text
+- Questions asking about information likely contained in the insert
+- Questions where students would need to look up information (e.g., function syntax, operators, reference tables)
+
+Mark as FALSE only if:
+- The question is purely conceptual/theoretical
+- The question is self-contained with all needed information
+- The question doesn't relate to the insert topic
+
+Questions to analyze:
+${questionList}
+
+Return a JSON array:
+[
+  { "questionNumber": "1", "referencesInsert": true },
+  { "questionNumber": "2", "referencesInsert": false },
+  ...
+]
+
+Return ONLY the JSON array.`
+      : `Analyze the following exam questions and determine which ones reference an "insert" or external supplementary material.
 
 Common indicators that a question REFERENCES an insert:
 - "Refer to insert" / "refer to the insert"
