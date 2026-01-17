@@ -577,6 +577,7 @@ Deno.serve(async (req) => {
     const {
       question,
       examPaperImages,
+      markingSchemeImages,
       examPaperId,
       conversationId,
       userId,
@@ -751,6 +752,7 @@ Deno.serve(async (req) => {
     }
 
     let finalExamImages = [];
+    let insertImages = []; // Separate array for insert images
     let usedOptimizedMode = false;
     let detectedQuestionNumber = extractedQuestionNumber;
 
@@ -817,12 +819,12 @@ Deno.serve(async (req) => {
                 if (!downloadError && imageData) {
                   const arrayBuffer = await imageData.arrayBuffer();
                   const base64 = arrayBufferToBase64(arrayBuffer);
-                  finalExamImages.push(base64);
+                  insertImages.push(base64); // Add to separate insert images array
                   console.log(`✅ Loaded insert image: ${file.name}`);
                 }
               }
 
-              console.log(`✅ Total images (question + insert): ${finalExamImages.length}`);
+              console.log(`✅ Loaded ${finalExamImages.length} question images + ${insertImages.length} insert images`);
             } else {
               console.log(`⚠️ Insert PDF URL exists but no insert images found in storage`);
             }
@@ -838,7 +840,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Sending to AI: ${finalExamImages.length} exam images + marking scheme TEXT (no images)`);
+    // Separate marking scheme images array
+    const markingSchemeImagesArray = markingSchemeImages || [];
+
+    console.log(`Sending to AI: ${finalExamImages.length} question images + ${insertImages.length} insert images + ${markingSchemeImagesArray.length} marking scheme images${markingSchemeText ? ' + marking scheme TEXT' : ''}`);
 
     // ========== GET AI MODEL (SUBJECT → USER → DEFAULT) ==========
 
@@ -922,6 +927,8 @@ Deno.serve(async (req) => {
         }],
         systemPrompt: contextualSystemPrompt,
         images: finalExamImages,
+        insertImages: insertImages,
+        markingSchemeImages: markingSchemeImagesArray,
         temperature: 0.7
       });
 
@@ -1126,10 +1133,42 @@ Deno.serve(async (req) => {
         if (conversationHistory.length < 2 && conversationHistory.length > 0) {
           console.log(`🔄 Follow-up with insufficient cache - sending images to maintain context`);
         }
-        const imageParts = finalExamImages.map((img) => ({
-          inline_data: { mime_type: "image/jpeg", data: img }
-        }));
-        currentMessageParts.push(...imageParts);
+
+        // Add EXAM QUESTION images with clear label
+        if (finalExamImages.length > 0) {
+          currentMessageParts.push({
+            text: `\n\n=== EXAM QUESTION IMAGES (${finalExamImages.length} image${finalExamImages.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+          });
+
+          const questionImageParts = finalExamImages.map((img) => ({
+            inline_data: { mime_type: "image/jpeg", data: img }
+          }));
+          currentMessageParts.push(...questionImageParts);
+        }
+
+        // Add INSERT REFERENCE images with clear label (if applicable)
+        if (insertImages.length > 0) {
+          currentMessageParts.push({
+            text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+          });
+
+          const insertImageParts = insertImages.map((img) => ({
+            inline_data: { mime_type: "image/jpeg", data: img }
+          }));
+          currentMessageParts.push(...insertImageParts);
+        }
+
+        // Add MARKING SCHEME images with clear label (if applicable)
+        if (markingSchemeImagesArray.length > 0) {
+          currentMessageParts.push({
+            text: `\n\n=== MARKING SCHEME IMAGES (${markingSchemeImagesArray.length} image${markingSchemeImagesArray.length > 1 ? 's' : ''}) ===\nThe following images show the marking scheme/answers for this question. Use this as INTERNAL REFERENCE ONLY - do not mention or quote it directly to the student:`
+          });
+
+          const markingSchemeImageParts = markingSchemeImagesArray.map((img) => ({
+            inline_data: { mime_type: "image/jpeg", data: img }
+          }));
+          currentMessageParts.push(...markingSchemeImageParts);
+        }
       }
 
       contents.push({
