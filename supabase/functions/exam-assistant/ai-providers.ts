@@ -21,7 +21,8 @@ export interface AIGenerateOptions {
   model: AIModelConfig;
   messages: AIMessage[];
   systemPrompt?: string;
-  images?: string[]; // Base64 encoded images
+  images?: string[]; // Base64 encoded question images
+  insertImages?: string[]; // Base64 encoded insert reference images
   temperature?: number;
   maxTokens?: number;
   cachedContent?: string; // For Gemini cache
@@ -42,7 +43,7 @@ async function generateWithGemini(
   apiKey: string,
   options: AIGenerateOptions
 ): Promise<AIGenerateResponse> {
-  const { model, messages, systemPrompt, images, temperature, maxTokens, cachedContent } = options;
+  const { model, messages, systemPrompt, images, insertImages, temperature, maxTokens, cachedContent } = options;
 
   // Build content parts
   const parts: any[] = [];
@@ -70,9 +71,22 @@ async function generateWithGemini(
     }
   }
 
-  // Add images if provided separately
+  // Add EXAM QUESTION images with label if provided
   if (images && images.length > 0) {
+    parts.push({
+      text: `\n\n=== EXAM QUESTION IMAGES (${images.length} image${images.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+    });
     for (const img of images) {
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: img } });
+    }
+  }
+
+  // Add INSERT REFERENCE images with label if provided
+  if (insertImages && insertImages.length > 0) {
+    parts.push({
+      text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+    });
+    for (const img of insertImages) {
       parts.push({ inline_data: { mime_type: 'image/jpeg', data: img } });
     }
   }
@@ -152,7 +166,7 @@ async function generateWithClaude(
   apiKey: string,
   options: AIGenerateOptions
 ): Promise<AIGenerateResponse> {
-  const { model, messages, systemPrompt, images, temperature, maxTokens } = options;
+  const { model, messages, systemPrompt, images, insertImages, temperature, maxTokens } = options;
 
   // Build Claude messages format
   const claudeMessages: any[] = [];
@@ -207,10 +221,14 @@ async function generateWithClaude(
     });
   }
 
-  // Add images if provided separately
+  // Add EXAM QUESTION images with label if provided
   if (images && images.length > 0) {
     if (claudeMessages.length > 0 && claudeMessages[claudeMessages.length - 1].role === 'user') {
       // Add to last user message
+      claudeMessages[claudeMessages.length - 1].content.push({
+        type: 'text',
+        text: `\n\n=== EXAM QUESTION IMAGES (${images.length} image${images.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+      });
       for (const img of images) {
         claudeMessages[claudeMessages.length - 1].content.push({
           type: 'image',
@@ -223,16 +241,60 @@ async function generateWithClaude(
       }
     } else {
       // Create new user message with images
+      const content: any[] = [{
+        type: 'text',
+        text: `\n\n=== EXAM QUESTION IMAGES (${images.length} image${images.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+      }];
+      content.push(...images.map(img => ({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: 'image/jpeg',
+          data: img
+        }
+      })));
       claudeMessages.push({
         role: 'user',
-        content: images.map(img => ({
+        content
+      });
+    }
+  }
+
+  // Add INSERT REFERENCE images with label if provided
+  if (insertImages && insertImages.length > 0) {
+    if (claudeMessages.length > 0 && claudeMessages[claudeMessages.length - 1].role === 'user') {
+      // Add to last user message
+      claudeMessages[claudeMessages.length - 1].content.push({
+        type: 'text',
+        text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+      });
+      for (const img of insertImages) {
+        claudeMessages[claudeMessages.length - 1].content.push({
           type: 'image',
           source: {
             type: 'base64',
             media_type: 'image/jpeg',
             data: img
           }
-        }))
+        });
+      }
+    } else {
+      // Create new user message with insert images
+      const content: any[] = [{
+        type: 'text',
+        text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+      }];
+      content.push(...insertImages.map(img => ({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: 'image/jpeg',
+          data: img
+        }
+      })));
+      claudeMessages.push({
+        role: 'user',
+        content
       });
     }
   }
@@ -291,7 +353,7 @@ async function generateWithOpenAI(
   apiKey: string,
   options: AIGenerateOptions
 ): Promise<AIGenerateResponse> {
-  const { model, messages, systemPrompt, images, temperature, maxTokens } = options;
+  const { model, messages, systemPrompt, images, insertImages, temperature, maxTokens } = options;
 
   // Build OpenAI messages format
   const openaiMessages: any[] = [];
@@ -326,7 +388,7 @@ async function generateWithOpenAI(
     openaiMessages.push(message);
   }
 
-  // Add images if provided separately
+  // Add EXAM QUESTION images with label if provided
   if (images && images.length > 0) {
     if (openaiMessages.length > 0 && openaiMessages[openaiMessages.length - 1].role === 'user') {
       // Convert last message to multimodal if it's text
@@ -334,7 +396,11 @@ async function generateWithOpenAI(
       if (typeof lastMsg.content === 'string') {
         lastMsg.content = [{ type: 'text', text: lastMsg.content }];
       }
-      // Add images
+      // Add label and images
+      lastMsg.content.push({
+        type: 'text',
+        text: `\n\n=== EXAM QUESTION IMAGES (${images.length} image${images.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+      });
       for (const img of images) {
         lastMsg.content.push({
           type: 'image_url',
@@ -342,13 +408,54 @@ async function generateWithOpenAI(
         });
       }
     } else {
-      // Create new user message with images
+      // Create new user message with label and images
+      const content: any[] = [{
+        type: 'text',
+        text: `\n\n=== EXAM QUESTION IMAGES (${images.length} image${images.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+      }];
+      content.push(...images.map(img => ({
+        type: 'image_url',
+        image_url: { url: `data:image/jpeg;base64,${img}` }
+      })));
       openaiMessages.push({
         role: 'user',
-        content: images.map(img => ({
+        content
+      });
+    }
+  }
+
+  // Add INSERT REFERENCE images with label if provided
+  if (insertImages && insertImages.length > 0) {
+    if (openaiMessages.length > 0 && openaiMessages[openaiMessages.length - 1].role === 'user') {
+      // Convert last message to multimodal if it's text
+      const lastMsg = openaiMessages[openaiMessages.length - 1];
+      if (typeof lastMsg.content === 'string') {
+        lastMsg.content = [{ type: 'text', text: lastMsg.content }];
+      }
+      // Add label and insert images
+      lastMsg.content.push({
+        type: 'text',
+        text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+      });
+      for (const img of insertImages) {
+        lastMsg.content.push({
           type: 'image_url',
           image_url: { url: `data:image/jpeg;base64,${img}` }
-        }))
+        });
+      }
+    } else {
+      // Create new user message with label and insert images
+      const content: any[] = [{
+        type: 'text',
+        text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+      }];
+      content.push(...insertImages.map(img => ({
+        type: 'image_url',
+        image_url: { url: `data:image/jpeg;base64,${img}` }
+      })));
+      openaiMessages.push({
+        role: 'user',
+        content
       });
     }
   }
