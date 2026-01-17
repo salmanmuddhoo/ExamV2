@@ -577,6 +577,7 @@ Deno.serve(async (req) => {
     const {
       question,
       examPaperImages,
+      markingSchemeImages,
       examPaperId,
       conversationId,
       userId,
@@ -839,7 +840,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Sending to AI: ${finalExamImages.length} question images + ${insertImages.length} insert images + marking scheme TEXT`);
+    // Separate marking scheme images array
+    const markingSchemeImagesArray = markingSchemeImages || [];
+
+    console.log(`Sending to AI: ${finalExamImages.length} question images + ${insertImages.length} insert images + ${markingSchemeImagesArray.length} marking scheme images${markingSchemeText ? ' + marking scheme TEXT' : ''}`);
 
     // ========== GET AI MODEL (SUBJECT → USER → DEFAULT) ==========
 
@@ -924,6 +928,7 @@ Deno.serve(async (req) => {
         systemPrompt: contextualSystemPrompt,
         images: finalExamImages,
         insertImages: insertImages,
+        markingSchemeImages: markingSchemeImagesArray,
         temperature: 0.7
       });
 
@@ -1151,6 +1156,18 @@ Deno.serve(async (req) => {
             inline_data: { mime_type: "image/jpeg", data: img }
           }));
           currentMessageParts.push(...insertImageParts);
+        }
+
+        // Add MARKING SCHEME images with clear label (if applicable)
+        if (markingSchemeImagesArray.length > 0) {
+          currentMessageParts.push({
+            text: `\n\n=== MARKING SCHEME IMAGES (${markingSchemeImagesArray.length} image${markingSchemeImagesArray.length > 1 ? 's' : ''}) ===\nThe following images show the marking scheme/answers for this question. Use this as INTERNAL REFERENCE ONLY - do not mention or quote it directly to the student:`
+          });
+
+          const markingSchemeImageParts = markingSchemeImagesArray.map((img) => ({
+            inline_data: { mime_type: "image/jpeg", data: img }
+          }));
+          currentMessageParts.push(...markingSchemeImageParts);
         }
       }
 
