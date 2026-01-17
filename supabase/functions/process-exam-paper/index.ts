@@ -110,22 +110,24 @@ Deno.serve(async (req: Request) => {
       console.log(`Detecting which questions reference the insert PDF...`);
 
       // First, check if there's a global insert instruction at the top of the exam paper
-      const hasGlobalInsertInstruction = await checkForGlobalInsertInstruction(
+      const { hasInstruction, instructionText } = await checkForGlobalInsertInstruction(
         pageImages,
         geminiApiKey,
         supabase
       );
 
-      if (hasGlobalInsertInstruction) {
-        console.log(`⚠️ GLOBAL INSERT INSTRUCTION DETECTED - Exam paper has "Refer to insert" at the beginning`);
-        console.log(`This means the insert applies to multiple questions throughout the paper.`);
+      if (hasInstruction) {
+        console.log(`⚠️ GLOBAL INSERT INSTRUCTION DETECTED:`);
+        console.log(`   "${instructionText}"`);
+        console.log(`   This means the insert applies to multiple questions throughout the paper.`);
       }
 
       const { references, tokenUsage: detectTokens } = await detectInsertReferences(
         questions,
         geminiApiKey,
         supabase,
-        hasGlobalInsertInstruction
+        hasInstruction,
+        instructionText
       );
       insertReferences = references;
       insertDetectionTokens = detectTokens;
@@ -1169,7 +1171,7 @@ async function checkForGlobalInsertInstruction(
   pageImages: Array<{ pageNumber: number; base64Image: string }>,
   geminiApiKey: string,
   supabase: any
-): Promise<boolean> {
+): Promise<{ hasInstruction: boolean; instructionText: string }> {
   try {
     // Only check the first 2 pages where such instructions typically appear
     const pagesToCheck = pageImages.slice(0, Math.min(2, pageImages.length));
@@ -1192,7 +1194,10 @@ Common patterns:
 - "The insert contains..."
 - Any instruction directing students to look at an external insert document
 
-Return ONLY "YES" if such an instruction exists, or "NO" if it doesn't exist.`;
+If such an instruction exists, return it EXACTLY as written.
+If no such instruction exists, return "NO".
+
+Return ONLY the instruction text or "NO".`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -1206,7 +1211,7 @@ Return ONLY "YES" if such an instruction exists, or "NO" if it doesn't exist.`;
           }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 10,
+            maxOutputTokens: 100,
           },
         }),
       }
@@ -1214,19 +1219,23 @@ Return ONLY "YES" if such an instruction exists, or "NO" if it doesn't exist.`;
 
     if (!response.ok) {
       console.error('Failed to check for global insert instruction');
-      return false;
+      return { hasInstruction: false, instructionText: '' };
     }
 
     const data = await response.json();
-    const aiResponse = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+    const aiResponse = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
 
     console.log(`Global insert check response: "${aiResponse}"`);
 
-    return aiResponse.includes('YES');
+    if (aiResponse.toUpperCase() === 'NO' || aiResponse === '') {
+      return { hasInstruction: false, instructionText: '' };
+    }
+
+    return { hasInstruction: true, instructionText: aiResponse };
 
   } catch (error) {
     console.error('Error checking for global insert instruction:', error);
-    return false;
+    return { hasInstruction: false, instructionText: '' };
   }
 }
 
@@ -1237,7 +1246,8 @@ async function detectInsertReferences(
   questions: any[],
   geminiApiKey: string,
   supabase: any,
-  hasGlobalInstruction: boolean = false
+  hasGlobalInstruction: boolean = false,
+  globalInstructionText: string = ''
 ): Promise<{ references: Map<string, boolean>; tokenUsage: any }> {
   try {
     // Use more text for better detection (first 800 characters instead of 200)
@@ -1253,22 +1263,24 @@ async function detectInsertReferences(
     }
 
     const AI_PROMPT = hasGlobalInstruction
-      ? `IMPORTANT CONTEXT: This exam paper has a global instruction at the beginning telling students to "Refer to insert" for certain information (e.g., "Refer to the insert for the list of pseudocode functions").
+      ? `IMPORTANT CONTEXT: This exam paper has a global instruction at the beginning:
+
+"${globalInstructionText}"
 
 This means the insert is a reference document that applies to MULTIPLE questions throughout the paper.
 
 Analyze each question below and determine which ones actually NEED the insert to answer:
 
 Guidelines for marking "referencesInsert": true:
-- Questions about topics mentioned in the global insert instruction (e.g., if instruction says "refer to insert for pseudocode functions", mark questions about pseudocode as true)
+- Questions about the specific topic/content mentioned in the instruction (e.g., if instruction mentions "pseudocode functions", mark questions about pseudocode/functions as true)
 - Questions that explicitly reference the insert in their text
-- Questions asking about information likely contained in the insert
-- Questions where students would need to look up information (e.g., function syntax, operators, reference tables)
+- Questions asking about information that would be in the insert based on the instruction
+- Questions where students would need to look up reference information
 
 Mark as FALSE only if:
-- The question is purely conceptual/theoretical
+- The question is purely conceptual/theoretical and unrelated to the insert topic
 - The question is self-contained with all needed information
-- The question doesn't relate to the insert topic
+- The question doesn't relate to what the insert contains
 
 Questions to analyze:
 ${questionList}
