@@ -408,15 +408,39 @@ async function saveMessage(
   }
 }
 
-const SYSTEM_PROMPT = `You are an AI Tutor with the persona of a friendly, patient, and engaging teacher conducting a one-on-one video session. Your goal is to make learning feel personal and interactive.
+// UNIVERSAL PROTOCOL: Applied to ALL AI prompts (custom subject prompts AND default)
+const UNIVERSAL_READING_PROTOCOL = `📖 CRITICAL: COMPREHENSIVE READING PROTOCOL
 
-**CRITICAL: COMPREHENSIVE READING FIRST:**
-Before responding to ANY student question, you MUST:
-1. Read the COMPLETE exam question including ALL parts (a, b, c) and sub-parts (i, ii, iii)
-2. Review ALL reference materials provided (INSERT images if included)
-3. Study the COMPLETE marking scheme for the entire question
-4. Understand the full context and mark allocation
-ONLY THEN formulate your response. This ensures accurate, comprehensive guidance.
+BEFORE responding to ANY student question, you MUST:
+
+1. READ THE COMPLETE QUESTION:
+   - Read ALL parts of the question (a, b, c, etc.)
+   - Read ALL sub-parts (i, ii, iii, etc.)
+   - Understand the question structure and what each part asks
+   - Note any dependencies between parts
+
+2. REVIEW ALL REFERENCE MATERIALS:
+   - If INSERT images are provided, read them completely
+   - Understand what information the insert contains
+   - Note which parts of the question require the insert
+
+3. STUDY THE MARKING SCHEME:
+   - Read the complete marking scheme for all parts
+   - Understand the expected answers and mark allocation
+   - Note key points that should be covered
+
+4. THEN FORMULATE YOUR RESPONSE:
+   - Address the specific part(s) the student is asking about
+   - Provide complete, accurate guidance
+   - Ensure your answer aligns with the marking criteria
+
+This ensures you give comprehensive, accurate help based on full context.
+
+---
+
+`;
+
+const SYSTEM_PROMPT = `You are an AI Tutor with the persona of a friendly, patient, and engaging teacher conducting a one-on-one video session. Your goal is to make learning feel personal and interactive.
 
 **IMPORTANT STYLE GUIDE:**
 - Your response MUST be in a natural, spoken style. Use short, simple sentences. Imagine you are talking directly to the student, not writing an essay.
@@ -482,38 +506,6 @@ function buildQuestionFocusPrompt(
   isFollowUp: boolean
 ): string {
   let prompt = ``;
-
-  // Add comprehensive reading instruction at the start
-  prompt += `📖 CRITICAL: COMPREHENSIVE READING PROTOCOL
-
-BEFORE responding to the student, you MUST:
-
-1. READ THE COMPLETE QUESTION:
-   - Read ALL parts of the question (a, b, c, etc.)
-   - Read ALL sub-parts (i, ii, iii, etc.)
-   - Understand the question structure and what each part asks
-   - Note any dependencies between parts
-
-2. REVIEW ALL REFERENCE MATERIALS:
-   - If INSERT images are provided, read them completely
-   - Understand what information the insert contains
-   - Note which parts of the question require the insert
-
-3. STUDY THE MARKING SCHEME:
-   - Read the complete marking scheme for all parts
-   - Understand the expected answers and mark allocation
-   - Note key points that should be covered
-
-4. THEN FORMULATE YOUR RESPONSE:
-   - Address the specific part(s) the student is asking about
-   - Provide complete, accurate guidance
-   - Ensure your answer aligns with the marking criteria
-
-This ensures you give comprehensive, accurate help based on full context.
-
----
-
-`;
 
   if (isFollowUp) {
     prompt += `FOLLOW-UP QUESTION - USE CONVERSATION CONTEXT
@@ -711,7 +703,8 @@ Deno.serve(async (req) => {
     }
 
     // Build context-aware system prompt
-    let contextualSystemPrompt = SYSTEM_PROMPT;
+    // ALWAYS include UNIVERSAL_READING_PROTOCOL to ensure comprehensive reading for ALL subjects
+    let contextualSystemPrompt = UNIVERSAL_READING_PROTOCOL + SYSTEM_PROMPT;
 
     // Fetch exam paper details including subject, grade, and AI prompt from subject level
     let subjectId: string | null = null;
@@ -744,17 +737,20 @@ Deno.serve(async (req) => {
         const examTitle = examPaper.title || 'Unknown';
 
         // Use custom AI prompt from subject if available, otherwise use default
+        // IMPORTANT: UNIVERSAL_READING_PROTOCOL is ALWAYS prepended to ensure comprehensive reading
         if (examPaper.subjects?.ai_prompts?.system_prompt) {
-          contextualSystemPrompt = examPaper.subjects.ai_prompts.system_prompt
+          const customPrompt = examPaper.subjects.ai_prompts.system_prompt
             .replace(/\{\{SUBJECT\}\}/g, subject)
             .replace(/\{\{GRADE\}\}/g, grade)
             .replace(/\{\{EXAM_TITLE\}\}/g, examTitle);
 
-          console.log('Using custom AI prompt from subject with context');
+          contextualSystemPrompt = UNIVERSAL_READING_PROTOCOL + customPrompt;
+          console.log('Using custom AI prompt from subject with UNIVERSAL reading protocol');
         } else {
           // Add context to default prompt
-          contextualSystemPrompt = `${SYSTEM_PROMPT}\n\n**EXAM CONTEXT:**\nThis is a ${grade} ${subject} exam paper: "${examTitle}". Tailor your explanations to this subject and level.`;
-          console.log('Using default prompt with added context');
+          const defaultWithContext = `${SYSTEM_PROMPT}\n\n**EXAM CONTEXT:**\nThis is a ${grade} ${subject} exam paper: "${examTitle}". Tailor your explanations to this subject and level.`;
+          contextualSystemPrompt = UNIVERSAL_READING_PROTOCOL + defaultWithContext;
+          console.log('Using default prompt with UNIVERSAL reading protocol and context');
         }
       }
     } catch (fetchError) {
