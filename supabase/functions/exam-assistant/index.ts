@@ -410,6 +410,14 @@ async function saveMessage(
 
 const SYSTEM_PROMPT = `You are an AI Tutor with the persona of a friendly, patient, and engaging teacher conducting a one-on-one video session. Your goal is to make learning feel personal and interactive.
 
+**CRITICAL: COMPREHENSIVE READING FIRST:**
+Before responding to ANY student question, you MUST:
+1. Read the COMPLETE exam question including ALL parts (a, b, c) and sub-parts (i, ii, iii)
+2. Review ALL reference materials provided (INSERT images if included)
+3. Study the COMPLETE marking scheme for the entire question
+4. Understand the full context and mark allocation
+ONLY THEN formulate your response. This ensures accurate, comprehensive guidance.
+
 **IMPORTANT STYLE GUIDE:**
 - Your response MUST be in a natural, spoken style. Use short, simple sentences. Imagine you are talking directly to the student, not writing an essay.
 - **Conversational Flow:** Instead of a rigid report, guide the student through the concept. Start with a warm greeting. Seamlessly transition between explaining the core idea, showing an example, and then giving tips for getting full marks.
@@ -474,7 +482,39 @@ function buildQuestionFocusPrompt(
   isFollowUp: boolean
 ): string {
   let prompt = ``;
-  
+
+  // Add comprehensive reading instruction at the start
+  prompt += `📖 CRITICAL: COMPREHENSIVE READING PROTOCOL
+
+BEFORE responding to the student, you MUST:
+
+1. READ THE COMPLETE QUESTION:
+   - Read ALL parts of the question (a, b, c, etc.)
+   - Read ALL sub-parts (i, ii, iii, etc.)
+   - Understand the question structure and what each part asks
+   - Note any dependencies between parts
+
+2. REVIEW ALL REFERENCE MATERIALS:
+   - If INSERT images are provided, read them completely
+   - Understand what information the insert contains
+   - Note which parts of the question require the insert
+
+3. STUDY THE MARKING SCHEME:
+   - Read the complete marking scheme for all parts
+   - Understand the expected answers and mark allocation
+   - Note key points that should be covered
+
+4. THEN FORMULATE YOUR RESPONSE:
+   - Address the specific part(s) the student is asking about
+   - Provide complete, accurate guidance
+   - Ensure your answer aligns with the marking criteria
+
+This ensures you give comprehensive, accurate help based on full context.
+
+---
+
+`;
+
   if (isFollowUp) {
     prompt += `FOLLOW-UP QUESTION - USE CONVERSATION CONTEXT
 
@@ -501,16 +541,13 @@ QUESTION ${questionNumber.toUpperCase()} starts with:
 
 YOUR TASK:
 1. Look for the question that starts with the NUMBER "${questionNumber}" followed by the text shown above
-2. COMPLETELY IGNORE any other questions in the images (even if they're on the same page)
-3. Answer ONLY Question ${questionNumber} - do not mix answers from other questions
-4. If you see "1" and "2" in the image, and the student asked about "2", skip everything about "1"
-5. If 2 images are provided, work out the question on the next page until you see another question like "3"
+2. Read the ENTIRE question ${questionNumber} including ALL parts (a, b, c) and sub-parts (i, ii)
+3. COMPLETELY IGNORE any other questions in the images (even if they're on the same page)
+4. Answer ONLY Question ${questionNumber} - do not mix answers from other questions
+5. If you see "1" and "2" in the image, and the student asked about "2", skip everything about "1"
+6. If 2 images are provided, work out the question on the next page until you see another question like "3"
 
-IMPORTANT: Questions in this exam format start with just the number, like:
-"1 Some text here..."
-"2 Some other text..."
-
-Find the one that matches Question ${questionNumber} and start with that one.
+IMPORTANT: Multi-part questions may span multiple images. Read ALL parts before responding.
 
 ---
 
@@ -518,25 +555,28 @@ Find the one that matches Question ${questionNumber} and start with that one.
   } else if (questionNumber) {
     prompt += `IMPORTANT: The student is asking specifically about Question ${questionNumber}.
 Look for the question starting with the number "${questionNumber}" in the images.
+Read the ENTIRE question including all parts and sub-parts.
 Answer ONLY that question, ignore others.
 
 ---
 
 `;
   }
-  
+
   // Add marking scheme text if available
   if (markingSchemeText && markingSchemeText.trim().length > 0) {
     prompt += `MARKING SCHEME FOR THIS QUESTION (INTERNAL REFERENCE ONLY):
 ${markingSchemeText}
 
+CRITICAL: Read this marking scheme COMPLETELY before formulating your response.
+Understand ALL parts and their mark allocations.
 Use this marking scheme as internal reference ONLY. Do not mention or quote it in your answer to the student.
 
 ---
 
 `;
   }
-  
+
   prompt += `Student's Question: ${studentQuestion}
 
 Please analyze the exam paper provided and answer.`;
