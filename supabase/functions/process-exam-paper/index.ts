@@ -242,7 +242,7 @@ Deno.serve(async (req: Request) => {
     try {
       await supabase.from('token_usage_logs').insert({
         exam_paper_id: examPaperId,
-        model: 'gemini-2.5-flash-latest',
+        model: 'gemini-2.5-flash',
         provider: 'gemini',
         prompt_tokens: totalPromptTokens,
         completion_tokens: totalCompletionTokens,
@@ -349,9 +349,9 @@ Return ONLY the JSON array, nothing else.`;
 
   try {
     console.log("Sending to Gemini AI...");
-    
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -395,7 +395,7 @@ Return ONLY the JSON array, nothing else.`;
     const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
 
     // Fetch dynamic pricing from database
-    const modelName = 'gemini-2.5-flash-latest';
+    const modelName = 'gemini-2.5-flash';
     const pricing = await getModelPricing(supabase, modelName);
 
     // Calculate cost using database pricing
@@ -682,9 +682,9 @@ Return ONLY the JSON object.`;
 
   try {
     console.log("Extracting marking scheme with Gemini...");
-    
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -733,7 +733,7 @@ Return ONLY the JSON object.`;
     const totalTokensUsed = usageMetadata.totalTokenCount || (promptTokens + completionTokens);
 
     // Fetch dynamic pricing from database
-    const modelName = 'gemini-2.5-flash-latest';
+    const modelName = 'gemini-2.5-flash';
     const pricing = await getModelPricing(supabase, modelName);
 
     // Calculate cost using database pricing
@@ -906,7 +906,7 @@ Return ONLY the JSON array, no other text.`;
     console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using full PDF...`);
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1200,7 +1200,7 @@ If no such instruction exists, return "NO".
 Return ONLY the instruction text or "NO".`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1320,7 +1320,7 @@ Return a JSON array with the following structure (one entry per question):
 Return ONLY the JSON array, no other text.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1349,7 +1349,7 @@ Return ONLY the JSON array, no other text.`;
     const { promptTokenCount = 0, candidatesTokenCount = 0, totalTokenCount = 0 } = data.usageMetadata || {};
 
     // Get pricing
-    const { inputCost, outputCost } = await getModelPricing(supabase, 'gemini-2.5-flash-latest');
+    const { inputCost, outputCost } = await getModelPricing(supabase, 'gemini-2.5-flash');
     const cost = (promptTokenCount / 1000000) * inputCost + (candidatesTokenCount / 1000000) * outputCost;
 
     // Parse AI response

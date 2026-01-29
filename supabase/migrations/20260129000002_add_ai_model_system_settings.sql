@@ -13,7 +13,7 @@ DECLARE
 BEGIN
   SELECT id INTO gemini_25_id
   FROM ai_models
-  WHERE model_name = 'gemini-2.5-flash-latest'
+  WHERE model_name = 'gemini-2.5-flash'
   AND is_active = true
   LIMIT 1;
 
