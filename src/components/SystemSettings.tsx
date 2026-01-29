@@ -284,7 +284,7 @@ export function SystemSettings() {
                 for follow-up questions. Images and context are cached by Gemini.
               </p>
               <div className="mt-2 text-xs text-gray-500">
-                <strong>Model:</strong> gemini-2.5-flash-latest (supports built-in caching)<br />
+                <strong>Model:</strong> gemini-2.5-flash (supports built-in caching)<br />
                 <strong>Pros:</strong> Lower cost, faster responses, no database storage needed<br />
                 <strong>Cost:</strong> ~90% reduction on follow-up questions
               </div>
@@ -314,7 +314,7 @@ export function SystemSettings() {
                 No images re-sent, but conversation text is sent each time.
               </p>
               <div className="mt-2 text-xs text-gray-500">
-                <strong>Model:</strong> gemini-2.5-flash-latest (legacy mode without built-in cache)<br />
+                <strong>Model:</strong> gemini-2.5-flash (legacy mode without built-in cache)<br />
                 <strong>Pros:</strong> Full control, conversation stored in your database<br />
                 <strong>Cost:</strong> Higher token usage on follow-ups (conversation history sent)
               </div>

@@ -16,7 +16,7 @@ INSERT INTO ai_models (
 ) VALUES
 (
   'gemini',
-  'gemini-2.5-flash-latest',
+  'gemini-2.5-flash',
   'Gemini 2.5 Flash',
   'Latest Gemini model with improved performance, vision support, and built-in caching. Best balance of speed, quality, and cost.',
   true, -- supports_vision
@@ -28,7 +28,7 @@ INSERT INTO ai_models (
   1.0, -- token_multiplier (baseline)
   true, -- is_active
   true, -- is_default (new default)
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest',
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash',
   0.7 -- temperature_default
 );
 
@@ -59,7 +59,7 @@ WHERE model_name = 'gemini-2.0-flash-exp';
 -- Migrate users who had Gemini 2.0 Flash as their preference to Gemini 2.5 Flash
 UPDATE profiles
 SET preferred_ai_model_id = (
-  SELECT id FROM ai_models WHERE model_name = 'gemini-2.5-flash-latest'
+  SELECT id FROM ai_models WHERE model_name = 'gemini-2.5-flash'
 )
 WHERE preferred_ai_model_id IN (
   SELECT id FROM ai_models WHERE model_name IN ('gemini-2.0-flash', 'gemini-2.0-flash-exp')
@@ -72,7 +72,7 @@ WHERE preferred_ai_model_id IN (
 -- Migrate subscription tiers that were using Gemini 2.0 models to Gemini 2.5 Flash
 UPDATE subscription_tiers
 SET ai_model_id = (
-  SELECT id FROM ai_models WHERE model_name = 'gemini-2.5-flash-latest'
+  SELECT id FROM ai_models WHERE model_name = 'gemini-2.5-flash'
 )
 WHERE ai_model_id IN (
   SELECT id FROM ai_models WHERE model_name IN ('gemini-2.0-flash', 'gemini-2.0-flash-exp')
@@ -85,7 +85,7 @@ WHERE ai_model_id IN (
 -- Migrate subjects that were using Gemini 2.0 models to Gemini 2.5 Flash
 UPDATE subjects
 SET ai_model_id = (
-  SELECT id FROM ai_models WHERE model_name = 'gemini-2.5-flash-latest'
+  SELECT id FROM ai_models WHERE model_name = 'gemini-2.5-flash'
 )
 WHERE ai_model_id IN (
   SELECT id FROM ai_models WHERE model_name IN ('gemini-2.0-flash', 'gemini-2.0-flash-exp')
