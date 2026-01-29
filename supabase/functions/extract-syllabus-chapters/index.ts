@@ -18,7 +18,7 @@ async function getAdminUploadModel(supabase: any): Promise<{ model_name: string;
 
     if (settingError || !settingData) {
       console.log('No admin upload model configured, using default');
-      return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+      return { model_name: 'gemini-2.5-flash-latest', provider: 'gemini' };
     }
 
     const modelId = settingData.setting_value as string;
@@ -32,7 +32,7 @@ async function getAdminUploadModel(supabase: any): Promise<{ model_name: string;
 
     if (modelError || !modelData) {
       console.error('Error fetching model details:', modelError);
-      return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+      return { model_name: 'gemini-2.5-flash-latest', provider: 'gemini' };
     }
 
     return {
@@ -41,7 +41,7 @@ async function getAdminUploadModel(supabase: any): Promise<{ model_name: string;
     };
   } catch (err) {
     console.error('Error in getAdminUploadModel:', err);
-    return { model_name: 'gemini-2.0-flash-exp', provider: 'gemini' };
+    return { model_name: 'gemini-2.5-flash-latest', provider: 'gemini' };
   }
 }
 

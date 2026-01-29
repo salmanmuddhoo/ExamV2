@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Server, Database, Zap, Save, RefreshCw, Calendar, Phone } from 'lucide-react';
+import { Server, Database, Zap, Save, RefreshCw, Calendar, Phone, Cpu } from 'lucide-react';
 
 interface CacheSetting {
   useGeminiCache: boolean;
@@ -10,12 +10,24 @@ interface StudyPlanFeatureSetting {
   enabled: boolean;
 }
 
+interface AIModel {
+  id: string;
+  provider: string;
+  model_name: string;
+  display_name: string;
+  token_multiplier: number;
+  is_active: boolean;
+}
+
 export function SystemSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [useGeminiCache, setUseGeminiCache] = useState(false);
   const [studyPlanEnabled, setStudyPlanEnabled] = useState(false);
   const [mcbJuicePhoneNumber, setMcbJuicePhoneNumber] = useState('5822 2428');
+  const [aiModels, setAiModels] = useState<AIModel[]>([]);
+  const [examUploadModelId, setExamUploadModelId] = useState<string>('');
+  const [studyPlanModelId, setStudyPlanModelId] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -73,6 +85,55 @@ export function SystemSettings() {
           setMcbJuicePhoneNumber(phoneNumber);
         }
       }
+
+      // Fetch active AI models
+      const { data: modelsData, error: modelsError } = await supabase
+        .from('ai_models')
+        .select('id, provider, model_name, display_name, token_multiplier, is_active')
+        .eq('is_active', true)
+        .order('token_multiplier');
+
+      if (modelsError) throw modelsError;
+
+      if (modelsData) {
+        setAiModels(modelsData);
+      }
+
+      // Fetch exam upload AI model setting
+      const { data: examUploadData, error: examUploadError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'exam_upload_ai_model_id')
+        .single();
+
+      if (examUploadError && examUploadError.code !== 'PGRST116') {
+        throw examUploadError;
+      }
+
+      if (examUploadData) {
+        const modelId = examUploadData.setting_value?.model_id;
+        if (modelId) {
+          setExamUploadModelId(modelId);
+        }
+      }
+
+      // Fetch study plan AI model setting
+      const { data: studyPlanModelData, error: studyPlanModelError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'study_plan_ai_model_id')
+        .single();
+
+      if (studyPlanModelError && studyPlanModelError.code !== 'PGRST116') {
+        throw studyPlanModelError;
+      }
+
+      if (studyPlanModelData) {
+        const modelId = studyPlanModelData.setting_value?.model_id;
+        if (modelId) {
+          setStudyPlanModelId(modelId);
+        }
+      }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load settings' });
     } finally {
@@ -123,6 +184,38 @@ export function SystemSettings() {
         });
 
       if (mcbPhoneError) throw mcbPhoneError;
+
+      // Update exam upload AI model
+      if (examUploadModelId) {
+        const { error: examUploadModelError } = await supabase
+          .from('system_settings')
+          .upsert({
+            setting_key: 'exam_upload_ai_model_id',
+            setting_value: { model_id: examUploadModelId },
+            description: 'AI model used for processing exam paper uploads (question extraction, chapter tagging, marking scheme extraction)',
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'setting_key'
+          });
+
+        if (examUploadModelError) throw examUploadModelError;
+      }
+
+      // Update study plan AI model
+      if (studyPlanModelId) {
+        const { error: studyPlanModelError } = await supabase
+          .from('system_settings')
+          .upsert({
+            setting_key: 'study_plan_ai_model_id',
+            setting_value: { model_id: studyPlanModelId },
+            description: 'AI model used for generating personalized study plans',
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'setting_key'
+          });
+
+        if (studyPlanModelError) throw studyPlanModelError;
+      }
 
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
 
@@ -187,11 +280,11 @@ export function SystemSettings() {
                 </span>
               </div>
               <p className="text-sm text-gray-600">
-                Uses Gemini 2.0 Flash's context caching API. Significantly reduces costs and improves performance
+                Uses Gemini 2.5 Flash's context caching API. Significantly reduces costs and improves performance
                 for follow-up questions. Images and context are cached by Gemini.
               </p>
               <div className="mt-2 text-xs text-gray-500">
-                <strong>Model:</strong> gemini-2.0-flash (stable, supports caching)<br />
+                <strong>Model:</strong> gemini-2.5-flash-latest (supports built-in caching)<br />
                 <strong>Pros:</strong> Lower cost, faster responses, no database storage needed<br />
                 <strong>Cost:</strong> ~90% reduction on follow-up questions
               </div>
@@ -221,7 +314,7 @@ export function SystemSettings() {
                 No images re-sent, but conversation text is sent each time.
               </p>
               <div className="mt-2 text-xs text-gray-500">
-                <strong>Model:</strong> gemini-2.0-flash-exp (experimental, original model)<br />
+                <strong>Model:</strong> gemini-2.5-flash-latest (legacy mode without built-in cache)<br />
                 <strong>Pros:</strong> Full control, conversation stored in your database<br />
                 <strong>Cost:</strong> Higher token usage on follow-ups (conversation history sent)
               </div>
@@ -352,6 +445,108 @@ export function SystemSettings() {
             <p className="text-sm text-amber-800">
               <strong>Important:</strong> Any changes to this number will take effect immediately for all new payment screens.
               Ensure the number is correct before saving to avoid payment issues.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Exam Upload AI Model Section */}
+      <div className="border border-gray-200 rounded-lg p-6 bg-white">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Cpu className="w-5 h-5 text-blue-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Exam Upload AI Model</h3>
+            <p className="text-sm text-gray-600">Select AI model for processing exam paper uploads</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 border-2 rounded-lg border-gray-200">
+            <label htmlFor="exam-upload-model" className="block text-sm font-semibold text-gray-900 mb-2">
+              AI Model for Question Extraction & Chapter Tagging
+            </label>
+            <select
+              id="exam-upload-model"
+              value={examUploadModelId}
+              onChange={(e) => setExamUploadModelId(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select a model...</option>
+              {aiModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.display_name} ({model.provider}) - Cost Multiplier: {model.token_multiplier}x
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-gray-500">
+              This model will be used for OCR, question extraction, chapter tagging, and marking scheme analysis when uploading exam papers.
+            </p>
+          </div>
+
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>What it does:</strong> When a user uploads an exam paper, this AI model is used to extract questions,
+              tag them with syllabus chapters, and extract marking scheme information from the PDF.
+            </p>
+          </div>
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800">
+              <strong>Cost Impact:</strong> This model is called once per exam paper upload and processes large PDFs with multiple images.
+              Higher cost multipliers mean more expensive processing but may provide better accuracy.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Study Plan AI Model Section */}
+      <div className="border border-gray-200 rounded-lg p-6 bg-white">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Cpu className="w-5 h-5 text-green-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Study Plan AI Model</h3>
+            <p className="text-sm text-gray-600">Select AI model for generating study plans</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 border-2 rounded-lg border-gray-200">
+            <label htmlFor="study-plan-model" className="block text-sm font-semibold text-gray-900 mb-2">
+              AI Model for Study Plan Generation
+            </label>
+            <select
+              id="study-plan-model"
+              value={studyPlanModelId}
+              onChange={(e) => setStudyPlanModelId(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="">Select a model...</option>
+              {aiModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.display_name} ({model.provider}) - Cost Multiplier: {model.token_multiplier}x
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-gray-500">
+              This model will be used to analyze user performance and generate personalized study plans.
+            </p>
+          </div>
+
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>What it does:</strong> When a user generates a study plan, this AI model analyzes their performance data,
+              weak areas, and exam preparation timeline to create a personalized study schedule.
+            </p>
+          </div>
+
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-sm text-purple-800">
+              <strong>Note:</strong> Study plans are only available when the Study Plan Feature is enabled above.
+              Users must also have a paid tier with study plan access.
             </p>
           </div>
         </div>

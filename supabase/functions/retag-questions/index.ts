@@ -260,7 +260,7 @@ Return ONLY the JSON array, no other text.`;
     console.log(`Tagging ${questions.length} questions with ${chapters.length} chapters using full PDF...`);
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: {
