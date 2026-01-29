@@ -3,7 +3,16 @@
 -- Date: 2026-01-29
 
 -- =====================================================
--- 1. ADD GEMINI 2.5 FLASH
+-- 1. UNSET EXISTING DEFAULT MODELS
+-- =====================================================
+
+-- First, unset is_default on all existing models to avoid conflicts
+UPDATE ai_models
+SET is_default = false
+WHERE is_default = true;
+
+-- =====================================================
+-- 2. ADD GEMINI 2.5 FLASH
 -- =====================================================
 
 INSERT INTO ai_models (
@@ -33,7 +42,7 @@ INSERT INTO ai_models (
 );
 
 -- =====================================================
--- 2. DEPRECATE GEMINI 2.0 MODELS
+-- 3. DEPRECATE GEMINI 2.0 MODELS
 -- =====================================================
 
 -- Mark Gemini 2.0 Flash as inactive (discontinued by Google)
@@ -53,7 +62,7 @@ SET
 WHERE model_name = 'gemini-2.0-flash-exp';
 
 -- =====================================================
--- 3. MIGRATE EXISTING USER PREFERENCES
+-- 4. MIGRATE EXISTING USER PREFERENCES
 -- =====================================================
 
 -- Migrate users who had Gemini 2.0 Flash as their preference to Gemini 2.5 Flash
@@ -66,7 +75,7 @@ WHERE preferred_ai_model_id IN (
 );
 
 -- =====================================================
--- 4. MIGRATE SUBSCRIPTION TIER AI MODELS
+-- 5. MIGRATE SUBSCRIPTION TIER AI MODELS
 -- =====================================================
 
 -- Migrate subscription tiers that were using Gemini 2.0 models to Gemini 2.5 Flash
@@ -79,7 +88,7 @@ WHERE ai_model_id IN (
 );
 
 -- =====================================================
--- 5. MIGRATE SUBJECT-SPECIFIC AI MODELS
+-- 6. MIGRATE SUBJECT-SPECIFIC AI MODELS
 -- =====================================================
 
 -- Migrate subjects that were using Gemini 2.0 models to Gemini 2.5 Flash
@@ -92,7 +101,7 @@ WHERE ai_model_id IN (
 );
 
 -- =====================================================
--- 6. UPDATE DEFAULT AI MODEL FUNCTION
+-- 7. VERIFY DEFAULT AI MODEL
 -- =====================================================
 
 -- Function already uses is_default flag, so it will automatically use Gemini 2.5 Flash
