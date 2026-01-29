@@ -12,9 +12,10 @@ SET is_default = false
 WHERE is_default = true;
 
 -- =====================================================
--- 2. ADD GEMINI 2.5 FLASH
+-- 2. ADD OR UPDATE GEMINI 2.5 FLASH
 -- =====================================================
 
+-- Use INSERT ... ON CONFLICT to handle case where model already exists
 INSERT INTO ai_models (
   provider, model_name, display_name, description,
   supports_vision, supports_caching,
@@ -39,7 +40,22 @@ INSERT INTO ai_models (
   true, -- is_default (new default)
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash',
   0.7 -- temperature_default
-);
+)
+ON CONFLICT (model_name)
+DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  description = EXCLUDED.description,
+  supports_vision = EXCLUDED.supports_vision,
+  supports_caching = EXCLUDED.supports_caching,
+  max_context_tokens = EXCLUDED.max_context_tokens,
+  max_output_tokens = EXCLUDED.max_output_tokens,
+  input_token_cost_per_million = EXCLUDED.input_token_cost_per_million,
+  output_token_cost_per_million = EXCLUDED.output_token_cost_per_million,
+  token_multiplier = EXCLUDED.token_multiplier,
+  is_active = EXCLUDED.is_active,
+  is_default = EXCLUDED.is_default,
+  api_endpoint = EXCLUDED.api_endpoint,
+  temperature_default = EXCLUDED.temperature_default;
 
 -- =====================================================
 -- 3. DEPRECATE GEMINI 2.0 MODELS
@@ -101,10 +117,22 @@ WHERE ai_model_id IN (
 );
 
 -- =====================================================
--- 7. VERIFY DEFAULT AI MODEL
+-- 7. ENSURE ONLY GEMINI 2.5 FLASH IS DEFAULT
 -- =====================================================
 
--- Function already uses is_default flag, so it will automatically use Gemini 2.5 Flash
+-- Final safety check: Unset is_default on all models except gemini-2.5-flash
+UPDATE ai_models
+SET is_default = false
+WHERE model_name != 'gemini-2.5-flash' AND is_default = true;
+
+-- Ensure gemini-2.5-flash is set as default
+UPDATE ai_models
+SET is_default = true
+WHERE model_name = 'gemini-2.5-flash';
+
+-- =====================================================
+-- 8. VERIFY DEFAULT AI MODEL
+-- =====================================================
 
 -- Verify default model is set correctly
 DO $$
