@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
     const { data: geminiModel, error: geminiModelError } = await supabaseClient
       .from('ai_models')
       .select('*')
-      .eq('model_name', 'gemini-2.0-flash-exp')
+      .eq('model_name', 'gemini-2.5-flash-latest')
       .eq('is_active', true)
       .single();
 
@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
       const { data: geminiModelFallback, error: fallbackError } = await supabaseClient
         .from('ai_models')
         .select('*')
-        .eq('model_name', 'gemini-2.0-flash')
+        .eq('model_name', 'gemini-2.5-flash-latest')
         .eq('is_active', true)
         .single();
 
