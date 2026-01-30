@@ -269,32 +269,6 @@ export function PayPalPaymentDual({
       // One-time payment buttons
       if (!isRecurring) {
         window.paypal.Buttons({
-          // Add onInit to ensure PayPal is ready before allowing clicks
-          onInit: function(data: any, actions: any) {
-            console.log('[PayPal] Button initialized, PWA mode:', isPWA);
-            // Buttons are enabled by default
-          },
-
-          // Add onClick to handle PWA-specific logic
-          onClick: function(data: any, actions: any) {
-            console.log('[PayPal] Button clicked, PWA mode:', isPWA);
-
-            // In PWA mode, warn user that PayPal will open in system browser
-            if (isPWA) {
-              const proceed = confirm(
-                'PayPal login will open in your browser for security.\n\n' +
-                'After completing payment, you\'ll be redirected back to the app.\n\n' +
-                'Click OK to continue.'
-              );
-
-              if (!proceed) {
-                return actions.reject();
-              }
-            }
-
-            return actions.resolve();
-          },
-
           createOrder: async (data: any, actions: any) => {
             const finalAmountUSD = displayFinalUSD;
 
@@ -384,31 +358,6 @@ export function PayPalPaymentDual({
       // Recurring subscription buttons
       if (isRecurring && paypalPlanId) {
         window.paypal.Buttons({
-          // Add onInit for recurring subscriptions
-          onInit: function(data: any, actions: any) {
-            console.log('[PayPal Subscription] Button initialized, PWA mode:', isPWA);
-          },
-
-          // Add onClick for PWA handling in recurring subscriptions
-          onClick: function(data: any, actions: any) {
-            console.log('[PayPal Subscription] Button clicked, PWA mode:', isPWA);
-
-            // In PWA mode, warn user that PayPal will open in system browser
-            if (isPWA) {
-              const proceed = confirm(
-                'PayPal login will open in your browser for security.\n\n' +
-                'After setting up your subscription, you\'ll be redirected back to the app.\n\n' +
-                'Click OK to continue.'
-              );
-
-              if (!proceed) {
-                return actions.reject();
-              }
-            }
-
-            return actions.resolve();
-          },
-
           createSubscription: async (data: any, actions: any) => {
             return actions.subscription.create({
               plan_id: paypalPlanId,
