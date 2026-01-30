@@ -33,6 +33,15 @@ export default defineConfig({
         // Force cache invalidation by incrementing this version
         // Increment when you need to force all PWA users to refresh
         cleanupOutdatedCaches: true,
+        // CRITICAL: Exclude PayPal authentication URLs from service worker
+        // PayPal login must go directly to network without any caching or interception
+        navigateFallbackDenylist: [
+          /^https:\/\/www\.paypal\.com\/checkoutnow/,
+          /^https:\/\/www\.paypal\.com\/signin/,
+          /^https:\/\/www\.paypal\.com\/auth/,
+          /^https:\/\/.*\.paypal\.com\//,
+          /^https:\/\/.*\.paypalobjects\.com\//,
+        ],
         // Cache strategies for different types of requests
         runtimeCaching: [
           {
@@ -94,19 +103,14 @@ export default defineConfig({
             }
           },
           {
-            // CRITICAL: PayPal SDK - always fetch fresh from network
-            // NetworkFirst with short cache ensures payment security while providing fallback
-            // Cache only used if network completely fails (offline scenario)
-            urlPattern: ({ url }) => url.origin === 'https://www.paypal.com',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'paypal-sdk-cache-v1',
-              networkTimeoutSeconds: 30, // Allow up to 30s for network request
-              expiration: {
-                maxEntries: 5,
-                maxAgeSeconds: 60 * 5 // 5 minutes - very short cache
-              }
-            }
+            // CRITICAL: PayPal - NetworkOnly (no caching) for authentication flows
+            // PayPal login/checkout must always go to network without any caching
+            // to prevent authentication issues in PWA
+            urlPattern: ({ url }) => {
+              return url.hostname.includes('paypal.com') || url.hostname.includes('paypalobjects.com');
+            },
+            handler: 'NetworkOnly'
+            // No options - NetworkOnly doesn't support timeout or caching
           }
         ],
         // Skip waiting to activate new service worker immediately
