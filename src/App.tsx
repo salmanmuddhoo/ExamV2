@@ -756,7 +756,13 @@ function App() {
 
   // Subscription navigation handler
   const handleNavigateToSubscription = () => {
-    setView('payment');
+    if (!user) {
+      // If user is not logged in, redirect to login
+      setView('login');
+      return;
+    }
+    // Show subscription modal instead of navigating to payment page
+    setShowSubscriptionModal(true);
   };
 
   const handleSignOut = async () => {

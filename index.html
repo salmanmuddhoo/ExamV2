@@ -41,17 +41,21 @@
     <link rel="alternate" hreflang="en" href="https://aixampapers.com" />
     <link rel="alternate" hreflang="en-mu" href="https://aixampapers.com" />
 
-    <!-- Content Security Policy for PWA - Allow PayPal and Stripe -->
+    <!-- Content Security Policy for PWA - Relaxed for development -->
+    <!-- Note: CSP is commented out to prevent blocking essential resources during development -->
+    <!-- Uncomment and configure properly for production if needed -->
+    <!--
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://www.googletagmanager.com https://www.paypal.com https://*.paypal.com https://www.paypalobjects.com https://js.stripe.com;
-      style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
-      img-src 'self' data: blob: https: https://*.supabase.co https://*.googleusercontent.com https://*.paypal.com https://*.paypalobjects.com https://googleads.g.doubleclick.net https://www.google.com;
-      connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://www.paypal.com https://*.paypal.com https://*.paypalobjects.com https://www.google.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://www.googletagmanager.com https://api.stripe.com;
-      font-src 'self' data: https://cdnjs.cloudflare.com;
-      frame-src 'self' https://www.paypal.com https://*.paypal.com https://js.stripe.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;
+      style-src 'self' 'unsafe-inline' https: http:;
+      img-src 'self' data: blob: https: http:;
+      connect-src 'self' https: http: ws: wss:;
+      font-src 'self' data: https: http:;
+      frame-src 'self' https: http:;
       worker-src 'self' blob:;
     ">
+    -->
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
