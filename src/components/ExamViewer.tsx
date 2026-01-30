@@ -1036,7 +1036,7 @@ You can still view and download this exam paper!`
       }
       */
 
-      setAiProcessingStatus('Sending to AI assistant...');
+      setAiProcessingStatus('Reading and analysing the question...');
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/exam-assistant`,
         {
