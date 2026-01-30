@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Menu, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User, Gift } from 'lucide-react';
+import { Menu, BookOpen, LogIn, LogOut, LayoutDashboard, MessageSquare, FileText, Calendar, User, Gift, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -18,12 +18,13 @@ interface Props {
   onNavigateBlog?: () => void;
   onNavigateProfile?: () => void;
   onNavigateReferrals?: () => void;
+  onNavigateSubscription?: () => void;
   onSelectGrade: (gradeId: string, gradeName: string) => void;
   currentView: string;
   hideSignInButton?: boolean;
 }
 
-export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateStudyPlan, onNavigateBlog, onNavigateProfile, onNavigateReferrals, onSelectGrade, currentView, hideSignInButton = false }: Props) {
+export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNavigateChatHub, onNavigateStudyPlan, onNavigateBlog, onNavigateProfile, onNavigateReferrals, onNavigateSubscription, onSelectGrade, currentView, hideSignInButton = false }: Props) {
   const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
@@ -178,6 +179,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                         <span>My Profile</span>
                       </button>
                     )}
+                    {onNavigateSubscription && (
+                      <button
+                        onClick={() => {
+                          setDesktopMenuOpen(false);
+                          onNavigateSubscription();
+                        }}
+                        className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>Subscription</span>
+                      </button>
+                    )}
                     {onNavigateChatHub && (
                       <button
                         onClick={() => {
@@ -306,6 +319,18 @@ export function Navbar({ onNavigateHome, onNavigateAdmin, onNavigateLogin, onNav
                     >
                       <User className="w-4 h-4" />
                       <span>My Profile</span>
+                    </button>
+                  )}
+                  {onNavigateSubscription && (
+                    <button
+                      onClick={() => {
+                        onNavigateSubscription();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>Subscription</span>
                     </button>
                   )}
                   {onNavigateChatHub && (
