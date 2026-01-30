@@ -183,11 +183,32 @@ export function PayPalPaymentDual({
       }
     }, 30000); // 30 second timeout
 
+    // Detect if running in PWA standalone mode
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  window.matchMedia('(display-mode: fullscreen)').matches ||
+                  (window.navigator as any).standalone === true;
+
+    console.log('[PayPal SDK] PWA mode detected:', isPWA);
+
     const script = document.createElement('script');
     // Remove intent parameter to support both createOrder (one-time) and createSubscription (recurring)
     // vault=true enables subscription support without forcing it
     // Removed disable-funding=card to allow guest checkout with debit/credit cards
-    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&vault=true`;
+    // integration-date helps PayPal support PWA environments
+    // components=buttons,funding-eligibility required for PWA
+    let sdkUrl = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&vault=true&components=buttons,funding-eligibility&integration-date=2024-01-01`;
+
+    // In PWA mode, add data-page-type to help PayPal handle authentication better
+    if (isPWA) {
+      console.log('[PayPal SDK] Adding PWA-specific SDK parameters');
+      script.setAttribute('data-page-type', 'checkout');
+      script.setAttribute('data-sdk-integration-source', 'integrationbuilder_sc');
+    }
+
+    script.src = sdkUrl;
+
+    // Set cross-origin attribute to help with PWA cookie handling
+    script.setAttribute('crossorigin', 'anonymous');
 
     script.addEventListener('load', () => {
       console.log('[PayPal SDK] ✅ SDK loaded successfully');
@@ -238,9 +259,42 @@ export function PayPalPaymentDual({
         container.innerHTML = '';
       }
 
+      // Detect if running in PWA standalone mode
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                    window.matchMedia('(display-mode: fullscreen)').matches ||
+                    (window.navigator as any).standalone === true;
+
+      console.log('[PayPal Buttons] PWA mode detected:', isPWA);
+
       // One-time payment buttons
       if (!isRecurring) {
         window.paypal.Buttons({
+          // Add onInit to ensure PayPal is ready before allowing clicks
+          onInit: function(data: any, actions: any) {
+            console.log('[PayPal] Button initialized, PWA mode:', isPWA);
+            // Buttons are enabled by default
+          },
+
+          // Add onClick to handle PWA-specific logic
+          onClick: function(data: any, actions: any) {
+            console.log('[PayPal] Button clicked, PWA mode:', isPWA);
+
+            // In PWA mode, warn user that PayPal will open in system browser
+            if (isPWA) {
+              const proceed = confirm(
+                'PayPal login will open in your browser for security.\n\n' +
+                'After completing payment, you\'ll be redirected back to the app.\n\n' +
+                'Click OK to continue.'
+              );
+
+              if (!proceed) {
+                return actions.reject();
+              }
+            }
+
+            return actions.resolve();
+          },
+
           createOrder: async (data: any, actions: any) => {
             const finalAmountUSD = displayFinalUSD;
 
@@ -330,6 +384,31 @@ export function PayPalPaymentDual({
       // Recurring subscription buttons
       if (isRecurring && paypalPlanId) {
         window.paypal.Buttons({
+          // Add onInit for recurring subscriptions
+          onInit: function(data: any, actions: any) {
+            console.log('[PayPal Subscription] Button initialized, PWA mode:', isPWA);
+          },
+
+          // Add onClick for PWA handling in recurring subscriptions
+          onClick: function(data: any, actions: any) {
+            console.log('[PayPal Subscription] Button clicked, PWA mode:', isPWA);
+
+            // In PWA mode, warn user that PayPal will open in system browser
+            if (isPWA) {
+              const proceed = confirm(
+                'PayPal login will open in your browser for security.\n\n' +
+                'After setting up your subscription, you\'ll be redirected back to the app.\n\n' +
+                'Click OK to continue.'
+              );
+
+              if (!proceed) {
+                return actions.reject();
+              }
+            }
+
+            return actions.resolve();
+          },
+
           createSubscription: async (data: any, actions: any) => {
             return actions.subscription.create({
               plan_id: paypalPlanId,
@@ -533,6 +612,20 @@ export function PayPalPaymentDual({
           {isRecurring && ' You can cancel your subscription anytime from your account settings.'}
         </p>
       </div>
+
+      {/* PWA Help Message */}
+      {(window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        (window.navigator as any).standalone === true) && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <strong>Using the app?</strong> If PayPal login doesn't work, try making the payment on the website at{' '}
+            <a href="https://aixampapers.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+              aixampapers.com
+            </a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
