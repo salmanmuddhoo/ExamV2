@@ -612,6 +612,20 @@ export function PayPalPaymentDual({
           {isRecurring && ' You can cancel your subscription anytime from your account settings.'}
         </p>
       </div>
+
+      {/* PWA Help Message */}
+      {(window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        (window.navigator as any).standalone === true) && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <strong>Using the app?</strong> If PayPal login doesn't work, try making the payment on the website at{' '}
+            <a href="https://aixampapers.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+              aixampapers.com
+            </a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
