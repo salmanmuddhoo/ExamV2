@@ -1104,6 +1104,7 @@ function App() {
         onNavigateBlog={handleNavigateToBlog}
         onNavigateProfile={handleNavigateToProfile}
         onNavigateReferrals={handleNavigateToReferrals}
+        onNavigateSubscription={handleNavigateToSubscription}
         onSelectGrade={handleSelectGrade}
         currentView={view}
       />
