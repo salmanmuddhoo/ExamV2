@@ -754,6 +754,11 @@ function App() {
     setView('referrals');
   };
 
+  // Subscription navigation handler
+  const handleNavigateToSubscription = () => {
+    setView('payment');
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -810,6 +815,7 @@ function App() {
           onNavigateStudyPlan={handleNavigateToStudyPlan}
           onNavigateBlog={handleNavigateToBlog}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
           hideSignInButton={true}
@@ -866,6 +872,7 @@ function App() {
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -926,6 +933,7 @@ function App() {
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -982,6 +990,7 @@ function App() {
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -1006,6 +1015,7 @@ function App() {
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -1031,6 +1041,7 @@ function App() {
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
@@ -1066,6 +1077,7 @@ function App() {
           onNavigateBlog={handleNavigateToBlog}
           onNavigateProfile={handleNavigateToProfile}
           onNavigateReferrals={handleNavigateToReferrals}
+          onNavigateSubscription={handleNavigateToSubscription}
           onSelectGrade={handleSelectGrade}
           currentView={view}
         />
