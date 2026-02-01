@@ -87,6 +87,9 @@ COMMENT ON FUNCTION tokens_to_dollars IS 'Converts token count to dollar amount.
 -- 4. UPDATE SUBSCRIPTION ACCESS CHECK FOR DOLLAR-BASED BILLING
 -- =====================================================
 
+-- Drop the existing function to allow changing the return type
+DROP FUNCTION IF EXISTS check_user_subscription_access(UUID, TEXT);
+
 CREATE OR REPLACE FUNCTION check_user_subscription_access(
   p_user_id UUID,
   p_feature TEXT DEFAULT 'chat'
