@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Brain, Save, RefreshCw, CheckCircle, Edit, X, DollarSign } from 'lucide-react';
+import { Brain, Save, RefreshCw, CheckCircle, Edit, X, DollarSign, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 
 interface AIModel {
   id: string;
@@ -15,10 +15,30 @@ interface AIModel {
   is_default: boolean;
   input_token_cost_per_million: number;
   output_token_cost_per_million: number;
+  max_context_tokens?: number;
+  max_output_tokens?: number;
+  api_endpoint?: string;
+  temperature_default?: number;
 }
 
 interface AllowedModelsConfig {
   modelIds: string[];
+}
+
+interface NewModelForm {
+  provider: string;
+  model_name: string;
+  display_name: string;
+  description: string;
+  token_multiplier: number;
+  input_token_cost_per_million: number;
+  output_token_cost_per_million: number;
+  supports_vision: boolean;
+  supports_caching: boolean;
+  max_context_tokens: number;
+  max_output_tokens: number;
+  api_endpoint: string;
+  temperature_default: number;
 }
 
 export function AIModelSettings() {
@@ -30,6 +50,23 @@ export function AIModelSettings() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editingPrices, setEditingPrices] = useState<Record<string, boolean>>({});
   const [priceChanges, setPriceChanges] = useState<Record<string, { input: number; output: number }>>({});
+  const [showInactive, setShowInactive] = useState(true);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newModelForm, setNewModelForm] = useState<NewModelForm>({
+    provider: 'gemini',
+    model_name: '',
+    display_name: '',
+    description: '',
+    token_multiplier: 1.0,
+    input_token_cost_per_million: 0.30,
+    output_token_cost_per_million: 2.50,
+    supports_vision: true,
+    supports_caching: false,
+    max_context_tokens: 1000000,
+    max_output_tokens: 8192,
+    api_endpoint: '',
+    temperature_default: 0.7
+  });
 
   useEffect(() => {
     fetchSettings();
@@ -39,11 +76,10 @@ export function AIModelSettings() {
     try {
       setLoading(true);
 
-      // Fetch all active AI models
+      // Fetch ALL AI models (both active and inactive)
       const { data: models, error: modelsError } = await supabase
         .from('ai_models')
         .select('*')
-        .eq('is_active', true)
         .order('provider', { ascending: true })
         .order('display_name', { ascending: true });
 
@@ -65,8 +101,8 @@ export function AIModelSettings() {
         const config = settingData.setting_value as AllowedModelsConfig;
         setSelectedModelIds(config.modelIds || []);
       } else {
-        // Default: allow all models if not configured
-        setSelectedModelIds(models?.map(m => m.id) || []);
+        // Default: allow all active models if not configured
+        setSelectedModelIds(models?.filter(m => m.is_active).map(m => m.id) || []);
       }
 
       // Fetch admin upload model setting
@@ -83,8 +119,8 @@ export function AIModelSettings() {
       if (uploadModelData && uploadModelData.setting_value) {
         setAdminUploadModelId(uploadModelData.setting_value as string);
       } else {
-        // Default: use first active model or gemini-2.0-flash-exp
-        const defaultModel = models?.find(m => m.model_name === 'gemini-2.0-flash-exp') || models?.[0];
+        // Default: use Gemini 2.5 Flash or first active model
+        const defaultModel = models?.find(m => m.model_name === 'gemini-2.5-flash' && m.is_active) || models?.find(m => m.is_active);
         if (defaultModel) {
           setAdminUploadModelId(defaultModel.id);
         }
@@ -111,6 +147,124 @@ export function AIModelSettings() {
         return [...prev, modelId];
       }
     });
+  };
+
+  const handleToggleActive = async (modelId: string, currentActive: boolean) => {
+    try {
+      // Don't allow deactivating the last active model
+      const activeModels = aiModels.filter(m => m.is_active);
+      if (currentActive && activeModels.length === 1) {
+        setMessage({ type: 'error', text: 'Cannot deactivate the last active model. At least one model must remain active.' });
+        setTimeout(() => setMessage(null), 3000);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('ai_models')
+        .update({ is_active: !currentActive, updated_at: new Date().toISOString() })
+        .eq('id', modelId);
+
+      if (error) throw error;
+
+      // Update local state
+      setAiModels(prev => prev.map(model =>
+        model.id === modelId ? { ...model, is_active: !currentActive } : model
+      ));
+
+      // If deactivating, remove from selected models
+      if (currentActive) {
+        setSelectedModelIds(prev => prev.filter(id => id !== modelId));
+      }
+
+      setMessage({ type: 'success', text: `Model ${currentActive ? 'deactivated' : 'activated'} successfully!` });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Error toggling model status:', error);
+      setMessage({ type: 'error', text: 'Failed to update model status' });
+    }
+  };
+
+  const handleDeleteModel = async (modelId: string, modelName: string) => {
+    if (!confirm(`Are you sure you want to delete "${modelName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('ai_models')
+        .delete()
+        .eq('id', modelId);
+
+      if (error) throw error;
+
+      // Update local state
+      setAiModels(prev => prev.filter(model => model.id !== modelId));
+      setSelectedModelIds(prev => prev.filter(id => id !== modelId));
+
+      setMessage({ type: 'success', text: 'Model deleted successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Error deleting model:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to delete model' });
+    }
+  };
+
+  const handleAddNewModel = async () => {
+    try {
+      if (!newModelForm.model_name || !newModelForm.display_name) {
+        setMessage({ type: 'error', text: 'Please fill in all required fields' });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('ai_models')
+        .insert([{
+          provider: newModelForm.provider,
+          model_name: newModelForm.model_name,
+          display_name: newModelForm.display_name,
+          description: newModelForm.description,
+          token_multiplier: newModelForm.token_multiplier,
+          input_token_cost_per_million: newModelForm.input_token_cost_per_million,
+          output_token_cost_per_million: newModelForm.output_token_cost_per_million,
+          supports_vision: newModelForm.supports_vision,
+          supports_caching: newModelForm.supports_caching,
+          max_context_tokens: newModelForm.max_context_tokens,
+          max_output_tokens: newModelForm.max_output_tokens,
+          api_endpoint: newModelForm.api_endpoint,
+          temperature_default: newModelForm.temperature_default,
+          is_active: true,
+          is_default: false
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setAiModels(prev => [...prev, data]);
+      setIsAddingNew(false);
+      setNewModelForm({
+        provider: 'gemini',
+        model_name: '',
+        display_name: '',
+        description: '',
+        token_multiplier: 1.0,
+        input_token_cost_per_million: 0.30,
+        output_token_cost_per_million: 2.50,
+        supports_vision: true,
+        supports_caching: false,
+        max_context_tokens: 1000000,
+        max_output_tokens: 8192,
+        api_endpoint: '',
+        temperature_default: 0.7
+      });
+
+      setMessage({ type: 'success', text: 'Model added successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Error adding model:', error);
+      setMessage({ type: 'error', text: error.message || 'Failed to add model' });
+    }
   };
 
   const handleStartEditPrice = (modelId: string, model: AIModel) => {
@@ -276,8 +430,11 @@ export function AIModelSettings() {
     );
   }
 
+  // Filter models based on showInactive toggle
+  const displayModels = showInactive ? aiModels : aiModels.filter(m => m.is_active);
+
   // Group models by provider
-  const groupedModels = aiModels.reduce((acc, model) => {
+  const groupedModels = displayModels.reduce((acc, model) => {
     if (!acc[model.provider]) {
       acc[model.provider] = [];
     }
@@ -287,13 +444,172 @@ export function AIModelSettings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">AI Model Selection Settings</h2>
-        <p className="text-sm text-gray-600">
-          Choose which AI models students can select from in their profile settings.
-          Students will only see and be able to choose from the models you enable here.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">AI Model Selection Settings</h2>
+          <p className="text-sm text-gray-600">
+            Manage all AI models in the system. Add new models, edit pricing, activate/deactivate, or delete models.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowInactive(!showInactive)}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
+            {showInactive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            {showInactive ? 'Hide Inactive' : 'Show Inactive'}
+          </button>
+          <button
+            onClick={() => setIsAddingNew(true)}
+            className="px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add New Model
+          </button>
+        </div>
       </div>
+
+      {/* Message Alert */}
+      {message && (
+        <div className={`p-4 rounded-lg ${
+          message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Add New Model Form */}
+      {isAddingNew && (
+        <div className="border-2 border-purple-500 rounded-lg p-6 bg-purple-50">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Add New AI Model</h3>
+            <button
+              onClick={() => setIsAddingNew(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Provider *</label>
+              <select
+                value={newModelForm.provider}
+                onChange={(e) => setNewModelForm({ ...newModelForm, provider: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="gemini">Google Gemini</option>
+                <option value="claude">Anthropic Claude</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Model Name * (e.g., gpt-4o)</label>
+              <input
+                type="text"
+                value={newModelForm.model_name}
+                onChange={(e) => setNewModelForm({ ...newModelForm, model_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="gemini-2.5-flash"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Display Name *</label>
+              <input
+                type="text"
+                value={newModelForm.display_name}
+                onChange={(e) => setNewModelForm({ ...newModelForm, display_name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Gemini 2.5 Flash"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Token Multiplier</label>
+              <input
+                type="number"
+                step="0.1"
+                value={newModelForm.token_multiplier}
+                onChange={(e) => setNewModelForm({ ...newModelForm, token_multiplier: parseFloat(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Input Cost (per 1M tokens)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newModelForm.input_token_cost_per_million}
+                onChange={(e) => setNewModelForm({ ...newModelForm, input_token_cost_per_million: parseFloat(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Output Cost (per 1M tokens)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newModelForm.output_token_cost_per_million}
+                onChange={(e) => setNewModelForm({ ...newModelForm, output_token_cost_per_million: parseFloat(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={newModelForm.description}
+                onChange={(e) => setNewModelForm({ ...newModelForm, description: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Model description..."
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={newModelForm.supports_vision}
+                  onChange={(e) => setNewModelForm({ ...newModelForm, supports_vision: e.target.checked })}
+                  className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-700">Supports Vision</span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={newModelForm.supports_caching}
+                  onChange={(e) => setNewModelForm({ ...newModelForm, supports_caching: e.target.checked })}
+                  className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-700">Supports Caching</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              onClick={() => setIsAddingNew(false)}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddNewModel}
+              className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Add Model
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* AI Models Section */}
       <div className="border border-gray-200 rounded-lg p-4 sm:p-6 bg-white">
@@ -302,8 +618,8 @@ export function AIModelSettings() {
             <Brain className="w-5 h-5 text-purple-700" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Available AI Models</h3>
-            <p className="text-sm text-gray-600">Enable models that students can choose from</p>
+            <h3 className="text-lg font-semibold text-gray-900">All AI Models ({displayModels.length})</h3>
+            <p className="text-sm text-gray-600">Configure models that students can select from</p>
           </div>
         </div>
 
@@ -319,6 +635,7 @@ export function AIModelSettings() {
                 {models.map(model => {
                   const isSelected = selectedModelIds.includes(model.id);
                   const isDefault = model.is_default;
+                  const isActive = model.is_active;
 
                   const isEditing = editingPrices[model.id];
                   const currentPrices = priceChanges[model.id] || {
@@ -330,156 +647,189 @@ export function AIModelSettings() {
                     <div
                       key={model.id}
                       className={`border-2 rounded-lg p-4 transition-all ${
-                        isSelected
+                        !isActive
+                          ? 'border-gray-300 bg-gray-50 opacity-75'
+                          : isSelected
                           ? 'border-purple-500 bg-purple-50'
                           : 'border-gray-200 bg-white hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-start space-x-3">
-                        <div
-                          className="flex-shrink-0 mt-1 cursor-pointer"
-                          onClick={() => handleToggleModel(model.id)}
-                        >
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            isSelected
-                              ? 'bg-purple-600 border-purple-600'
-                              : 'bg-white border-gray-300'
-                          }`}>
-                            {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
-                          </div>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="font-semibold text-gray-900 text-sm sm:text-base">{model.display_name}</span>
-                            {isDefault && (
-                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                                Default
-                              </span>
-                            )}
-                            {model.token_multiplier > 1 && (
-                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                                {model.token_multiplier}x tokens
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="text-xs sm:text-sm text-gray-600 mb-3">{model.description}</p>
-
-                          {/* Pricing Section */}
-                          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-1 text-xs font-semibold text-gray-700">
-                                <DollarSign className="w-3 h-3" />
-                                <span>Pricing (per 1M tokens)</span>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3 flex-1">
+                          {isActive && (
+                            <div
+                              className="flex-shrink-0 mt-1 cursor-pointer"
+                              onClick={() => handleToggleModel(model.id)}
+                            >
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'bg-purple-600 border-purple-600'
+                                  : 'bg-white border-gray-300'
+                              }`}>
+                                {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
                               </div>
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="font-semibold text-gray-900 text-sm sm:text-base">{model.display_name}</span>
+                              {!isActive && (
+                                <span className="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs font-medium rounded">
+                                  Inactive
+                                </span>
+                              )}
+                              {isDefault && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                  Default
+                                </span>
+                              )}
+                              {model.token_multiplier > 1 && (
+                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                  {model.token_multiplier}x tokens
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs sm:text-sm text-gray-600 mb-3">{model.description}</p>
+
+                            {/* Pricing Section */}
+                            <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-1 text-xs font-semibold text-gray-700">
+                                  <DollarSign className="w-3 h-3" />
+                                  <span>Pricing (per 1M tokens)</span>
+                                </div>
+                                {!isEditing ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStartEditPrice(model.id, model);
+                                    }}
+                                    className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-100 transition-colors"
+                                    title="Edit prices"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                ) : (
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSavePrices(model.id);
+                                      }}
+                                      className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100 transition-colors"
+                                      title="Save prices"
+                                    >
+                                      <Save className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCancelEditPrice(model.id);
+                                      }}
+                                      className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
+                                      title="Cancel"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
                               {!isEditing ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleStartEditPrice(model.id, model);
-                                  }}
-                                  className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-100 transition-colors"
-                                  title="Edit prices"
-                                >
-                                  <Edit className="w-3 h-3" />
-                                </button>
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-gray-600">Input:</span>
+                                    <span className="ml-1 font-semibold text-gray-900">
+                                      ${model.input_token_cost_per_million.toFixed(4)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">Output:</span>
+                                    <span className="ml-1 font-semibold text-gray-900">
+                                      ${model.output_token_cost_per_million.toFixed(4)}
+                                    </span>
+                                  </div>
+                                </div>
                               ) : (
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSavePrices(model.id);
-                                    }}
-                                    className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100 transition-colors"
-                                    title="Save prices"
-                                  >
-                                    <Save className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCancelEditPrice(model.id);
-                                    }}
-                                    className="text-gray-600 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
-                                    title="Cancel"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-xs text-gray-600 mb-1">Input:</label>
+                                    <input
+                                      type="number"
+                                      step="0.0001"
+                                      min="0"
+                                      value={currentPrices.input}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        handlePriceChange(model.id, 'input', e.target.value);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs text-gray-600 mb-1">Output:</label>
+                                    <input
+                                      type="number"
+                                      step="0.0001"
+                                      min="0"
+                                      value={currentPrices.output}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        handlePriceChange(model.id, 'output', e.target.value);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    />
+                                  </div>
                                 </div>
                               )}
                             </div>
 
-                            {!isEditing ? (
-                              <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div>
-                                  <span className="text-gray-600">Input:</span>
-                                  <span className="ml-1 font-semibold text-gray-900">
-                                    ${model.input_token_cost_per_million.toFixed(4)}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">Output:</span>
-                                  <span className="ml-1 font-semibold text-gray-900">
-                                    ${model.output_token_cost_per_million.toFixed(4)}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs text-gray-600 mb-1">Input:</label>
-                                  <input
-                                    type="number"
-                                    step="0.0001"
-                                    min="0"
-                                    value={currentPrices.input}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      handlePriceChange(model.id, 'input', e.target.value);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-600 mb-1">Output:</label>
-                                  <input
-                                    type="number"
-                                    step="0.0001"
-                                    min="0"
-                                    value={currentPrices.output}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      handlePriceChange(model.id, 'output', e.target.value);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                  />
-                                </div>
-                              </div>
-                            )}
+                            <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                              {model.supports_vision && (
+                                <span className="inline-flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Vision
+                                </span>
+                              )}
+                              {model.supports_caching && (
+                                <span className="inline-flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                  </svg>
+                                  Caching
+                                </span>
+                              )}
+                            </div>
                           </div>
+                        </div>
 
-                          <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                            {model.supports_vision && (
-                              <span className="inline-flex items-center">
-                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                                </svg>
-                                Vision
-                              </span>
-                            )}
-                            {model.supports_caching && (
-                              <span className="inline-flex items-center">
-                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                                </svg>
-                                Caching
-                              </span>
-                            )}
-                          </div>
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 ml-3">
+                          <button
+                            onClick={() => handleToggleActive(model.id, model.is_active)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              isActive
+                                ? 'text-gray-600 hover:bg-gray-100'
+                                : 'text-green-600 hover:bg-green-100'
+                            }`}
+                            title={isActive ? 'Deactivate model' : 'Activate model'}
+                          >
+                            {isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteModel(model.id, model.display_name)}
+                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                            title="Delete model"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -489,85 +839,47 @@ export function AIModelSettings() {
             </div>
           ))}
         </div>
-
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>How it works:</strong> Students will only see the AI models you enable here in their profile settings.
-            If a student has already selected a model that you later disable, they will be automatically switched to the default model (Gemini 2.0 Flash).
-          </p>
-        </div>
-
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-sm text-amber-800">
-            <strong>Note:</strong> Gemini 2.0 Flash will always be used as the default model for new users and when no preference is set.
-            Make sure to keep at least one model enabled for students to use.
-          </p>
-        </div>
       </div>
 
-      {/* Admin Upload Model Selection */}
+      {/* Admin Upload Model */}
       <div className="border border-gray-200 rounded-lg p-4 sm:p-6 bg-white">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <Brain className="w-5 h-5 text-green-700" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Admin Upload Model</h3>
-            <p className="text-sm text-gray-600">Select the AI model used for syllabus extraction and exam paper processing</p>
-          </div>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Admin Upload Model</h3>
+          <p className="text-sm text-gray-600">
+            Select the AI model to use for admin operations (syllabus extraction, exam paper processing)
+          </p>
         </div>
 
-        {!loading && (
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              AI Model for Uploads
-            </label>
-            <select
-              value={adminUploadModelId}
-              onChange={(e) => setAdminUploadModelId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
-            >
-              {aiModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.display_name} - {model.provider} ({model.supports_vision ? 'Vision' : 'Text'})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500">
-              This model will be used when extracting chapters from syllabuses and processing exam papers in the admin panel.
-              The cost will be calculated using the pricing set in the model configuration above.
-            </p>
-          </div>
-        )}
+        <select
+          value={adminUploadModelId}
+          onChange={(e) => setAdminUploadModelId(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="">Select a model...</option>
+          {aiModels.filter(m => m.is_active).map(model => (
+            <option key={model.id} value={model.id}>
+              {model.display_name} ({model.provider})
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Save Button */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-gray-200">
-        {message && (
-          <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            <span className="text-sm font-medium">{message.text}</span>
-          </div>
-        )}
-        {!message && <div className="hidden sm:block" />}
-
+      <div className="flex justify-end">
         <button
           onClick={handleSave}
-          disabled={saving || selectedModelIds.length === 0}
-          className="flex items-center justify-center space-x-2 px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={saving}
+          className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {saving ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>Saving...</span>
+              Saving...
             </>
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>Save Settings</span>
+              Save Settings
             </>
           )}
         </button>
