@@ -56,8 +56,8 @@ async function getModelPricing(supabase: any, modelName: string): Promise<{ inpu
 
     if (error) {
       console.error('Error fetching model pricing:', error);
-      // Fallback to Gemini 2.0 Flash default pricing
-      return { inputCost: 0.075, outputCost: 0.30 };
+      // Fallback to Gemini 2.5 Flash official pricing
+      return { inputCost: 0.30, outputCost: 2.50 };
     }
 
     return {
@@ -66,8 +66,8 @@ async function getModelPricing(supabase: any, modelName: string): Promise<{ inpu
     };
   } catch (err) {
     console.error('Error in getModelPricing:', err);
-    // Fallback to Gemini 2.0 Flash default pricing
-    return { inputCost: 0.075, outputCost: 0.30 };
+    // Fallback to Gemini 2.5 Flash official pricing
+    return { inputCost: 0.30, outputCost: 2.50 };
   }
 }
 Deno.serve(async (req)=>{
