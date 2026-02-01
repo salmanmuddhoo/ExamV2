@@ -8,9 +8,9 @@
 -- Methodology: Instead of fixed multipliers, we calculate token consumption based on the
 -- actual cost ratio compared to Gemini baseline. This accounts for varying input/output ratios.
 --
--- Baseline reference: Gemini 2.0 Flash pricing
--- - Input: $0.075 per 1M tokens
--- - Output: $0.30 per 1M tokens
+-- Baseline reference: Gemini 2.5 Flash pricing (Updated Feb 2026)
+-- - Input: $0.30 per 1M tokens
+-- - Output: $2.50 per 1M tokens
 
 -- =====================================================
 -- 1. CREATE FUNCTION TO CALCULATE COST-BASED TOKEN CONSUMPTION
@@ -24,8 +24,8 @@ CREATE OR REPLACE FUNCTION calculate_cost_based_token_consumption(
   p_actual_cost DECIMAL(10, 6)
 ) RETURNS INTEGER AS $$
 DECLARE
-  v_baseline_input_cost CONSTANT DECIMAL(10, 4) := 0.075; -- Gemini input cost per 1M tokens
-  v_baseline_output_cost CONSTANT DECIMAL(10, 4) := 0.30;  -- Gemini output cost per 1M tokens
+  v_baseline_input_cost CONSTANT DECIMAL(10, 4) := 0.30; -- Gemini 2.5 Flash input cost per 1M tokens
+  v_baseline_output_cost CONSTANT DECIMAL(10, 4) := 2.50;  -- Gemini 2.5 Flash output cost per 1M tokens
   v_gemini_equivalent_cost DECIMAL(10, 6);
   v_cost_ratio DECIMAL(10, 4);
   v_adjusted_tokens INTEGER;

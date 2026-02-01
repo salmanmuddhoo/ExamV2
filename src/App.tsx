@@ -449,6 +449,7 @@ function App() {
   }, [selectedChapterId]);
 
   // Fetch token balance for current user (used in Study Plan page)
+  // Dollar-based billing: Users see tokens, but we track dollars in the background
   const fetchTokenBalance = async () => {
     if (!user) return;
 
@@ -456,9 +457,11 @@ function App() {
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select(`
-          subscription_tiers(name, display_name, token_limit, papers_limit),
+          subscription_tiers(name, display_name, token_limit, papers_limit, dollar_limit_per_period, tokens_per_dollar),
           tokens_used_current_period,
           token_limit_override,
+          dollars_used_current_period,
+          dollar_limit_override,
           papers_accessed_current_period
         `)
         .eq('user_id', user.id)
@@ -474,19 +477,40 @@ function App() {
       }
 
       const tierData = data.subscription_tiers as any;
-      const tierLimit = tierData?.token_limit;
-      const overrideLimit = data.token_limit_override;
-      const tokensUsedValue = data.tokens_used_current_period ?? 0;
       const isAdmin = profile?.role === 'admin';
 
-      // Calculate final limit (override takes precedence)
-      const finalLimit = overrideLimit ?? tierLimit;
-      const tokensRemainingValue = finalLimit === null ? null : finalLimit - tokensUsedValue;
+      // Dollar-based calculation (primary tracking)
+      const dollarLimitTier = tierData?.dollar_limit_per_period;
+      const dollarLimitOverride = (data as any).dollar_limit_override;
+      const dollarsUsed = (data as any).dollars_used_current_period ?? 0;
+
+      // Conversion rate for display
+      const tokensPerDollar = tierData?.tokens_per_dollar ?? 500000;
+
+      // Calculate final dollar limit (override takes precedence)
+      const finalDollarLimit = dollarLimitOverride ?? dollarLimitTier;
+
+      // Convert dollars to tokens for display
+      let finalTokenLimit: number | null;
+      let tokensUsedValue: number;
+      let tokensRemainingValue: number | null;
+
+      if (finalDollarLimit === null) {
+        // Unlimited
+        finalTokenLimit = null;
+        tokensUsedValue = Math.floor(dollarsUsed * tokensPerDollar);
+        tokensRemainingValue = null;
+      } else {
+        // Calculate token equivalents
+        finalTokenLimit = Math.floor(finalDollarLimit * tokensPerDollar);
+        tokensUsedValue = Math.floor(dollarsUsed * tokensPerDollar);
+        tokensRemainingValue = Math.max(0, finalTokenLimit - tokensUsedValue);
+      }
 
       // For non-admin users, cap displayed usage at the limit
-      const displayedTokensUsed = isAdmin ? tokensUsedValue : (finalLimit !== null ? Math.min(tokensUsedValue, finalLimit) : tokensUsedValue);
+      const displayedTokensUsed = isAdmin ? tokensUsedValue : (finalTokenLimit !== null ? Math.min(tokensUsedValue, finalTokenLimit) : tokensUsedValue);
 
-      setTokensLimit(finalLimit);
+      setTokensLimit(finalTokenLimit);
       setTokensUsed(displayedTokensUsed);
       setTokensRemaining(isAdmin ? (tokensRemainingValue || 0) : Math.max(0, tokensRemainingValue || 0));
 

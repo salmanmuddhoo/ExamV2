@@ -1015,30 +1015,21 @@ Return ONLY the JSON array, no additional text.`;
       });
       console.log('✅ Token usage logged to database');
 
-      // Update user subscription token usage with cost-based adjustment
-      console.log("📊 Updating user subscription token usage with cost-based adjustment...");
+      // Update user subscription with dollar-based billing
+      // Users see tokens, but we track dollars in the background
+      console.log("📊 Updating user subscription with dollar-based billing...");
 
-      // Calculate cost-adjusted token consumption using the database function
-      // This ensures that more expensive models consume proportionally more from the user's allocation
-      const { data: adjustedTokenData, error: calcError } = await supabaseClient
-        .rpc('calculate_cost_based_token_consumption', {
-          p_actual_prompt_tokens: promptTokenCount,
-          p_actual_completion_tokens: candidatesTokenCount,
-          p_actual_cost: totalCost
-        });
+      // Conversion rate: 500,000 tokens = $1.00 USD
+      const TOKENS_PER_DOLLAR = 500000;
 
-      let tokensToDeduct = totalTokenCount; // Default to actual tokens if calculation fails
+      // Convert dollar cost to token equivalent for display
+      const tokensToDeduct = Math.ceil(totalCost * TOKENS_PER_DOLLAR);
 
-      if (!calcError && adjustedTokenData) {
-        tokensToDeduct = adjustedTokenData;
-        console.log(`Cost-based token adjustment: ${totalTokenCount} actual tokens -> ${tokensToDeduct} Gemini-equivalent tokens (${(tokensToDeduct / totalTokenCount).toFixed(2)}x multiplier)`);
-      } else {
-        console.error('❌ Failed to calculate cost-based tokens, using actual token count:', calcError);
-      }
+      console.log(`💵 Dollar-based billing: $${totalCost.toFixed(6)} = ${tokensToDeduct.toLocaleString()} tokens (${totalTokenCount.toLocaleString()} actual tokens used)`);
 
       const { data: currentSub, error: fetchError } = await supabaseClient
         .from('user_subscriptions')
-        .select('tokens_used_current_period')
+        .select('tokens_used_current_period, dollars_used_current_period')
         .eq('user_id', user_id)
         .eq('status', 'active')
         .single();
@@ -1047,19 +1038,21 @@ Return ONLY the JSON array, no additional text.`;
         console.error('❌ Failed to fetch current subscription:', fetchError);
       } else if (currentSub) {
         const newTokenCount = currentSub.tokens_used_current_period + tokensToDeduct;
+        const newDollarAmount = currentSub.dollars_used_current_period + totalCost;
 
         const { error: updateError } = await supabaseClient
           .from('user_subscriptions')
           .update({
-            tokens_used_current_period: newTokenCount
+            tokens_used_current_period: newTokenCount,
+            dollars_used_current_period: newDollarAmount
           })
           .eq('user_id', user_id)
           .eq('status', 'active');
 
         if (updateError) {
-          console.error('❌ Failed to update subscription token usage:', updateError);
+          console.error('❌ Failed to update subscription usage:', updateError);
         } else {
-          console.log(`✅ Updated subscription token usage: ${currentSub.tokens_used_current_period} -> ${newTokenCount} (+${tokensToDeduct} Gemini-equivalent tokens, ${totalTokenCount} actual tokens, cost $${totalCost.toFixed(6)})`);
+          console.log(`✅ Updated subscription: tokens ${currentSub.tokens_used_current_period.toLocaleString()} -> ${newTokenCount.toLocaleString()}, dollars $${currentSub.dollars_used_current_period.toFixed(6)} -> $${newDollarAmount.toFixed(6)}`);
         }
       }
     } catch (logError) {

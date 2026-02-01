@@ -7,8 +7,10 @@ export interface SubscriptionTier {
   price_monthly: number;
   price_yearly: number;
   currency: string; // e.g., 'USD', 'EUR', 'MUR'
-  token_limit: number | null; // null = unlimited
+  token_limit: number | null; // null = unlimited (legacy, kept for backward compatibility)
   papers_limit: number | null; // null = unlimited
+  dollar_limit_per_period?: number | null; // Dollar limit per billing period (null = unlimited)
+  tokens_per_dollar?: number; // Conversion rate for display (default: 500,000 tokens = $1)
   can_select_grade: boolean;
   can_select_subjects: boolean;
   max_subjects: number | null;
@@ -33,8 +35,11 @@ export interface UserSubscription {
   selected_grade_id: string | null;
   selected_subject_ids: string[];
 
-  // Token tracking
-  tokens_used_current_period: number;
+  // Token tracking (users see tokens, but we track dollars in background)
+  tokens_used_current_period: number; // Display value: converted from dollars
+  dollars_used_current_period?: number; // Primary tracking value in USD
+  token_limit_override?: number | null; // Admin override for token limit (legacy)
+  dollar_limit_override?: number | null; // Admin override for dollar limit
   period_start_date: string;
   period_end_date: string | null;
 
@@ -81,6 +86,7 @@ export interface SubscriptionAccessCheck {
   has_access: boolean;
   tier_name: string | null;
   reason: string;
-  tokens_remaining: number;
+  tokens_remaining: number; // Converted from dollars for display
+  dollars_remaining?: number; // Primary tracking value in USD
   papers_remaining: number;
 }
