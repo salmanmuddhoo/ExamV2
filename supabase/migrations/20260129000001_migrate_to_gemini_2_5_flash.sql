@@ -28,13 +28,13 @@ INSERT INTO ai_models (
   'gemini',
   'gemini-2.5-flash',
   'Gemini 2.5 Flash',
-  'Latest Gemini model with improved performance, vision support, and built-in caching. Best balance of speed, quality, and cost.',
+  'Latest Gemini model with improved performance, vision support, and built-in caching. Best balance of speed, quality, and cost. Official pricing: $0.30/1M input tokens, $2.50/1M output tokens.',
   true, -- supports_vision
   true, -- supports_caching
   1000000, -- max_context_tokens
   8192, -- max_output_tokens
-  0.075, -- input_token_cost_per_million
-  0.30, -- output_token_cost_per_million
+  0.30, -- input_token_cost_per_million (official Google pricing)
+  2.50, -- output_token_cost_per_million (official Google pricing)
   1.0, -- token_multiplier (baseline)
   true, -- is_active
   true, -- is_default (new default)
