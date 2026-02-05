@@ -293,18 +293,46 @@ export function SubscriptionManager() {
       setCancelling(true);
       setCancelError('');
 
-      // Call the cancel_subscription_at_period_end function
-      const { data, error } = await supabase.rpc('cancel_subscription_at_period_end', {
-        p_user_id: user.id,
-        p_reason: 'User requested cancellation'
-      });
+      // Check if this is a PayPal subscription
+      const isPayPalSubscription = currentSubscription?.payment_provider === 'paypal';
 
-      if (error) throw error;
+      if (isPayPalSubscription) {
+        // Cancel the PayPal subscription via PayPal API
+        console.log('Cancelling PayPal subscription via API...');
 
-      if (data && data.length > 0) {
-        const result = data[0];
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cancel-paypal-subscription`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            reason: 'User requested cancellation'
+          })
+        });
+
+        const result = await response.json();
+
         if (!result.success) {
-          throw new Error(result.message);
+          throw new Error(result.error || result.message || 'Failed to cancel PayPal subscription');
+        }
+
+        console.log('✅ PayPal subscription cancelled successfully');
+      } else {
+        // For non-PayPal subscriptions, use the standard cancellation
+        const { data, error } = await supabase.rpc('cancel_subscription_at_period_end', {
+          p_user_id: user.id,
+          p_reason: 'User requested cancellation'
+        });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const result = data[0];
+          if (!result.success) {
+            throw new Error(result.message);
+          }
         }
       }
 
