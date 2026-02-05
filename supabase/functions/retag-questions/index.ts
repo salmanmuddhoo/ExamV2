@@ -404,13 +404,54 @@ Return ONLY the JSON array, no other text.`;
       }
     }
 
-    // Calculate token usage
+    // Calculate token usage and cost
     const usage = data?.usageMetadata;
+    const promptTokens = usage?.promptTokenCount || 0;
+    const completionTokens = usage?.candidatesTokenCount || 0;
+    const totalTokens = usage?.totalTokenCount || 0;
+
+    // Get model pricing from database
+    const { data: modelData } = await supabase
+      .from('ai_models')
+      .select('id, input_token_cost_per_million, output_token_cost_per_million')
+      .eq('model_name', 'gemini-2.5-flash')
+      .single();
+
+    let totalCost = 0;
+    if (modelData) {
+      const inputCost = (promptTokens / 1000000) * modelData.input_token_cost_per_million;
+      const outputCost = (completionTokens / 1000000) * modelData.output_token_cost_per_million;
+      totalCost = inputCost + outputCost;
+
+      console.log(`Token usage - Input: ${promptTokens}, Output: ${completionTokens}, Cost: $${totalCost.toFixed(6)}`);
+
+      // Log to token_usage_logs for analytics
+      const { error: logError } = await supabase
+        .from('token_usage_logs')
+        .insert({
+          exam_paper_id: examPaperId,
+          model: 'gemini-2.5-flash',
+          provider: 'gemini',
+          ai_model_id: modelData.id,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
+          estimated_cost: totalCost,
+          source: 'question_retagging'
+        });
+
+      if (logError) {
+        console.error('Failed to log token usage:', logError);
+      } else {
+        console.log('✅ Token usage logged to analytics');
+      }
+    }
+
     const tokenUsage = {
-      promptTokens: usage?.promptTokenCount || 0,
-      completionTokens: usage?.candidatesTokenCount || 0,
-      totalTokens: usage?.totalTokenCount || 0,
-      cost: 0 // Calculate if needed
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      cost: totalCost
     };
 
     return { taggedCount, tokenUsage };

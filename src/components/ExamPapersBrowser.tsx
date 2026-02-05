@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, ChevronDown, ChevronUp, FileText, Loader2, BookOpen, Calendar } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, File, Loader2, BookOpen, Calendar } from 'lucide-react';
 
 interface ExamPaper {
   id: string;
@@ -449,7 +449,7 @@ export function ExamPapersBrowser({ onSelectPaper, selectedGradeFromNavbar }: Pr
                                         >
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                              <FileText className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors flex-shrink-0" />
+                                              <File className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors flex-shrink-0" />
                                               <div className="flex-1 min-w-0">
                                                 <h4 className="font-medium text-gray-900 text-sm group-hover:text-black truncate">
                                                   {paper.title}
