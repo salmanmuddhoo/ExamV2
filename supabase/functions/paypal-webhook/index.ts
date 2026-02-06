@@ -285,13 +285,18 @@ async function handleSubscriptionCreated(event: any, supabase: any) {
   console.log('Subscription created:', subscriptionId);
 
   // Fetch existing transaction to preserve metadata
-  const { data: existingTx, error: fetchError } = await supabase
+  // Use order + limit instead of .single() to avoid "Multiple rows" error after renewals
+  const { data: transactions, error: fetchError } = await supabase
     .from('payment_transactions')
-    .select('metadata')
+    .select('id, metadata')
     .eq('paypal_subscription_id', subscriptionId)
-    .single();
+    .eq('payment_type', 'recurring')
+    .order('created_at', { ascending: true }) // Get the original transaction
+    .limit(1);
 
-  if (fetchError) {
+  const existingTx = transactions?.[0];
+
+  if (fetchError || !existingTx) {
     console.error('Error fetching transaction:', fetchError);
     return;
   }
@@ -305,11 +310,11 @@ async function handleSubscriptionCreated(event: any, supabase: any) {
     webhook_create_time: new Date().toISOString()
   };
 
-  // Update transaction with merged metadata
+  // Update only the original transaction by ID (not all transactions with same subscription_id)
   const { error } = await supabase
     .from('payment_transactions')
     .update({ metadata: updatedMetadata })
-    .eq('paypal_subscription_id', subscriptionId);
+    .eq('id', existingTx.id);
 
   if (error) {
     console.error('Error updating subscription created:', error);
@@ -324,13 +329,18 @@ async function handleSubscriptionActivated(event: any, supabase: any) {
   console.log('Subscription activated:', subscriptionId);
 
   // First, fetch existing transaction to preserve metadata
-  const { data: existingTx, error: fetchError } = await supabase
+  // Use order + limit instead of .single() to avoid "Multiple rows" error after renewals
+  const { data: transactions, error: fetchError } = await supabase
     .from('payment_transactions')
-    .select('metadata')
+    .select('id, metadata')
     .eq('paypal_subscription_id', subscriptionId)
-    .single();
+    .eq('payment_type', 'recurring')
+    .order('created_at', { ascending: true }) // Get the original transaction
+    .limit(1);
 
-  if (fetchError) {
+  const existingTx = transactions?.[0];
+
+  if (fetchError || !existingTx) {
     console.error('Error fetching transaction:', fetchError);
     return;
   }
@@ -353,14 +363,14 @@ async function handleSubscriptionActivated(event: any, supabase: any) {
     }
   };
 
-  // Update transaction with merged metadata
+  // Update only the original transaction by ID (not all transactions with same subscription_id)
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'completed',
       metadata: updatedMetadata
     })
-    .eq('paypal_subscription_id', subscriptionId);
+    .eq('id', existingTx.id);
 
   if (error) {
     console.error('Error activating subscription:', error);
@@ -377,14 +387,18 @@ async function handleSubscriptionCancelled(event: any, supabase: any) {
   console.log('Subscription cancelled:', subscriptionId);
 
   // Fetch existing transaction to preserve metadata
-  const { data: existingTx, error: fetchError } = await supabase
+  // Use order + limit instead of .single() to avoid "Multiple rows" error after renewals
+  const { data: transactions, error: fetchError } = await supabase
     .from('payment_transactions')
-    .select('metadata')
+    .select('id, metadata')
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring')
-    .single();
+    .order('created_at', { ascending: true }) // Get the original transaction
+    .limit(1);
 
-  if (fetchError) {
+  const existingTx = transactions?.[0];
+
+  if (fetchError || !existingTx) {
     console.error('Error fetching transaction:', fetchError);
     return;
   }
@@ -402,15 +416,14 @@ async function handleSubscriptionCancelled(event: any, supabase: any) {
     }
   };
 
-  // Mark subscription as cancelled
+  // Mark only the original subscription as cancelled (by ID, not all transactions with same subscription_id)
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'cancelled',
       metadata: updatedMetadata
     })
-    .eq('paypal_subscription_id', subscriptionId)
-    .eq('payment_type', 'recurring');
+    .eq('id', existingTx.id);
 
   if (error) {
     console.error('Error cancelling subscription:', error);
@@ -427,14 +440,18 @@ async function handleSubscriptionSuspended(event: any, supabase: any) {
   console.log('Subscription suspended:', subscriptionId);
 
   // Fetch existing transaction to preserve metadata
-  const { data: existingTx, error: fetchError } = await supabase
+  // Use order + limit instead of .single() to avoid "Multiple rows" error after renewals
+  const { data: transactions, error: fetchError } = await supabase
     .from('payment_transactions')
-    .select('metadata')
+    .select('id, metadata')
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring')
-    .single();
+    .order('created_at', { ascending: true }) // Get the original transaction
+    .limit(1);
 
-  if (fetchError) {
+  const existingTx = transactions?.[0];
+
+  if (fetchError || !existingTx) {
     console.error('Error fetching transaction:', fetchError);
     return;
   }
@@ -452,15 +469,14 @@ async function handleSubscriptionSuspended(event: any, supabase: any) {
     }
   };
 
-  // Mark subscription as suspended
+  // Mark only the original subscription as suspended (by ID, not all transactions with same subscription_id)
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'suspended',
       metadata: updatedMetadata
     })
-    .eq('paypal_subscription_id', subscriptionId)
-    .eq('payment_type', 'recurring');
+    .eq('id', existingTx.id);
 
   if (error) {
     console.error('Error suspending subscription:', error);
@@ -477,14 +493,18 @@ async function handleSubscriptionExpired(event: any, supabase: any) {
   console.log('Subscription expired:', subscriptionId);
 
   // Fetch existing transaction to preserve metadata
-  const { data: existingTx, error: fetchError } = await supabase
+  // Use order + limit instead of .single() to avoid "Multiple rows" error after renewals
+  const { data: transactions, error: fetchError } = await supabase
     .from('payment_transactions')
-    .select('metadata')
+    .select('id, metadata')
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring')
-    .single();
+    .order('created_at', { ascending: true }) // Get the original transaction
+    .limit(1);
 
-  if (fetchError) {
+  const existingTx = transactions?.[0];
+
+  if (fetchError || !existingTx) {
     console.error('Error fetching transaction:', fetchError);
     return;
   }
@@ -500,15 +520,14 @@ async function handleSubscriptionExpired(event: any, supabase: any) {
     }
   };
 
-  // Mark subscription as expired
+  // Mark only the original subscription as expired (by ID, not all transactions with same subscription_id)
   const { error } = await supabase
     .from('payment_transactions')
     .update({
       status: 'expired',
       metadata: updatedMetadata
     })
-    .eq('paypal_subscription_id', subscriptionId)
-    .eq('payment_type', 'recurring');
+    .eq('id', existingTx.id);
 
   if (error) {
     console.error('Error expiring subscription:', error);
@@ -528,12 +547,16 @@ async function handleRecurringPayment(event: any, supabase: any) {
   console.log('Recurring payment received:', saleId, 'for subscription:', subscriptionId);
 
   // Find the original subscription transaction (to get user_id and payment_method_id)
-  const { data: originalTransaction } = await supabase
+  // Use order + limit instead of .single() to avoid "Multiple rows" error after first renewal
+  const { data: transactions } = await supabase
     .from('payment_transactions')
     .select('user_id, payment_method_id, billing_cycle')
     .eq('paypal_subscription_id', subscriptionId)
     .eq('payment_type', 'recurring')
-    .single();
+    .order('created_at', { ascending: true }) // Get the oldest (original) transaction
+    .limit(1);
+
+  const originalTransaction = transactions?.[0];
 
   if (!originalTransaction) {
     console.error('Original subscription transaction not found for:', subscriptionId);
