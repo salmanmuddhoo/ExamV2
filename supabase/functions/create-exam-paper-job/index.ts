@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,7 +15,7 @@ interface CreateJobRequest {
   priority?: number;
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -23,35 +23,34 @@ serve(async (req) => {
 
   try {
     console.log("Request received:", req.method, req.url);
+
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
     console.log("Authorization header present:", !!authHeader);
 
-    // For local development, allow bypassing auth with a test user ID
+    // Check for local development
     const isLocalDev = Deno.env.get("SUPABASE_URL")?.includes("localhost") ||
                        Deno.env.get("SUPABASE_URL")?.includes("127.0.0.1");
 
-    let user: { id: string } | null = null;
+    let userId: string;
 
     if (isLocalDev && !authHeader) {
       // Use a test user ID for local development
       console.warn("⚠️ Running in local dev mode without auth - using test user");
-      user = { id: "00000000-0000-0000-0000-000000000000" }; // Test user ID
+      userId = "00000000-0000-0000-0000-000000000000";
     } else {
       if (!authHeader) {
         console.error("Missing Authorization header");
-        throw new Error("No authorization header provided");
+        throw new Error("Missing authorization header");
       }
 
       // Create client with anon key for user authentication
       const anonClient = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
         {
           global: {
-            headers: {
-              Authorization: authHeader,
-            },
+            headers: { Authorization: authHeader },
           },
           auth: {
             autoRefreshToken: false,
@@ -62,36 +61,27 @@ serve(async (req) => {
 
       console.log("Verifying user authentication...");
 
-      // Add timeout to auth check to prevent hanging
-      const authTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Authentication timeout")), 10000);
-      });
-
-      // Verify user authentication with timeout
-      const authPromise = anonClient.auth.getUser();
-      const {
-        data: { user: authUser },
-        error: userError,
-      } = await Promise.race([authPromise, authTimeout]) as any;
+      // Verify user authentication
+      const { data: { user }, error: userError } = await anonClient.auth.getUser();
 
       if (userError) {
         console.error("Auth error:", userError.message);
         throw new Error(`Authentication failed: ${userError.message}`);
       }
 
-      if (!authUser) {
+      if (!user) {
         console.error("No user returned from auth check");
         throw new Error("Invalid or expired authentication token");
       }
 
-      console.log("User authenticated:", authUser.id);
-      user = authUser;
+      console.log("User authenticated:", user.id);
+      userId = user.id;
     }
 
     // Create service role client for database operations
     const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       {
         auth: {
           autoRefreshToken: false,
@@ -102,22 +92,13 @@ serve(async (req) => {
 
     // Verify user is admin (skip check in local dev mode)
     if (!isLocalDev) {
-      console.log("Checking admin role for user:", user.id);
+      console.log("Checking admin role for user:", userId);
 
-      const profileTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Profile check timeout")), 10000);
-      });
-
-      const profilePromise = supabaseClient
+      const { data: profile, error: profileError } = await supabaseClient
         .from("profiles")
         .select("role")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single();
-
-      const { data: profile, error: profileError } = await Promise.race([
-        profilePromise,
-        profileTimeout,
-      ]) as any;
 
       if (profileError) {
         console.error("Profile check error:", profileError.message);
@@ -169,7 +150,7 @@ serve(async (req) => {
         },
         progress_percentage: 0,
         current_step: "Queued for processing",
-        created_by: user.id,
+        created_by: userId,
       })
       .select()
       .single();
