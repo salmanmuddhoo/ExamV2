@@ -24,35 +24,50 @@ serve(async (req) => {
   try {
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
-    }
 
-    // Create client with anon key for user authentication
-    const anonClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
+    // For local development, allow bypassing auth with a test user ID
+    const isLocalDev = Deno.env.get("SUPABASE_URL")?.includes("localhost") ||
+                       Deno.env.get("SUPABASE_URL")?.includes("127.0.0.1");
+
+    let user: { id: string } | null = null;
+
+    if (isLocalDev && !authHeader) {
+      // Use a test user ID for local development
+      console.warn("⚠️ Running in local dev mode without auth - using test user");
+      user = { id: "00000000-0000-0000-0000-000000000000" }; // Test user ID
+    } else {
+      if (!authHeader) {
+        throw new Error("No authorization header");
       }
-    );
 
-    // Verify user authentication
-    const {
-      data: { user },
-      error: userError,
-    } = await anonClient.auth.getUser();
+      // Create client with anon key for user authentication
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        {
+          global: {
+            headers: {
+              Authorization: authHeader,
+            },
+          },
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
 
-    if (userError || !user) {
-      throw new Error("Unauthorized");
+      // Verify user authentication
+      const {
+        data: { user: authUser },
+        error: userError,
+      } = await anonClient.auth.getUser();
+
+      if (userError || !authUser) {
+        throw new Error("Unauthorized");
+      }
+
+      user = authUser;
     }
 
     // Create service role client for database operations
@@ -67,15 +82,19 @@ serve(async (req) => {
       }
     );
 
-    // Verify user is admin
-    const { data: profile, error: profileError } = await supabaseClient
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    // Verify user is admin (skip check in local dev mode)
+    if (!isLocalDev) {
+      const { data: profile, error: profileError } = await supabaseClient
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
-    if (profileError || profile?.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
+      if (profileError || profile?.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+      }
+    } else {
+      console.warn("⚠️ Skipping admin check in local dev mode");
     }
 
     // Parse request body
