@@ -22,8 +22,10 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Request received:", req.method, req.url);
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
+    console.log("Authorization header present:", !!authHeader);
 
     // For local development, allow bypassing auth with a test user ID
     const isLocalDev = Deno.env.get("SUPABASE_URL")?.includes("localhost") ||
@@ -37,7 +39,8 @@ serve(async (req) => {
       user = { id: "00000000-0000-0000-0000-000000000000" }; // Test user ID
     } else {
       if (!authHeader) {
-        throw new Error("No authorization header");
+        console.error("Missing Authorization header");
+        throw new Error("No authorization header provided");
       }
 
       // Create client with anon key for user authentication
@@ -57,16 +60,31 @@ serve(async (req) => {
         }
       );
 
-      // Verify user authentication
+      console.log("Verifying user authentication...");
+
+      // Add timeout to auth check to prevent hanging
+      const authTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Authentication timeout")), 10000);
+      });
+
+      // Verify user authentication with timeout
+      const authPromise = anonClient.auth.getUser();
       const {
         data: { user: authUser },
         error: userError,
-      } = await anonClient.auth.getUser();
+      } = await Promise.race([authPromise, authTimeout]) as any;
 
-      if (userError || !authUser) {
-        throw new Error("Unauthorized");
+      if (userError) {
+        console.error("Auth error:", userError.message);
+        throw new Error(`Authentication failed: ${userError.message}`);
       }
 
+      if (!authUser) {
+        console.error("No user returned from auth check");
+        throw new Error("Invalid or expired authentication token");
+      }
+
+      console.log("User authenticated:", authUser.id);
       user = authUser;
     }
 
@@ -84,15 +102,34 @@ serve(async (req) => {
 
     // Verify user is admin (skip check in local dev mode)
     if (!isLocalDev) {
-      const { data: profile, error: profileError } = await supabaseClient
+      console.log("Checking admin role for user:", user.id);
+
+      const profileTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Profile check timeout")), 10000);
+      });
+
+      const profilePromise = supabaseClient
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (profileError || profile?.role !== "admin") {
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        profileTimeout,
+      ]) as any;
+
+      if (profileError) {
+        console.error("Profile check error:", profileError.message);
+        throw new Error(`Failed to verify user role: ${profileError.message}`);
+      }
+
+      if (profile?.role !== "admin") {
+        console.error("User is not admin:", profile?.role);
         throw new Error("Unauthorized: Admin access required");
       }
+
+      console.log("Admin access verified");
     } else {
       console.warn("⚠️ Skipping admin check in local dev mode");
     }
@@ -177,16 +214,28 @@ serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in create-exam-paper-job:", error);
+
+    // Determine appropriate status code
+    let statusCode = 400;
+    if (error.message?.includes("Unauthorized") || error.message?.includes("authorization")) {
+      statusCode = 401;
+    } else if (error.message?.includes("Admin access required")) {
+      statusCode = 403;
+    } else if (error.message?.includes("timeout")) {
+      statusCode = 504;
+    }
+
     return new Response(
       JSON.stringify({
         error: error.message || "An error occurred",
         details: error.toString(),
+        timestamp: new Date().toISOString(),
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
+        status: statusCode,
       }
     );
   }
