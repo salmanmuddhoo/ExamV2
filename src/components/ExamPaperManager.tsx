@@ -538,6 +538,19 @@ export function ExamPaperManager() {
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setInsertFile(null);
+        // Clear PDF preview URLs to prevent memory leaks and show clean form
+        if (examPaperPreviewUrl) {
+          revokePdfPreviewUrl(examPaperPreviewUrl);
+          setExamPaperPreviewUrl('');
+        }
+        if (markingSchemePreviewUrl) {
+          revokePdfPreviewUrl(markingSchemePreviewUrl);
+          setMarkingSchemePreviewUrl('');
+        }
+        if (insertPreviewUrl) {
+          revokePdfPreviewUrl(insertPreviewUrl);
+          setInsertPreviewUrl('');
+        }
         setExamPaperImages([]);
         setFormKey(prev => prev + 1);
         setIsAdding(false);
@@ -554,6 +567,19 @@ export function ExamPaperManager() {
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setInsertFile(null);
+        // Clear PDF preview URLs to prevent memory leaks and show clean form
+        if (examPaperPreviewUrl) {
+          revokePdfPreviewUrl(examPaperPreviewUrl);
+          setExamPaperPreviewUrl('');
+        }
+        if (markingSchemePreviewUrl) {
+          revokePdfPreviewUrl(markingSchemePreviewUrl);
+          setMarkingSchemePreviewUrl('');
+        }
+        if (insertPreviewUrl) {
+          revokePdfPreviewUrl(insertPreviewUrl);
+          setInsertPreviewUrl('');
+        }
         setExamPaperImages([]);
         setFormKey(prev => prev + 1);
         setIsAdding(false);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { CheckCircle, XCircle, Loader, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, Clock, Trash2 } from 'lucide-react';
 
 interface ProcessingJob {
   id: string;
@@ -23,6 +23,7 @@ interface JobStatusTrackerProps {
 
 export function JobStatusTracker({ userId, onJobComplete }: JobStatusTrackerProps) {
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     // Fetch initial jobs
@@ -86,13 +87,56 @@ export function JobStatusTracker({ userId, onJobComplete }: JobStatusTrackerProp
     setJobs(data || []);
   }
 
+  async function clearCompletedJobs() {
+    setIsClearing(true);
+    try {
+      const { data, error } = await supabase.rpc('clear_completed_processing_jobs');
+
+      if (error) {
+        console.error('Error clearing jobs:', error);
+        alert('Failed to clear completed jobs. Please try again.');
+        return;
+      }
+
+      console.log(`Cleared ${data} completed/failed jobs`);
+      await fetchJobs();
+    } catch (error) {
+      console.error('Error clearing jobs:', error);
+      alert('Failed to clear completed jobs. Please try again.');
+    } finally {
+      setIsClearing(false);
+    }
+  }
+
+  // Check if all jobs are completed or failed (no active jobs)
+  const hasActiveJobs = jobs.some(
+    (job) => job.status === 'pending' || job.status === 'processing'
+  );
+  const hasCompletedJobs = jobs.some(
+    (job) => job.status === 'completed' || job.status === 'failed'
+  );
+  const canClearQueue = jobs.length > 0 && !hasActiveJobs && hasCompletedJobs;
+
   if (jobs.length === 0) {
     return null;
   }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h3 className="text-lg font-semibold mb-4">Processing Queue</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Processing Queue</h3>
+        {canClearQueue && (
+          <button
+            onClick={clearCompletedJobs}
+            disabled={isClearing}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 rounded-lg transition-colors"
+            title="Clear all completed and failed jobs"
+          >
+            <Trash2 className="w-4 h-4" />
+            {isClearing ? 'Clearing...' : 'Clear Queue'}
+          </button>
+        )}
+      </div>
       <div className="space-y-3">
         {jobs.map((job) => (
           <JobStatusItem key={job.id} job={job} />
