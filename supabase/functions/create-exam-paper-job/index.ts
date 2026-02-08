@@ -22,7 +22,40 @@ serve(async (req) => {
   }
 
   try {
-    // Get Supabase client
+    // Get user from auth header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("No authorization header");
+    }
+
+    // Create client with anon key for user authentication
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Verify user authentication
+    const {
+      data: { user },
+      error: userError,
+    } = await anonClient.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Create service role client for database operations
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -33,22 +66,6 @@ serve(async (req) => {
         },
       }
     );
-
-    // Get user from auth header
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser(token);
-
-    if (userError || !user) {
-      throw new Error("Unauthorized");
-    }
 
     // Verify user is admin
     const { data: profile, error: profileError } = await supabaseClient
