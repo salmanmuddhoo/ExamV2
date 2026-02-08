@@ -1,0 +1,223 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+interface CreateJobRequest {
+  examPaperId: string;
+  base64Images: string[];
+  syllabusId?: string;
+  hasInsert?: boolean;
+  priority?: number;
+}
+
+Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    console.log("Request received:", req.method, req.url);
+
+    // Get user from auth header
+    const authHeader = req.headers.get("Authorization");
+    console.log("Authorization header present:", !!authHeader);
+
+    // Check for local development
+    const isLocalDev = Deno.env.get("SUPABASE_URL")?.includes("localhost") ||
+                       Deno.env.get("SUPABASE_URL")?.includes("127.0.0.1");
+
+    let userId: string;
+
+    if (isLocalDev && !authHeader) {
+      // Use a test user ID for local development
+      console.warn("⚠️ Running in local dev mode without auth - using test user");
+      userId = "00000000-0000-0000-0000-000000000000";
+    } else {
+      if (!authHeader) {
+        console.error("Missing Authorization header");
+        throw new Error("Missing authorization header");
+      }
+
+      // Create client with anon key for user authentication
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        {
+          global: {
+            headers: { Authorization: authHeader },
+          },
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+
+      console.log("Verifying user authentication...");
+
+      // Verify user authentication
+      const { data: { user }, error: userError } = await anonClient.auth.getUser();
+
+      if (userError) {
+        console.error("Auth error:", userError.message);
+        throw new Error(`Authentication failed: ${userError.message}`);
+      }
+
+      if (!user) {
+        console.error("No user returned from auth check");
+        throw new Error("Invalid or expired authentication token");
+      }
+
+      console.log("User authenticated:", user.id);
+      userId = user.id;
+    }
+
+    // Create service role client for database operations
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Verify user is admin (skip check in local dev mode)
+    if (!isLocalDev) {
+      console.log("Checking admin role for user:", userId);
+
+      const { data: profile, error: profileError } = await supabaseClient
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+      if (profileError) {
+        console.error("Profile check error:", profileError.message);
+        throw new Error(`Failed to verify user role: ${profileError.message}`);
+      }
+
+      if (profile?.role !== "admin") {
+        console.error("User is not admin:", profile?.role);
+        throw new Error("Unauthorized: Admin access required");
+      }
+
+      console.log("Admin access verified");
+    } else {
+      console.warn("⚠️ Skipping admin check in local dev mode");
+    }
+
+    // Parse request body
+    const body: CreateJobRequest = await req.json();
+    const {
+      examPaperId,
+      base64Images,
+      syllabusId,
+      hasInsert = false,
+      priority = 0,
+    } = body;
+
+    // Validate required fields
+    if (!examPaperId || !base64Images || base64Images.length === 0) {
+      throw new Error("Missing required fields: examPaperId and base64Images");
+    }
+
+    console.log(
+      `Creating job for exam paper ${examPaperId} with ${base64Images.length} images`
+    );
+
+    // Create job in processing_jobs table
+    const { data: job, error: jobError } = await supabaseClient
+      .from("processing_jobs")
+      .insert({
+        job_type: "process_exam_paper",
+        status: "pending",
+        priority,
+        exam_paper_id: examPaperId,
+        payload: {
+          base64Images,
+          syllabusId,
+          hasInsert,
+          imageCount: base64Images.length,
+        },
+        progress_percentage: 0,
+        current_step: "Queued for processing",
+        created_by: userId,
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      console.error("Error creating job:", jobError);
+      throw new Error(`Failed to create job: ${jobError.message}`);
+    }
+
+    console.log(`Job created successfully: ${job.id}`);
+
+    // Trigger background processor asynchronously (fire and forget)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (supabaseUrl && serviceKey) {
+      // Trigger the background processor without waiting for response
+      fetch(`${supabaseUrl}/functions/v1/process-background-jobs`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+          "apikey": serviceKey,
+        },
+        body: JSON.stringify({}),
+      }).catch((err) => {
+        console.error("Failed to trigger background processor:", err);
+        // Non-critical error, job will be picked up eventually
+      });
+    }
+
+    // Return success response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        jobId: job.id,
+        message: "Job created successfully. Processing will begin shortly.",
+        estimatedTime: Math.ceil(base64Images.length * 2), // Rough estimate: 2 seconds per page
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
+  } catch (error: any) {
+    console.error("Error in create-exam-paper-job:", error);
+
+    // Determine appropriate status code
+    let statusCode = 400;
+    if (error.message?.includes("Unauthorized") || error.message?.includes("authorization")) {
+      statusCode = 401;
+    } else if (error.message?.includes("Admin access required")) {
+      statusCode = 403;
+    } else if (error.message?.includes("timeout")) {
+      statusCode = 504;
+    }
+
+    return new Response(
+      JSON.stringify({
+        error: error.message || "An error occurred",
+        details: error.toString(),
+        timestamp: new Date().toISOString(),
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: statusCode,
+      }
+    );
+  }
+});

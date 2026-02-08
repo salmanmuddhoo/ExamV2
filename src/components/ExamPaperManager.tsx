@@ -6,6 +6,7 @@ import { createPdfPreviewUrl, revokePdfPreviewUrl, convertPdfToBase64Images, Pdf
 import { Modal } from './Modal';
 import { useModal } from '../hooks/useModal';
 import { QuestionChapterSummary } from './QuestionChapterSummary';
+import { JobStatusTracker } from './JobStatusTracker';
 
 interface ExamPaper {
   id: string;
@@ -497,54 +498,88 @@ export function ExamPaperManager() {
           }));
         }
 
-        setProcessingStatus('Running AI to extract and split questions...');
+        setProcessingStatus('Creating background processing job...');
 
-        const processingResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-exam-paper`,
+        // Get the user's session token for authentication
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('Authentication required. Please log in again.');
+        }
+
+        // Create a background job instead of processing synchronously
+        const jobResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-exam-paper-job`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
             },
             body: JSON.stringify({
               examPaperId: examPaper.id,
-              pageImages: pageImages,
-              markingSchemeImages: markingSchemeImageData.length > 0 ? markingSchemeImageData : undefined,
-              insertImages: insertImageData.length > 0 ? insertImageData : undefined,
+              base64Images: pageImages.map(p => p.base64Image),
+              syllabusId: formData.syllabus_id || undefined,
+              hasInsert: insertImageData.length > 0,
+              priority: 0,
             }),
           }
         );
 
-
-        if (!processingResponse.ok) {
-          const errorText = await processingResponse.text();
-          throw new Error(`AI processing failed: ${errorText}`);
+        if (!jobResponse.ok) {
+          const errorText = await jobResponse.text();
+          throw new Error(`Failed to create processing job: ${errorText}`);
         }
 
-        const processingResult = await processingResponse.json();
+        const jobResult = await jobResponse.json();
 
         setProcessingStatus('');
         setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setInsertFile(null);
+        // Clear PDF preview URLs to prevent memory leaks and show clean form
+        if (examPaperPreviewUrl) {
+          revokePdfPreviewUrl(examPaperPreviewUrl);
+          setExamPaperPreviewUrl('');
+        }
+        if (markingSchemePreviewUrl) {
+          revokePdfPreviewUrl(markingSchemePreviewUrl);
+          setMarkingSchemePreviewUrl('');
+        }
+        if (insertPreviewUrl) {
+          revokePdfPreviewUrl(insertPreviewUrl);
+          setInsertPreviewUrl('');
+        }
         setExamPaperImages([]);
         setFormKey(prev => prev + 1);
         setIsAdding(false);
         fetchData();
 
-        if (processingResult.questionsCount > 0) {
-          showAlert(`Success! Detected ${processingResult.questionsCount} questions`, 'Upload Successful', 'success');
-        } else {
-          showAlert('Upload successful but no questions detected.', 'Upload Complete', 'warning');
-        }
+        showAlert(
+          `Exam paper uploaded successfully! Processing will complete in the background. You can upload more papers or continue working.`,
+          'Upload Successful',
+          'success'
+        );
       } catch (processingError: any) {
         setProcessingStatus('');
         setFormData({ title: '', subject_id: '', grade_level_id: '', syllabus_id: '', year: new Date().getFullYear(), month: '' });
         setExamPaperFile(null);
         setMarkingSchemeFile(null);
         setInsertFile(null);
+        // Clear PDF preview URLs to prevent memory leaks and show clean form
+        if (examPaperPreviewUrl) {
+          revokePdfPreviewUrl(examPaperPreviewUrl);
+          setExamPaperPreviewUrl('');
+        }
+        if (markingSchemePreviewUrl) {
+          revokePdfPreviewUrl(markingSchemePreviewUrl);
+          setMarkingSchemePreviewUrl('');
+        }
+        if (insertPreviewUrl) {
+          revokePdfPreviewUrl(insertPreviewUrl);
+          setInsertPreviewUrl('');
+        }
         setExamPaperImages([]);
         setFormKey(prev => prev + 1);
         setIsAdding(false);
@@ -761,6 +796,9 @@ export function ExamPaperManager() {
       />
 
       <div>
+        {/* Job Status Tracker - shows background processing jobs */}
+        {user && <JobStatusTracker userId={user.id} onJobComplete={() => fetchData()} />}
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center space-x-3">
           <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-black" />
