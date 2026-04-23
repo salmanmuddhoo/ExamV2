@@ -22,6 +22,18 @@ export function OnboardingTutorial({
   targetElementId
 }: OnboardingTutorialProps) {
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile on mount and window resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (targetElementId && currentStep !== 'completed') {
@@ -44,7 +56,13 @@ export function OnboardingTutorial({
     }
   }, [targetElementId, currentStep]);
 
-  if (currentStep === 'completed') {
+  // Only show on mobile devices
+  if (!isMobile) {
+    return null;
+  }
+
+  // Don't show during these steps to avoid greying out the modal
+  if (currentStep === 'completed' || currentStep === 'select-paper') {
     return null;
   }
 
@@ -52,29 +70,22 @@ export function OnboardingTutorial({
     switch (currentStep) {
       case 'new-conversation':
         return {
-          title: 'Start a New Conversation',
-          description: 'Click the + button to begin chatting with an exam paper',
+          title: 'Step 1: Start a Conversation',
+          description: 'Tap the + button to select an exam paper',
           icon: Plus,
           position: 'bottom' as const
         };
-      case 'select-paper':
-        return {
-          title: 'Select an Exam Paper',
-          description: 'Choose an exam paper you want to study or get help with',
-          icon: MessageSquare,
-          position: 'top' as const
-        };
       case 'toggle-chat':
         return {
-          title: 'Switch to Chat Assistant',
-          description: 'Toggle to the chat view to start asking questions',
+          title: 'Step 3: Switch to Chat',
+          description: 'Tap the chat icon to switch from viewing the exam paper to the AI assistant',
           icon: MessageSquare,
           position: 'bottom' as const
         };
       case 'ask-question':
         return {
-          title: 'Ask Your First Question',
-          description: 'Type a question about the exam paper and press send to get AI-powered help',
+          title: 'Step 4: Ask a Question',
+          description: 'Type your question here and tap send. The AI will help you understand the exam content!',
           icon: Send,
           position: 'top' as const
         };
@@ -164,7 +175,6 @@ export function OnboardingTutorial({
               <div className="flex items-center justify-between">
                 <div className="flex gap-1">
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'new-conversation' ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                  <div className={`w-2 h-2 rounded-full ${currentStep === 'select-paper' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'toggle-chat' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'ask-question' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                 </div>

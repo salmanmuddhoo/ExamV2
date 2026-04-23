@@ -603,8 +603,9 @@ function App() {
 
   const handleCloseWelcomeModalWithOnboarding = () => {
     setShowWelcomeModal(false);
-    // Start onboarding if not completed
-    if (!onboardingCompleted) {
+    // Start onboarding if not completed and on mobile
+    const isMobile = window.innerWidth < 768;
+    if (!onboardingCompleted && isMobile) {
       setOnboardingStep('new-conversation');
     }
   };
