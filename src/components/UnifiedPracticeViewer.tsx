@@ -7,6 +7,7 @@ import { ChatMessage } from './ChatMessage';
 import { ContextualHint } from './ContextualHint';
 import { formatTokenCount } from '../lib/formatUtils';
 import { ChapterQuestionSummary } from './ChapterQuestionSummary';
+import { OnboardingTutorial, OnboardingStep } from './OnboardingTutorial';
 
 interface Props {
   mode: 'year' | 'chapter';
@@ -16,6 +17,8 @@ interface Props {
   onBack: () => void;
   onLoginRequired: () => void;
   onOpenSubscriptions?: () => void;
+  onboardingStep?: OnboardingStep;
+  onOnboardingStepChange?: (step: OnboardingStep) => void;
 }
 
 interface ExamPaper {
@@ -79,7 +82,9 @@ export function UnifiedPracticeViewer({
   chapterId,
   onBack,
   onLoginRequired,
-  onOpenSubscriptions
+  onOpenSubscriptions,
+  onboardingStep = 'completed',
+  onOnboardingStepChange
 }: Props) {
   const { user, profile } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
@@ -771,6 +776,11 @@ export function UnifiedPracticeViewer({
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
 
+    // Complete onboarding when first question is asked
+    if (onboardingStep === 'ask-question' && onOnboardingStepChange) {
+      onOnboardingStepChange('completed');
+    }
+
     try {
       if (mode === 'year') {
         // Year mode: Use existing exam paper logic (similar to ExamViewer)
@@ -1015,7 +1025,7 @@ export function UnifiedPracticeViewer({
 
           {/* Mobile View Toggle */}
           <div className="flex md:hidden relative">
-            <div className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
+            <div id="onboarding-toggle-chat" className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
                   mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
@@ -1030,7 +1040,13 @@ export function UnifiedPracticeViewer({
                 <FileText className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setMobileView('chat')}
+                onClick={() => {
+                  setMobileView('chat');
+                  // Progress onboarding when user switches to chat
+                  if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
+                    onOnboardingStepChange('ask-question');
+                  }
+                }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
                   mobileView === 'chat' ? 'text-white' : 'text-gray-600'
                 }`}
@@ -1388,6 +1404,7 @@ export function UnifiedPracticeViewer({
                   <div className="relative">
                     <form onSubmit={handleSendMessage} className="flex space-x-2">
                       <input
+                        id="onboarding-question-input"
                         data-hint="chat-input"
                         type="text"
                         value={input}
@@ -1551,6 +1568,20 @@ export function UnifiedPracticeViewer({
               setSelectedQuestion(questions[questionIndex]);
             }
           }}
+        />
+      )}
+
+      {/* Onboarding Tutorial */}
+      {onboardingStep !== 'completed' && onOnboardingStepChange && (
+        <OnboardingTutorial
+          currentStep={onboardingStep}
+          onComplete={() => onOnboardingStepChange('completed')}
+          onSkip={() => onOnboardingStepChange('completed')}
+          targetElementId={
+            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' :
+            onboardingStep === 'ask-question' ? 'onboarding-question-input' :
+            undefined
+          }
         />
       )}
     </div>

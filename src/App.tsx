@@ -21,6 +21,7 @@ import { StudyPlanCalendar } from './components/StudyPlanCalendar';
 import { ReferralDashboard } from './components/ReferralDashboard';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { HintTutorialManager } from './components/HintTutorialManager';
+import { OnboardingStep } from './components/OnboardingTutorial';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
@@ -114,6 +115,8 @@ function App() {
   const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPostType | null>(null);
   const [showEmailVerifiedModal, setShowEmailVerifiedModal] = useState(false);
   const [showChatHubProfile, setShowChatHubProfile] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('completed');
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
 
   // Update URL when view changes
   useEffect(() => {
@@ -576,10 +579,62 @@ function App() {
     }
   };
 
+  const checkOnboardingStatus = async () => {
+    if (!user) return;
+
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', user.id)
+        .single();
+
+      if (profileData) {
+        setOnboardingCompleted(profileData.onboarding_completed || false);
+        if (!profileData.onboarding_completed) {
+          // User hasn't completed onboarding
+          setOnboardingStep('new-conversation');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+    }
+  };
+
+  const handleCloseWelcomeModalWithOnboarding = () => {
+    setShowWelcomeModal(false);
+    // Start onboarding if not completed
+    if (!onboardingCompleted) {
+      setOnboardingStep('new-conversation');
+    }
+  };
+
+  const handleOnboardingComplete = async () => {
+    setOnboardingStep('completed');
+    setOnboardingCompleted(true);
+
+    if (user) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ onboarding_completed: true })
+          .eq('id', user.id);
+      } catch (error) {
+        console.error('Error marking onboarding complete:', error);
+      }
+    }
+  };
+
+  const handleOnboardingSkip = async () => {
+    await handleOnboardingComplete();
+  };
+
   useEffect(() => {
     if (initialLoadComplete && user && profile && !isPasswordReset) {
       // Fetch token balance for all users
       fetchTokenBalance();
+      // Check onboarding status
+      checkOnboardingStatus();
 
       if (view === 'login') {
         // All users (including admins) land on chat-hub (homepage)
@@ -915,10 +970,14 @@ function App() {
           showWelcomeModal={showWelcomeModal}
           tokensRemaining={tokensRemaining}
           papersRemaining={papersRemaining}
-          onCloseWelcomeModal={() => setShowWelcomeModal(false)}
+          onCloseWelcomeModal={handleCloseWelcomeModalWithOnboarding}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
           showProfileModal={showChatHubProfile}
           onCloseProfileModal={() => setShowChatHubProfile(false)}
+          onboardingStep={onboardingStep}
+          onOnboardingComplete={handleOnboardingComplete}
+          onOnboardingSkip={handleOnboardingSkip}
+          onOnboardingStepChange={setOnboardingStep}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
@@ -987,6 +1046,8 @@ function App() {
           onBack={handleBackToChatHub}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+          onboardingStep={onboardingStep}
+          onOnboardingStepChange={setOnboardingStep}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
