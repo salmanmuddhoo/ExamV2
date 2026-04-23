@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign, Brain } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign, Brain, Trash2 } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -18,6 +18,7 @@ import { CouponCodeManager } from './CouponCodeManager';
 import { CurrencyExchangeManager } from './CurrencyExchangeManager';
 import { AIModelSettings } from './AIModelSettings';
 import { ReferralConfigManager } from './ReferralConfigManager';
+import { StorageCleanup } from './StorageCleanup';
 
 interface AdminDashboardProps {
   onNavigateHome?: () => void;
@@ -27,7 +28,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'referral-config' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'referral-config' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings' | 'storage-cleanup';
 
 interface MenuItem {
   id: Tab;
@@ -100,6 +101,7 @@ export function AdminDashboard({
         { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
         { id: 'ai-model-settings' as Tab, label: 'AI Model Settings', icon: Brain },
         { id: 'system-settings' as Tab, label: 'System Settings', icon: Settings },
+        { id: 'storage-cleanup' as Tab, label: 'Storage Cleanup', icon: Trash2 },
       ],
     },
     { id: 'analytics' as Tab, label: 'Analytics', icon: BarChart3 },
@@ -341,6 +343,7 @@ export function AdminDashboard({
             {activeTab === 'prompts' && <AIPromptManager />}
             {activeTab === 'ai-model-settings' && <AIModelSettings />}
             {activeTab === 'system-settings' && <SystemSettings />}
+            {activeTab === 'storage-cleanup' && <StorageCleanup />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}
             {activeTab === 'referral-config' && <ReferralConfigManager />}
