@@ -163,8 +163,6 @@ Deno.serve(async (req: Request) => {
 
     const totalStorageBytes = bucketStats.reduce((sum, b) => sum + b.totalSizeBytes, 0);
 
-    const totalStorageBytes = bucketStats.reduce((sum, b) => sum + b.totalSizeBytes, 0);
-
     // Calculate cleanup opportunities for marking schemes (direct DB query)
     const { data: markingSchemeData } = await supabase
       .from('marking_schemes')
