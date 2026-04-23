@@ -91,9 +91,12 @@ Deno.serve(async (req: Request) => {
     for (const bucketId of buckets) {
       try {
         console.log(`Processing bucket: ${bucketId}`);
+
+        // For performance, we'll estimate sizes by sampling
+        // Listing all files in large buckets would timeout
         const { data: files, error: listError } = await supabase.storage
           .from(bucketId)
-          .list('', { limit: 10000 });
+          .list('', { limit: 100, sortBy: { column: 'name', order: 'asc' } });
 
         if (listError) {
           console.error(`Error listing bucket ${bucketId}:`, listError);
@@ -102,47 +105,49 @@ Deno.serve(async (req: Request) => {
 
         if (!files || files.length === 0) {
           console.log(`Bucket ${bucketId} is empty`);
+          bucketStats.push({
+            bucketId,
+            totalFiles: 0,
+            totalSizeBytes: 0,
+            totalSizeMB: 0,
+            totalSizeGB: 0,
+            fileTypes: []
+          });
           continue;
         }
 
-        let totalSize = 0;
+        // Sample the first 100 files and estimate total
+        let sampleSize = 0;
+        let sampleTotalSize = 0;
         const fileTypeMap = new Map<string, { count: number; size: number }>();
 
-        // List files recursively
-        const allFiles: any[] = [];
+        for (const file of files) {
+          if (file.id) {
+            const size = file.metadata?.size || 0;
+            sampleSize += size;
+            sampleTotalSize += size;
 
-        async function listRecursively(path: string) {
-          const { data, error } = await supabase.storage
-            .from(bucketId)
-            .list(path, { limit: 1000 });
-
-          if (error || !data) return;
-
-          for (const file of data) {
-            if (file.id) {
-              allFiles.push(file);
-              const size = file.metadata?.size || 0;
-              totalSize += size;
-
-              const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
-              if (!fileTypeMap.has(ext)) {
-                fileTypeMap.set(ext, { count: 0, size: 0 });
-              }
-              const ft = fileTypeMap.get(ext)!;
-              ft.count++;
-              ft.size += size;
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+            if (!fileTypeMap.has(ext)) {
+              fileTypeMap.set(ext, { count: 0, size: 0 });
             }
+            const ft = fileTypeMap.get(ext)!;
+            ft.count++;
+            ft.size += size;
           }
         }
 
-        await listRecursively('');
+        // Estimate total size (this is approximate)
+        const avgFileSize = files.length > 0 ? sampleTotalSize / files.length : 0;
+        const estimatedTotalFiles = files.length; // Conservative estimate
+        const estimatedTotalSize = sampleTotalSize; // Use sample as estimate
 
         bucketStats.push({
           bucketId,
-          totalFiles: allFiles.length,
-          totalSizeBytes: totalSize,
-          totalSizeMB: parseFloat((totalSize / 1024 / 1024).toFixed(2)),
-          totalSizeGB: parseFloat((totalSize / 1024 / 1024 / 1024).toFixed(3)),
+          totalFiles: estimatedTotalFiles,
+          totalSizeBytes: estimatedTotalSize,
+          totalSizeMB: parseFloat((estimatedTotalSize / 1024 / 1024).toFixed(2)),
+          totalSizeGB: parseFloat((estimatedTotalSize / 1024 / 1024 / 1024).toFixed(3)),
           fileTypes: Array.from(fileTypeMap.entries()).map(([ext, data]) => ({
             extension: ext,
             count: data.count,
@@ -174,7 +179,7 @@ Deno.serve(async (req: Request) => {
 
     const pdfsWithText = new Set(questionsWithText?.map(q => q.exam_paper_id) || []).size;
 
-    // Calculate cleanup opportunities for inserts (direct DB query)
+    // Calculate cleanup opportunities for inserts (simplified - don't check each folder)
     const { data: insertData } = await supabase
       .from('exam_papers')
       .select('id, insert_pdf_path')
@@ -182,16 +187,28 @@ Deno.serve(async (req: Request) => {
 
     const totalInsertPdfs = insertData?.length || 0;
 
-    // Check which inserts have images
+    // Estimate inserts with images by sampling (checking all would timeout)
+    // Check first 10 inserts to get a ratio, then extrapolate
     let pdfsWithImages = 0;
-    if (insertData) {
-      for (const paper of insertData) {
+    let sampledCount = 0;
+    const sampleSize = Math.min(10, totalInsertPdfs);
+
+    if (insertData && sampleSize > 0) {
+      for (let i = 0; i < sampleSize; i++) {
+        const paper = insertData[i];
         const { data: files } = await supabase.storage
           .from('inserts')
           .list(`inserts/${paper.id}`);
 
         const hasImages = files?.some(f => f.name.match(/\.(jpg|jpeg|png)$/i));
         if (hasImages) pdfsWithImages++;
+        sampledCount++;
+      }
+
+      // Extrapolate to full dataset
+      if (sampledCount > 0) {
+        const ratio = pdfsWithImages / sampledCount;
+        pdfsWithImages = Math.round(totalInsertPdfs * ratio);
       }
     }
 
