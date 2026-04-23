@@ -817,6 +817,9 @@ Deno.serve(async (req) => {
     }
 
     // ========== CHECK IF QUESTION REFERENCES INSERT AND LOAD INSERT IMAGES ==========
+    console.log('=== INSERT DETECTION START ===');
+    console.log(`Detected question number: ${detectedQuestionNumber || 'NONE'}`);
+
     if (detectedQuestionNumber) {
       try {
         console.log(`🔍 Checking if question ${detectedQuestionNumber} references insert...`);
@@ -826,6 +829,8 @@ Deno.serve(async (req) => {
           .eq('exam_paper_id', examPaperId)
           .eq('question_number', detectedQuestionNumber)
           .single();
+
+        console.log(`Question ${detectedQuestionNumber} references_insert:`, questionData?.references_insert);
 
         if (!questionError && questionData?.references_insert) {
           console.log(`📎 Question ${detectedQuestionNumber} references insert - loading insert images...`);
@@ -860,26 +865,40 @@ Deno.serve(async (req) => {
                 }
               }
 
-              console.log(`✅ Loaded ${finalExamImages.length} question images + ${insertImages.length} insert images`);
+              console.log(`✅ Successfully loaded ${insertImages.length} insert image(s) from storage`);
+              console.log(`✅ Total context: ${finalExamImages.length} question images + ${insertImages.length} insert images`);
             } else {
-              console.log(`⚠️ Insert PDF URL exists but no insert images found in storage`);
+              console.log(`⚠️ WARNING: Insert PDF URL exists but no insert images found in storage at path: inserts/${examPaperId}`);
+              console.log(`⚠️ This means the exam paper was uploaded before the insert processing fix was deployed.`);
+              console.log(`⚠️ Admin should re-upload this exam paper to process insert images.`);
             }
           } else {
-            console.log(`⚠️ Question references insert but exam paper has no insert_pdf_url`);
+            console.log(`⚠️ Question references insert but exam paper has no insert_pdf_url in database`);
           }
         } else if (!questionError) {
           console.log(`ℹ️ Question ${detectedQuestionNumber} does not reference insert`);
         }
       } catch (insertError) {
-        console.error('Error loading insert images:', insertError);
+        console.error('❌ Error loading insert images:', insertError);
         // Continue without insert images - don't fail the request
       }
+    } else {
+      console.log('⚠️ No question number detected - cannot check if insert is needed');
     }
+
+    console.log('=== INSERT DETECTION END ===');
+    console.log(`Final insert images count: ${insertImages.length}`);
 
     // Separate marking scheme images array
     const markingSchemeImagesArray = markingSchemeImages || [];
 
-    console.log(`Sending to AI: ${finalExamImages.length} question images + ${insertImages.length} insert images + ${markingSchemeImagesArray.length} marking scheme images${markingSchemeText ? ' + marking scheme TEXT' : ''}`);
+    console.log('=== PREPARING AI REQUEST ===');
+    console.log(`📊 Image counts breakdown:`);
+    console.log(`  - Exam question images: ${finalExamImages.length}`);
+    console.log(`  - Insert images: ${insertImages.length}`);
+    console.log(`  - Marking scheme images: ${markingSchemeImagesArray.length}`);
+    console.log(`  - Marking scheme text: ${markingSchemeText ? 'YES' : 'NO'}`);
+    console.log(`📤 Total images being sent to AI: ${finalExamImages.length + insertImages.length + markingSchemeImagesArray.length}`);
 
     // ========== GET AI MODEL (SUBJECT → USER → DEFAULT) ==========
 
@@ -1173,7 +1192,15 @@ Deno.serve(async (req) => {
         // Add EXAM QUESTION images with clear label
         if (finalExamImages.length > 0) {
           currentMessageParts.push({
-            text: `\n\n=== EXAM QUESTION IMAGES (${finalExamImages.length} image${finalExamImages.length > 1 ? 's' : ''}) ===\nThe following images show the exam question that the student is asking about:`
+            text: `\n\n╔═══════════════════════════════════════════════════════════════╗
+║          EXAM QUESTION IMAGES (${finalExamImages.length} image${finalExamImages.length > 1 ? 's' : ''})                    ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📝 TYPE: Main exam question that the student is asking about
+🎯 PURPOSE: This is THE PRIMARY CONTENT you must help the student understand
+⚠️ IMPORTANT: These images contain the actual exam question the student needs help with.
+
+The following images show the exam question:`
           });
 
           const questionImageParts = finalExamImages.map((img) => ({
@@ -1185,7 +1212,17 @@ Deno.serve(async (req) => {
         // Add INSERT REFERENCE images with clear label (if applicable)
         if (insertImages.length > 0) {
           currentMessageParts.push({
-            text: `\n\n=== INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document that students are instructed to refer to. These contain supplementary information needed to answer the question:`
+            text: `\n\n╔═══════════════════════════════════════════════════════════════╗
+║         INSERT REFERENCE IMAGES (${insertImages.length} image${insertImages.length > 1 ? 's' : ''})               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📎 TYPE: Insert/Reference document (separate from main question)
+🎯 PURPOSE: Contains supplementary data/information referenced by the question
+⚠️ IMPORTANT: The exam question explicitly tells students to "refer to the insert" for specific information (e.g., data tables, formulas, diagrams, pseudocode functions, etc.)
+
+CRITICAL: You MUST use the information from these insert images to answer the question correctly. The question cannot be answered without this insert data.
+
+The following images are from the INSERT document that students must refer to:`
           });
 
           const insertImageParts = insertImages.map((img) => ({
@@ -1197,7 +1234,20 @@ Deno.serve(async (req) => {
         // Add MARKING SCHEME images with clear label (if applicable)
         if (markingSchemeImagesArray.length > 0) {
           currentMessageParts.push({
-            text: `\n\n=== MARKING SCHEME IMAGES (${markingSchemeImagesArray.length} image${markingSchemeImagesArray.length > 1 ? 's' : ''}) ===\nThe following images show the marking scheme/answers for this question. Use this as INTERNAL REFERENCE ONLY - do not mention or quote it directly to the student:`
+            text: `\n\n╔═══════════════════════════════════════════════════════════════╗
+║       MARKING SCHEME IMAGES (${markingSchemeImagesArray.length} image${markingSchemeImagesArray.length > 1 ? 's' : ''})               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📋 TYPE: Official marking scheme/answer key
+🎯 PURPOSE: Shows the correct answer and marking points
+⚠️ INTERNAL REFERENCE ONLY: Do NOT quote or mention this directly to the student
+
+Use this information to:
+- Understand what the correct answer looks like
+- Know which concepts/points should be covered
+- Guide the student toward the right approach WITHOUT revealing the answer
+
+The following images show the marking scheme:`
           });
 
           const markingSchemeImageParts = markingSchemeImagesArray.map((img) => ({
@@ -1243,7 +1293,7 @@ Deno.serve(async (req) => {
     }
 
     // Log token usage for monitoring
-    console.log('=== Token Usage ===');
+    console.log('=== TOKEN USAGE & REQUEST SUMMARY ===');
     console.log(`Provider: ${aiModel.provider}`);
     console.log(`Model used: ${modelUsed}`);
     console.log(`Input tokens: ${promptTokenCount}`);
@@ -1256,7 +1306,11 @@ Deno.serve(async (req) => {
         console.log(`Cache created: ${cacheCreated}`);
       }
     }
-    console.log(`Images sent: ${finalExamImages.length}`);
+    console.log('📊 Images sent breakdown:');
+    console.log(`  - Exam question images: ${finalExamImages.length}`);
+    console.log(`  - Insert images: ${insertImages.length}`);
+    console.log(`  - Marking scheme images: ${markingSchemeImagesArray.length}`);
+    console.log(`  - TOTAL: ${finalExamImages.length + insertImages.length + markingSchemeImagesArray.length}`);
 
     // Get model pricing from database for accurate cost calculation
     const { data: modelData, error: modelError } = await supabase
