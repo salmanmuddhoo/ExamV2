@@ -93,19 +93,37 @@ async function createGeminiCache(
   systemPrompt: string,
   questionPrompt: string,
   imageData: string[],
-  model: string = 'gemini-2.5-flash'
+  model: string = 'gemini-2.5-flash',
+  insertImageData: string[] = []
 ): Promise<string | null> {
   const cacheParts: any[] = [
     { text: systemPrompt },
     { text: questionPrompt }
   ];
 
-  const imageParts = imageData.map((img) => ({
-    inline_data: { mime_type: "image/jpeg", data: img }
-  }));
-  cacheParts.push(...imageParts);
+  // Add exam question images with explicit label
+  if (imageData.length > 0) {
+    cacheParts.push({
+      text: `\n\n=== EXAM QUESTION IMAGES (${imageData.length} image${imageData.length > 1 ? 's' : ''}) ===\nThe following images show the exam question the student is asking about:`
+    });
+    const imageParts = imageData.map((img) => ({
+      inline_data: { mime_type: "image/jpeg", data: img }
+    }));
+    cacheParts.push(...imageParts);
+  }
 
-  console.log(`🔨 Creating Gemini cache with ${imageData.length} images...`);
+  // Add insert images with explicit label so the model knows what they are
+  if (insertImageData.length > 0) {
+    cacheParts.push({
+      text: `\n\n=== INSERT REFERENCE IMAGES (${insertImageData.length} image${insertImageData.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document — supplementary material that questions may instruct students to refer to. Use this when the question references the insert.`
+    });
+    const insertParts = insertImageData.map((img) => ({
+      inline_data: { mime_type: "image/jpeg", data: img }
+    }));
+    cacheParts.push(...insertParts);
+  }
+
+  console.log(`🔨 Creating Gemini cache with ${imageData.length} question image(s) + ${insertImageData.length} insert image(s)...`);
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${geminiApiKey}`,
@@ -227,9 +245,10 @@ async function generateWithoutCache(
   questionPrompt: string,
   userMessage: string,
   imageData: string[],
-  model: string = 'gemini-2.5-flash'
+  model: string = 'gemini-2.5-flash',
+  insertImageData: string[] = []
 ): Promise<any> {
-  console.log(`🚀 Generating without cache (content below 4096 token threshold)`);
+  console.log(`🚀 Generating without cache — ${imageData.length} question image(s) + ${insertImageData.length} insert image(s)`);
 
   const messageParts: any[] = [
     { text: systemPrompt },
@@ -237,10 +256,27 @@ async function generateWithoutCache(
     { text: userMessage }
   ];
 
-  const imageParts = imageData.map((img) => ({
-    inline_data: { mime_type: "image/jpeg", data: img }
-  }));
-  messageParts.push(...imageParts);
+  // Add exam question images with explicit label
+  if (imageData.length > 0) {
+    messageParts.push({
+      text: `\n\n=== EXAM QUESTION IMAGES (${imageData.length} image${imageData.length > 1 ? 's' : ''}) ===\nThe following images show the exam question:`
+    });
+    const imageParts = imageData.map((img) => ({
+      inline_data: { mime_type: "image/jpeg", data: img }
+    }));
+    messageParts.push(...imageParts);
+  }
+
+  // Add insert images with explicit label
+  if (insertImageData.length > 0) {
+    messageParts.push({
+      text: `\n\n=== INSERT REFERENCE IMAGES (${insertImageData.length} image${insertImageData.length > 1 ? 's' : ''}) ===\nThe following images are from the INSERT document — supplementary material that questions may instruct students to refer to. Use this when the question references the insert.`
+    });
+    const insertParts = insertImageData.map((img) => ({
+      inline_data: { mime_type: "image/jpeg", data: img }
+    }));
+    messageParts.push(...insertParts);
+  }
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
@@ -816,78 +852,73 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ========== CHECK IF QUESTION REFERENCES INSERT AND LOAD INSERT IMAGES ==========
-    console.log('=== INSERT DETECTION START ===');
-    console.log(`Detected question number: ${detectedQuestionNumber || 'NONE'}`);
+    // ========== LOAD INSERT IMAGES FOR EXAM PAPERS WITH INSERTS ==========
+    // Always load insert images when the exam paper has an insert PDF.
+    // We do NOT rely on the per-question `references_insert` flag because:
+    //  - The flag is set by AI during processing and can be wrong
+    //  - Question-number detection can fail, gating inserts on it is fragile
+    //  - The AI model ignores irrelevant images but NEEDS the insert when relevant
+    console.log('=== INSERT LOADING START ===');
+    console.log(`Detected question number: ${detectedQuestionNumber || 'NONE (will still load inserts if exam has them)'}`);
 
-    if (detectedQuestionNumber) {
-      try {
-        console.log(`🔍 Checking if question ${detectedQuestionNumber} references insert...`);
-        const { data: questionData, error: questionError } = await supabase
-          .from('exam_questions')
-          .select('references_insert')
-          .eq('exam_paper_id', examPaperId)
-          .eq('question_number', detectedQuestionNumber)
-          .single();
+    try {
+      const { data: examPaperForInsert, error: examPaperError } = await supabase
+        .from('exam_papers')
+        .select('insert_pdf_url')
+        .eq('id', examPaperId)
+        .single();
 
-        console.log(`Question ${detectedQuestionNumber} references_insert:`, questionData?.references_insert);
+      if (examPaperError) {
+        console.error('❌ Error fetching exam paper for insert check:', examPaperError);
+      } else if (examPaperForInsert?.insert_pdf_url) {
+        console.log(`📎 Exam paper HAS insert PDF — loading insert images from storage...`);
 
-        if (!questionError && questionData?.references_insert) {
-          console.log(`📎 Question ${detectedQuestionNumber} references insert - loading insert images...`);
+        const { data: insertFiles, error: listError } = await supabase.storage
+          .from('inserts')
+          .list(`inserts/${examPaperId}`);
 
-          // Fetch insert images from storage
-          const { data: examPaper } = await supabase
-            .from('exam_papers')
-            .select('insert_pdf_url')
-            .eq('id', examPaperId)
-            .single();
+        if (listError) {
+          console.error(`❌ Error listing insert images in storage:`, listError);
+        } else if (insertFiles && insertFiles.length > 0) {
+          // Filter to only JPEG image files (exclude the original PDF if it landed here)
+          const imageFiles = insertFiles.filter(f => f.name.match(/\.(jpg|jpeg|png)$/i));
+          console.log(`📄 Found ${insertFiles.length} file(s), ${imageFiles.length} image(s) at inserts/${examPaperId}/`);
 
-          if (examPaper?.insert_pdf_url) {
-            // List all insert images for this exam paper
-            const { data: insertFiles, error: listError } = await supabase.storage
+          for (const file of imageFiles.sort((a, b) => a.name.localeCompare(b.name))) {
+            const { data: imageData, error: downloadError } = await supabase.storage
               .from('inserts')
-              .list(`inserts/${examPaperId}`);
+              .download(`inserts/${examPaperId}/${file.name}`);
 
-            if (!listError && insertFiles && insertFiles.length > 0) {
-              console.log(`📄 Found ${insertFiles.length} insert images`);
-
-              // Download and convert insert images to base64
-              for (const file of insertFiles.sort((a, b) => a.name.localeCompare(b.name))) {
-                const { data: imageData, error: downloadError } = await supabase.storage
-                  .from('inserts')
-                  .download(`inserts/${examPaperId}/${file.name}`);
-
-                if (!downloadError && imageData) {
-                  const arrayBuffer = await imageData.arrayBuffer();
-                  const base64 = arrayBufferToBase64(arrayBuffer);
-                  insertImages.push(base64); // Add to separate insert images array
-                  console.log(`✅ Loaded insert image: ${file.name}`);
-                }
-              }
-
-              console.log(`✅ Successfully loaded ${insertImages.length} insert image(s) from storage`);
-              console.log(`✅ Total context: ${finalExamImages.length} question images + ${insertImages.length} insert images`);
-            } else {
-              console.log(`⚠️ WARNING: Insert PDF URL exists but no insert images found in storage at path: inserts/${examPaperId}`);
-              console.log(`⚠️ This means the exam paper was uploaded before the insert processing fix was deployed.`);
-              console.log(`⚠️ Admin should re-upload this exam paper to process insert images.`);
+            if (downloadError) {
+              console.error(`❌ Failed to download insert image ${file.name}:`, downloadError);
+            } else if (imageData) {
+              const arrayBuffer = await imageData.arrayBuffer();
+              const base64 = arrayBufferToBase64(arrayBuffer);
+              insertImages.push(base64);
+              console.log(`✅ Loaded insert image: ${file.name}`);
             }
-          } else {
-            console.log(`⚠️ Question references insert but exam paper has no insert_pdf_url in database`);
           }
-        } else if (!questionError) {
-          console.log(`ℹ️ Question ${detectedQuestionNumber} does not reference insert`);
+
+          if (insertImages.length > 0) {
+            console.log(`✅ Successfully loaded ${insertImages.length} insert image(s) — will be sent to AI model`);
+          } else {
+            console.log(`⚠️ Found files in storage but none could be downloaded as images`);
+          }
+        } else {
+          console.log(`⚠️ Insert PDF URL exists but NO images found in storage at: inserts/${examPaperId}/`);
+          console.log(`⚠️ This exam paper was likely uploaded before insert image processing was fixed.`);
+          console.log(`⚠️ Admin action required: re-upload this exam paper to generate insert images.`);
         }
-      } catch (insertError) {
-        console.error('❌ Error loading insert images:', insertError);
-        // Continue without insert images - don't fail the request
+      } else {
+        console.log(`ℹ️ Exam paper has NO insert PDF — skipping insert loading`);
       }
-    } else {
-      console.log('⚠️ No question number detected - cannot check if insert is needed');
+    } catch (insertError) {
+      console.error('❌ Unexpected error loading insert images:', insertError);
+      // Continue without inserts — do not fail the whole request
     }
 
-    console.log('=== INSERT DETECTION END ===');
-    console.log(`Final insert images count: ${insertImages.length}`);
+    console.log('=== INSERT LOADING END ===');
+    console.log(`Final insert images count to be sent to AI: ${insertImages.length}`);
 
     // Separate marking scheme images array
     const markingSchemeImagesArray = markingSchemeImages || [];
@@ -1046,13 +1077,14 @@ Deno.serve(async (req) => {
             throw new Error('No cache found and no images provided for follow-up question. Please retry.');
           }
 
-          console.log(`📸 Creating new cache with ${finalExamImages.length} images to maintain context...`);
+          console.log(`📸 Creating new cache with ${finalExamImages.length} question image(s) + ${insertImages.length} insert image(s)...`);
           const cacheName = await createGeminiCache(
             cacheApiKey!,
             contextualSystemPrompt,
             questionPromptText,
             finalExamImages,
-            'gemini-2.5-flash'
+            'gemini-2.5-flash',
+            insertImages
           );
 
           if (cacheName) {
@@ -1085,7 +1117,8 @@ Deno.serve(async (req) => {
               questionPromptText,
               normalizedQuestion,
               finalExamImages,
-              'gemini-2.5-flash'
+              'gemini-2.5-flash',
+              insertImages
             );
           }
         }
@@ -1097,7 +1130,8 @@ Deno.serve(async (req) => {
           contextualSystemPrompt,
           questionPromptText,
           finalExamImages,
-          'gemini-2.5-flash'
+          'gemini-2.5-flash',
+          insertImages
         );
 
         if (cacheName) {
@@ -1132,7 +1166,8 @@ Deno.serve(async (req) => {
             questionPromptText,
             normalizedQuestion,
             finalExamImages,
-            'gemini-2.5-flash'
+            'gemini-2.5-flash',
+            insertImages
           );
         }
       }
