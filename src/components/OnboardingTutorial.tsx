@@ -90,25 +90,31 @@ export function OnboardingTutorial({
 
   return (
     <>
-      {/* Dark overlay that greys out everything */}
-      <div
-        className="fixed inset-0 bg-black/70 transition-opacity z-[9998]"
-        style={{ pointerEvents: 'none' }}
-      />
-
-      {/* Spotlight cutout for highlighted element */}
+      {/* Spotlight cutout for highlighted element - this creates a "hole" in the dark overlay */}
       {highlightRect && (
         <>
-          {/* Create a "hole" in the overlay by using box-shadow */}
+          {/* Dark overlay with a hole cut out for the highlighted element */}
           <div
-            className="fixed z-[9999] pointer-events-none transition-all duration-300"
+            className="fixed z-[9998] pointer-events-none transition-all duration-300"
             style={{
               top: highlightRect.top - 8,
               left: highlightRect.left - 8,
               width: highlightRect.width + 16,
               height: highlightRect.height + 16,
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.85)',
               borderRadius: '12px',
+            }}
+          />
+
+          {/* White glow/highlight around the element to make it stand out */}
+          <div
+            className="fixed z-[9999] pointer-events-none transition-all duration-300 rounded-xl"
+            style={{
+              top: highlightRect.top - 12,
+              left: highlightRect.left - 12,
+              width: highlightRect.width + 24,
+              height: highlightRect.height + 24,
+              boxShadow: '0 0 0 4px rgba(255, 255, 255, 0.3), 0 0 40px 10px rgba(59, 130, 246, 0.5)',
             }}
           />
 
