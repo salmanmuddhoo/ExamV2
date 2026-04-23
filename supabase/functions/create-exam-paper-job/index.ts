@@ -10,6 +10,7 @@ const corsHeaders = {
 interface CreateJobRequest {
   examPaperId: string;
   base64Images: string[];
+  insertBase64Images?: string[];
   syllabusId?: string;
   hasInsert?: boolean;
   priority?: number;
@@ -120,6 +121,7 @@ Deno.serve(async (req: Request) => {
     const {
       examPaperId,
       base64Images,
+      insertBase64Images = [],
       syllabusId,
       hasInsert = false,
       priority = 0,
@@ -144,6 +146,7 @@ Deno.serve(async (req: Request) => {
         exam_paper_id: examPaperId,
         payload: {
           base64Images,
+          insertBase64Images,
           syllabusId,
           hasInsert,
           imageCount: base64Images.length,

@@ -85,9 +85,9 @@ Deno.serve(async (req: Request) => {
 async function processExamPaperJob(job: any, supabase: any) {
   try {
     const { exam_paper_id, payload } = job;
-    const { base64Images, syllabusId, hasInsert } = payload;
+    const { base64Images, insertBase64Images = [], syllabusId, hasInsert } = payload;
 
-    console.log(`Processing exam paper ${exam_paper_id} with ${base64Images.length} images`);
+    console.log(`Processing exam paper ${exam_paper_id} with ${base64Images.length} images, ${insertBase64Images.length} insert images`);
 
     // Update progress: Starting
     await supabase.rpc('update_job_progress', {
@@ -113,6 +113,12 @@ async function processExamPaperJob(job: any, supabase: any) {
       p_current_step: 'Analyzing exam paper with AI'
     });
 
+    // Convert insertBase64Images array to the format expected by process-exam-paper
+    const insertPageImages = insertBase64Images.map((img: string, idx: number) => ({
+      pageNumber: idx + 1,
+      base64Image: img
+    }));
+
     const response = await fetch(processUrl, {
       method: 'POST',
       headers: {
@@ -123,8 +129,8 @@ async function processExamPaperJob(job: any, supabase: any) {
       body: JSON.stringify({
         examPaperId: exam_paper_id,
         pageImages: pageImages,
-        markingSchemeImages: [], // TODO: Add support for marking scheme
-        insertImages: hasInsert ? [] : undefined // TODO: Add support for insert
+        markingSchemeImages: [],
+        insertImages: insertPageImages.length > 0 ? insertPageImages : undefined
       })
     });
 

@@ -519,6 +519,7 @@ export function ExamPaperManager() {
             body: JSON.stringify({
               examPaperId: examPaper.id,
               base64Images: pageImages.map(p => p.base64Image),
+              insertBase64Images: insertImageData.map(p => p.base64Image),
               syllabusId: formData.syllabus_id || undefined,
               hasInsert: insertImageData.length > 0,
               priority: 0,
