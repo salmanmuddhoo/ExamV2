@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign, Brain, Trash2 } from 'lucide-react';
+import { BookOpen, GraduationCap, FileText, MessageSquare, TrendingUp, Users, Settings, BarChart3, CreditCard, UserCog, Wallet, BookMarked, Library, Tag, ChevronDown, ChevronRight, BookOpenCheck, Menu, X, Home, User, Calendar, LogOut, DollarSign, Brain, Trash2, HardDrive } from 'lucide-react';
 import { SubjectManager } from './SubjectManager';
 import { GradeLevelManager } from './GradeLevelManager';
 import { ExamPaperManager } from './ExamPaperManager';
@@ -19,6 +19,7 @@ import { CurrencyExchangeManager } from './CurrencyExchangeManager';
 import { AIModelSettings } from './AIModelSettings';
 import { ReferralConfigManager } from './ReferralConfigManager';
 import { StorageCleanup } from './StorageCleanup';
+import { StorageAnalytics } from './StorageAnalytics';
 
 interface AdminDashboardProps {
   onNavigateHome?: () => void;
@@ -28,7 +29,7 @@ interface AdminDashboardProps {
   onSignOut?: () => void;
 }
 
-type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'referral-config' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings' | 'storage-cleanup';
+type Tab = 'subjects' | 'grades' | 'exams' | 'prompts' | 'analytics' | 'subscriptions' | 'tier-config' | 'payments' | 'payment-methods' | 'coupons' | 'currency-rates' | 'referral-config' | 'syllabus' | 'question-bank' | 'users' | 'system-settings' | 'ai-model-settings' | 'storage-cleanup' | 'storage-analytics';
 
 interface MenuItem {
   id: Tab;
@@ -101,6 +102,7 @@ export function AdminDashboard({
         { id: 'prompts' as Tab, label: 'AI Prompts', icon: MessageSquare },
         { id: 'ai-model-settings' as Tab, label: 'AI Model Settings', icon: Brain },
         { id: 'system-settings' as Tab, label: 'System Settings', icon: Settings },
+        { id: 'storage-analytics' as Tab, label: 'Storage Analytics', icon: HardDrive },
         { id: 'storage-cleanup' as Tab, label: 'Storage Cleanup', icon: Trash2 },
       ],
     },
@@ -343,6 +345,7 @@ export function AdminDashboard({
             {activeTab === 'prompts' && <AIPromptManager />}
             {activeTab === 'ai-model-settings' && <AIModelSettings />}
             {activeTab === 'system-settings' && <SystemSettings />}
+            {activeTab === 'storage-analytics' && <StorageAnalytics />}
             {activeTab === 'storage-cleanup' && <StorageCleanup />}
             {activeTab === 'users' && <UserManagement />}
             {activeTab === 'subscriptions' && <AdminSubscriptionManager />}

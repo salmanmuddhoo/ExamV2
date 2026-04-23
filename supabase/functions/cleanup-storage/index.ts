@@ -141,32 +141,38 @@ Deno.serve(async (req: Request) => {
             // We have the text version, safe to delete PDF
             console.log(`📄 ${paper.title}: Marking scheme PDF can be deleted (text exists in DB)`);
 
+            // Get file size (do this even in dry run to show savings)
+            const pathParts = markingScheme.pdf_path.split('/');
+            const { data: fileData } = await supabase.storage
+              .from('marking-schemes')
+              .list(pathParts.slice(0, -1).join('/'));
+
+            const fileName = pathParts.pop();
+            const fileInfo = fileData?.find(f => f.name === fileName);
+            const fileSize = fileInfo?.metadata?.size || 0;
+
+            result.markingScheme.savedBytes = fileSize;
+            totalSavedBytes += fileSize;
+            totalDeleted++; // Count files that would be/were deleted
+
             if (!dryRun) {
-              // Get file size before deletion
-              const { data: fileData } = await supabase.storage
-                .from('marking-schemes')
-                .list(markingScheme.pdf_path.split('/').slice(0, -1).join('/'));
-
-              const fileName = markingScheme.pdf_path.split('/').pop();
-              const fileInfo = fileData?.find(f => f.name === fileName);
-              const fileSize = fileInfo?.metadata?.size || 0;
-
-              // Delete the PDF
+              // Actually delete the PDF
               const { error: deleteError } = await supabase.storage
                 .from('marking-schemes')
                 .remove([markingScheme.pdf_path]);
 
               if (!deleteError) {
                 result.markingScheme.deleted = true;
-                result.markingScheme.savedBytes = fileSize;
-                totalSavedBytes += fileSize;
-                totalDeleted++;
                 console.log(`✅ Deleted marking scheme PDF: ${markingScheme.pdf_path} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
               } else {
                 console.error(`❌ Failed to delete marking scheme PDF: ${deleteError.message}`);
+                // If deletion failed, don't count the savings
+                totalSavedBytes -= fileSize;
+                totalDeleted--;
+                result.markingScheme.savedBytes = 0;
               }
             } else {
-              console.log(`🔍 DRY RUN: Would delete ${markingScheme.pdf_path}`);
+              console.log(`🔍 DRY RUN: Would delete ${markingScheme.pdf_path} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
             }
           } else {
             console.log(`⚠️ ${paper.title}: Marking scheme PDF kept (no text in DB yet)`);
@@ -203,27 +209,28 @@ Deno.serve(async (req: Request) => {
             // We have the converted images, safe to delete original PDF
             console.log(`📎 ${paper.title}: Insert PDF can be deleted (${imageFiles.length} images exist)`);
 
+            // Get file size (do this even in dry run to show savings)
+            const pathParts = paper.insert_pdf_path.split('/');
+            const { data: fileData } = await supabase.storage
+              .from('inserts')
+              .list(pathParts.slice(0, -1).join('/'));
+
+            const fileName = pathParts.pop();
+            const fileInfo = fileData?.find(f => f.name === fileName);
+            const fileSize = fileInfo?.metadata?.size || 0;
+
+            result.insert.savedBytes = fileSize;
+            totalSavedBytes += fileSize;
+            totalDeleted++; // Count files that would be/were deleted
+
             if (!dryRun) {
-              // Get file size before deletion
-              const pathParts = paper.insert_pdf_path.split('/');
-              const { data: fileData } = await supabase.storage
-                .from('inserts')
-                .list(pathParts.slice(0, -1).join('/'));
-
-              const fileName = pathParts.pop();
-              const fileInfo = fileData?.find(f => f.name === fileName);
-              const fileSize = fileInfo?.metadata?.size || 0;
-
-              // Delete the PDF
+              // Actually delete the PDF
               const { error: deleteError } = await supabase.storage
                 .from('inserts')
                 .remove([paper.insert_pdf_path]);
 
               if (!deleteError) {
                 result.insert.deleted = true;
-                result.insert.savedBytes = fileSize;
-                totalSavedBytes += fileSize;
-                totalDeleted++;
 
                 // Also clear the insert_pdf_url and insert_pdf_path from database
                 await supabase
@@ -237,9 +244,13 @@ Deno.serve(async (req: Request) => {
                 console.log(`✅ Deleted insert PDF: ${paper.insert_pdf_path} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
               } else {
                 console.error(`❌ Failed to delete insert PDF: ${deleteError.message}`);
+                // If deletion failed, don't count the savings
+                totalSavedBytes -= fileSize;
+                totalDeleted--;
+                result.insert.savedBytes = 0;
               }
             } else {
-              console.log(`🔍 DRY RUN: Would delete ${paper.insert_pdf_path}`);
+              console.log(`🔍 DRY RUN: Would delete ${paper.insert_pdf_path} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
             }
           } else {
             console.log(`⚠️ ${paper.title}: Insert PDF kept (no images found yet)`);
