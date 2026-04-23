@@ -83,116 +83,159 @@ Deno.serve(async (req: Request) => {
 
     console.log("=== CALCULATING STORAGE ANALYTICS ===");
 
-    // Get bucket statistics from storage.objects table
-    const { data: bucketData, error: bucketError } = await supabase.rpc('get_storage_stats');
+    // List all storage buckets
+    const buckets = ['exam-papers', 'marking-schemes', 'exam-questions', 'inserts', 'payment-proofs', 'syllabus-files'];
 
-    if (bucketError) {
-      console.error("Error getting bucket stats:", bucketError);
-      // Fallback: query storage.objects directly
-      const { data: objectsData, error: objectsError } = await supabase
-        .from('storage.objects')
-        .select('bucket_id, name, metadata');
+    const bucketStats: BucketStats[] = [];
 
-      if (objectsError) {
-        throw new Error(`Failed to fetch storage data: ${objectsError.message}`);
-      }
+    for (const bucketId of buckets) {
+      try {
+        console.log(`Processing bucket: ${bucketId}`);
+        const { data: files, error: listError } = await supabase.storage
+          .from(bucketId)
+          .list('', { limit: 10000 });
 
-      // Manually aggregate
-      const bucketMap = new Map<string, any>();
-
-      for (const obj of objectsData || []) {
-        if (!bucketMap.has(obj.bucket_id)) {
-          bucketMap.set(obj.bucket_id, {
-            bucketId: obj.bucket_id,
-            totalFiles: 0,
-            totalSizeBytes: 0,
-            fileTypes: new Map()
-          });
+        if (listError) {
+          console.error(`Error listing bucket ${bucketId}:`, listError);
+          continue;
         }
 
-        const bucket = bucketMap.get(obj.bucket_id);
-        bucket.totalFiles++;
-
-        const size = obj.metadata?.size || 0;
-        bucket.totalSizeBytes += size;
-
-        // Extract file extension
-        const ext = obj.name.split('.').pop()?.toLowerCase() || 'unknown';
-        if (!bucket.fileTypes.has(ext)) {
-          bucket.fileTypes.set(ext, { extension: ext, count: 0, sizeBytes: 0 });
+        if (!files || files.length === 0) {
+          console.log(`Bucket ${bucketId} is empty`);
+          continue;
         }
-        const fileType = bucket.fileTypes.get(ext);
-        fileType.count++;
-        fileType.sizeBytes += size;
-      }
 
-      // Convert to array and calculate MB/GB
-      const buckets: BucketStats[] = Array.from(bucketMap.values()).map(bucket => ({
-        bucketId: bucket.bucketId,
-        totalFiles: bucket.totalFiles,
-        totalSizeBytes: bucket.totalSizeBytes,
-        totalSizeMB: parseFloat((bucket.totalSizeBytes / 1024 / 1024).toFixed(2)),
-        totalSizeGB: parseFloat((bucket.totalSizeBytes / 1024 / 1024 / 1024).toFixed(3)),
-        fileTypes: Array.from(bucket.fileTypes.values()).map(ft => ({
-          extension: ft.extension,
-          count: ft.count,
-          sizeBytes: ft.sizeBytes,
-          sizeMB: parseFloat((ft.sizeBytes / 1024 / 1024).toFixed(2))
-        })).sort((a, b) => b.sizeBytes - a.sizeBytes)
-      }));
+        let totalSize = 0;
+        const fileTypeMap = new Map<string, { count: number; size: number }>();
 
-      const totalStorageBytes = buckets.reduce((sum, b) => sum + b.totalSizeBytes, 0);
+        // List files recursively
+        const allFiles: any[] = [];
 
-      // Calculate cleanup opportunities for marking schemes
-      const { data: markingSchemeStats } = await supabase.rpc('get_marking_scheme_cleanup_stats');
+        async function listRecursively(path: string) {
+          const { data, error } = await supabase.storage
+            .from(bucketId)
+            .list(path, { limit: 1000 });
 
-      // Calculate cleanup opportunities for inserts
-      const { data: insertStats } = await supabase.rpc('get_insert_cleanup_stats');
+          if (error || !data) return;
 
-      const analytics: StorageAnalytics = {
-        totalStorageBytes,
-        totalStorageMB: parseFloat((totalStorageBytes / 1024 / 1024).toFixed(2)),
-        totalStorageGB: parseFloat((totalStorageBytes / 1024 / 1024 / 1024).toFixed(3)),
-        buckets,
-        cleanupOpportunities: {
-          markingSchemes: markingSchemeStats || {
-            totalPdfs: 0,
-            pdfsWithText: 0,
-            pdfsWithoutText: 0,
-            potentialSavingsBytes: 0,
-            potentialSavingsMB: 0
-          },
-          inserts: insertStats || {
-            totalPdfs: 0,
-            pdfsWithImages: 0,
-            pdfsWithoutImages: 0,
-            potentialSavingsBytes: 0,
-            potentialSavingsMB: 0
+          for (const file of data) {
+            if (file.id) {
+              allFiles.push(file);
+              const size = file.metadata?.size || 0;
+              totalSize += size;
+
+              const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+              if (!fileTypeMap.has(ext)) {
+                fileTypeMap.set(ext, { count: 0, size: 0 });
+              }
+              const ft = fileTypeMap.get(ext)!;
+              ft.count++;
+              ft.size += size;
+            }
           }
         }
-      };
 
-      console.log(`Total storage: ${analytics.totalStorageGB} GB`);
-      console.log(`Buckets analyzed: ${buckets.length}`);
+        await listRecursively('');
 
-      return new Response(
-        JSON.stringify(analytics),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
+        bucketStats.push({
+          bucketId,
+          totalFiles: allFiles.length,
+          totalSizeBytes: totalSize,
+          totalSizeMB: parseFloat((totalSize / 1024 / 1024).toFixed(2)),
+          totalSizeGB: parseFloat((totalSize / 1024 / 1024 / 1024).toFixed(3)),
+          fileTypes: Array.from(fileTypeMap.entries()).map(([ext, data]) => ({
+            extension: ext,
+            count: data.count,
+            sizeBytes: data.size,
+            sizeMB: parseFloat((data.size / 1024 / 1024).toFixed(2))
+          })).sort((a, b) => b.sizeBytes - a.sizeBytes)
+        });
+
+      } catch (error) {
+        console.error(`Error processing bucket ${bucketId}:`, error);
+      }
     }
 
-    // If RPC function exists and works, use its result
+    const totalStorageBytes = bucketStats.reduce((sum, b) => sum + b.totalSizeBytes, 0);
+
+    const totalStorageBytes = bucketStats.reduce((sum, b) => sum + b.totalSizeBytes, 0);
+
+    // Calculate cleanup opportunities for marking schemes (direct DB query)
+    const { data: markingSchemeData } = await supabase
+      .from('marking_schemes')
+      .select('pdf_path');
+
+    const totalMarkingPdfs = markingSchemeData?.length || 0;
+
+    const { data: questionsWithText } = await supabase
+      .from('exam_questions')
+      .select('exam_paper_id')
+      .not('marking_scheme_text', 'is', null);
+
+    const pdfsWithText = new Set(questionsWithText?.map(q => q.exam_paper_id) || []).size;
+
+    // Calculate cleanup opportunities for inserts (direct DB query)
+    const { data: insertData } = await supabase
+      .from('exam_papers')
+      .select('id, insert_pdf_path')
+      .not('insert_pdf_path', 'is', null);
+
+    const totalInsertPdfs = insertData?.length || 0;
+
+    // Check which inserts have images
+    let pdfsWithImages = 0;
+    if (insertData) {
+      for (const paper of insertData) {
+        const { data: files } = await supabase.storage
+          .from('inserts')
+          .list(`inserts/${paper.id}`);
+
+        const hasImages = files?.some(f => f.name.match(/\.(jpg|jpeg|png)$/i));
+        if (hasImages) pdfsWithImages++;
+      }
+    }
+
+    // Estimate average sizes (15MB for marking schemes, 10MB for inserts)
+    const avgMarkingSchemeSize = 15 * 1024 * 1024; // 15MB
+    const avgInsertSize = 10 * 1024 * 1024; // 10MB
+
+    const analytics: StorageAnalytics = {
+      totalStorageBytes,
+      totalStorageMB: parseFloat((totalStorageBytes / 1024 / 1024).toFixed(2)),
+      totalStorageGB: parseFloat((totalStorageBytes / 1024 / 1024 / 1024).toFixed(3)),
+      buckets: bucketStats,
+      cleanupOpportunities: {
+        markingSchemes: {
+          totalPdfs: totalMarkingPdfs,
+          pdfsWithText,
+          pdfsWithoutText: totalMarkingPdfs - pdfsWithText,
+          potentialSavingsBytes: pdfsWithText * avgMarkingSchemeSize,
+          potentialSavingsMB: parseFloat((pdfsWithText * avgMarkingSchemeSize / 1024 / 1024).toFixed(2)),
+          potentialSavingsGB: parseFloat((pdfsWithText * avgMarkingSchemeSize / 1024 / 1024 / 1024).toFixed(2))
+        },
+        inserts: {
+          totalPdfs: totalInsertPdfs,
+          pdfsWithImages,
+          pdfsWithoutImages: totalInsertPdfs - pdfsWithImages,
+          potentialSavingsBytes: pdfsWithImages * avgInsertSize,
+          potentialSavingsMB: parseFloat((pdfsWithImages * avgInsertSize / 1024 / 1024).toFixed(2)),
+          potentialSavingsGB: parseFloat((pdfsWithImages * avgInsertSize / 1024 / 1024 / 1024).toFixed(2))
+        }
+      }
+    };
+
+    console.log(`Total storage: ${analytics.totalStorageGB} GB`);
+    console.log(`Buckets analyzed: ${bucketStats.length}`);
+    console.log(`Marking schemes - Total: ${totalMarkingPdfs}, With text: ${pdfsWithText}`);
+    console.log(`Inserts - Total: ${totalInsertPdfs}, With images: ${pdfsWithImages}`);
+
     return new Response(
-      JSON.stringify(bucketData),
+      JSON.stringify(analytics),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       }
     );
-
   } catch (error: any) {
     console.error("Error in storage-analytics:", error);
 
