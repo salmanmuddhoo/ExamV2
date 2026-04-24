@@ -590,10 +590,16 @@ function App() {
         .single();
 
       if (profileData) {
-        setOnboardingCompleted(profileData.onboarding_completed || false);
-        if (!profileData.onboarding_completed) {
-          // User hasn't completed onboarding
-          setOnboardingStep('new-conversation');
+        const completed = profileData.onboarding_completed === true;
+        setOnboardingCompleted(completed);
+
+        // If onboarding_completed is FALSE (not NULL, not TRUE), start onboarding
+        // FALSE means welcome modal was closed but onboarding not completed yet
+        if (profileData.onboarding_completed === false) {
+          const isMobile = window.innerWidth < 768;
+          if (isMobile) {
+            setOnboardingStep('new-conversation');
+          }
         }
       }
     } catch (error) {
@@ -601,23 +607,26 @@ function App() {
     }
   };
 
-  const handleCloseWelcomeModalWithOnboarding = () => {
+  const handleCloseWelcomeModalWithOnboarding = async () => {
     setShowWelcomeModal(false);
-    // Start onboarding for mobile users (welcome modal only shows for new free tier users)
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      // Check database for onboarding status
-      if (user) {
-        supabase
+
+    // When welcome modal is closed, set onboarding_completed to FALSE
+    // This triggers the onboarding flow for mobile users
+    if (user) {
+      try {
+        await supabase
           .from('profiles')
-          .select('onboarding_completed')
-          .eq('id', user.id)
-          .single()
-          .then(({ data }) => {
-            if (data && !data.onboarding_completed) {
-              setOnboardingStep('new-conversation');
-            }
-          });
+          .update({ onboarding_completed: false })
+          .eq('id', user.id);
+
+        // Start onboarding on mobile
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+          setOnboardingCompleted(false);
+          setOnboardingStep('new-conversation');
+        }
+      } catch (error) {
+        console.error('Error updating onboarding status:', error);
       }
     }
   };
