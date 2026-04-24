@@ -603,10 +603,22 @@ function App() {
 
   const handleCloseWelcomeModalWithOnboarding = () => {
     setShowWelcomeModal(false);
-    // Start onboarding if not completed and on mobile
+    // Start onboarding for mobile users (welcome modal only shows for new free tier users)
     const isMobile = window.innerWidth < 768;
-    if (!onboardingCompleted && isMobile) {
-      setOnboardingStep('new-conversation');
+    if (isMobile) {
+      // Check database for onboarding status
+      if (user) {
+        supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .single()
+          .then(({ data }) => {
+            if (data && !data.onboarding_completed) {
+              setOnboardingStep('new-conversation');
+            }
+          });
+      }
     }
   };
 
