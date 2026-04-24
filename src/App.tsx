@@ -678,6 +678,12 @@ function App() {
   const handleSelectPaper = (paperId: string) => {
     setSelectedPaperId(paperId);
     setSelectedConversationId(null); // ExamViewer will auto-detect existing conversation
+
+    // Progress onboarding to toggle-chat step when navigating to exam-viewer
+    if (onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat') {
+      setOnboardingStep('toggle-chat');
+    }
+
     setView('exam-viewer');
   };
 
@@ -1028,6 +1034,8 @@ function App() {
           onBack={handleBackToChatHub}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
+          onboardingStep={onboardingStep}
+          onOnboardingStepChange={setOnboardingStep}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
