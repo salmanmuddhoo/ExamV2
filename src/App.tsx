@@ -757,6 +757,12 @@ function App() {
     setSelectedSubjectId(subjectId);
     setSelectedChapterId(chapterId || null);
     setView('unified-viewer');
+
+    // Progress onboarding when mode is selected (paper was selected in modal)
+    if (onboardingStep === 'select-paper') {
+      const isMobile = window.innerWidth < 768;
+      setOnboardingStep(isMobile ? 'toggle-chat' : 'ask-question');
+    }
   };
 
   const handleSelectGrade = (gradeId: string, gradeName: string) => {
