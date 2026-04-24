@@ -10,6 +10,7 @@ import { SubscriptionManager } from './SubscriptionManager';
 import { WelcomeModal } from './WelcomeModal';
 import { ContextualHint } from './ContextualHint';
 import { EventDetailModal } from './EventDetailModal';
+import { OnboardingTutorial, OnboardingStep } from './OnboardingTutorial';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -59,6 +60,10 @@ interface Props {
   onOpenSubscriptions?: () => void;
   showProfileModal?: boolean;
   onCloseProfileModal?: () => void;
+  onboardingStep?: OnboardingStep;
+  onOnboardingComplete?: () => void;
+  onOnboardingSkip?: () => void;
+  onOnboardingStepChange?: (step: OnboardingStep) => void;
 }
 
 export function ChatHub({
@@ -73,7 +78,11 @@ export function ChatHub({
   onCloseWelcomeModal,
   onOpenSubscriptions,
   showProfileModal: externalShowProfileModal = false,
-  onCloseProfileModal
+  onCloseProfileModal,
+  onboardingStep = 'completed',
+  onOnboardingComplete,
+  onOnboardingSkip,
+  onOnboardingStepChange
 }: Props) {
   const { user, signOut } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
@@ -538,12 +547,22 @@ export function ChatHub({
 
   const handleNewConversation = () => {
     setShowPaperModal(true);
+    // Progress onboarding to select-paper step
+    if (onboardingStep === 'new-conversation' && onOnboardingStepChange) {
+      onOnboardingStepChange('select-paper');
+    }
   };
 
   const handlePaperSelected = (paperId: string) => {
     setShowPaperModal(false);
     // Allow user to view the paper - chat access will be checked in ExamViewer
     onSelectPaper(paperId);
+    // Progress onboarding - will continue in UnifiedPracticeViewer
+    if (onboardingStep === 'select-paper' && onOnboardingStepChange) {
+      // Determine if mobile or desktop to set appropriate next step
+      const isMobile = window.innerWidth < 768;
+      onOnboardingStepChange(isMobile ? 'toggle-chat' : 'ask-question');
+    }
   };
 
   const groupedConversations = groupConversationsByGradeAndSubject();
@@ -589,6 +608,7 @@ export function ChatHub({
               <h1 className="text-xl font-bold text-gray-900">My Conversations</h1>
               <div className="relative md:hidden">
                 <button
+                  id="onboarding-new-conversation"
                   data-hint="new-conversation-button"
                   onClick={handleNewConversation}
                   className="p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
@@ -609,6 +629,7 @@ export function ChatHub({
             </div>
             <div className="relative hidden md:block">
               <button
+                id="onboarding-new-conversation"
                 onClick={handleNewConversation}
                 className="w-full px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
               >
@@ -1129,6 +1150,20 @@ export function ChatHub({
           setSelectedEvent(null);
         }}
       />
+
+      {/* Onboarding Tutorial */}
+      {onboardingStep !== 'completed' && onOnboardingComplete && onOnboardingSkip && (
+        <OnboardingTutorial
+          currentStep={onboardingStep}
+          onComplete={onOnboardingComplete}
+          onSkip={onOnboardingSkip}
+          targetElementId={
+            onboardingStep === 'new-conversation' ? 'onboarding-new-conversation' :
+            onboardingStep === 'select-paper' ? 'onboarding-select-paper-modal' :
+            undefined
+          }
+        />
+      )}
     </>
   );
 }

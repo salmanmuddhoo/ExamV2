@@ -21,6 +21,7 @@ import { StudyPlanCalendar } from './components/StudyPlanCalendar';
 import { ReferralDashboard } from './components/ReferralDashboard';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { HintTutorialManager } from './components/HintTutorialManager';
+import { OnboardingStep } from './components/OnboardingTutorial';
 import { supabase } from './lib/supabase';
 import { BlogPost as BlogPostType } from './data/blogPosts';
 
@@ -114,6 +115,8 @@ function App() {
   const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPostType | null>(null);
   const [showEmailVerifiedModal, setShowEmailVerifiedModal] = useState(false);
   const [showChatHubProfile, setShowChatHubProfile] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('completed');
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
 
   // Update URL when view changes
   useEffect(() => {
@@ -576,10 +579,84 @@ function App() {
     }
   };
 
+  const checkOnboardingStatus = async () => {
+    if (!user) return;
+
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', user.id)
+        .single();
+
+      if (profileData) {
+        const completed = profileData.onboarding_completed === true;
+        setOnboardingCompleted(completed);
+
+        // If onboarding_completed is FALSE (not NULL, not TRUE), start onboarding
+        // FALSE means welcome modal was closed but onboarding not completed yet
+        if (profileData.onboarding_completed === false) {
+          const isMobile = window.innerWidth < 768;
+          if (isMobile) {
+            setOnboardingStep('new-conversation');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+    }
+  };
+
+  const handleCloseWelcomeModalWithOnboarding = async () => {
+    setShowWelcomeModal(false);
+
+    // When welcome modal is closed, set onboarding_completed to FALSE
+    // This triggers the onboarding flow for mobile users
+    if (user) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ onboarding_completed: false })
+          .eq('id', user.id);
+
+        // Start onboarding on mobile
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+          setOnboardingCompleted(false);
+          setOnboardingStep('new-conversation');
+        }
+      } catch (error) {
+        console.error('Error updating onboarding status:', error);
+      }
+    }
+  };
+
+  const handleOnboardingComplete = async () => {
+    setOnboardingStep('completed');
+    setOnboardingCompleted(true);
+
+    if (user) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ onboarding_completed: true })
+          .eq('id', user.id);
+      } catch (error) {
+        console.error('Error marking onboarding complete:', error);
+      }
+    }
+  };
+
+  const handleOnboardingSkip = async () => {
+    await handleOnboardingComplete();
+  };
+
   useEffect(() => {
     if (initialLoadComplete && user && profile && !isPasswordReset) {
       // Fetch token balance for all users
       fetchTokenBalance();
+      // Check onboarding status
+      checkOnboardingStatus();
 
       if (view === 'login') {
         // All users (including admins) land on chat-hub (homepage)
@@ -601,6 +678,12 @@ function App() {
   const handleSelectPaper = (paperId: string) => {
     setSelectedPaperId(paperId);
     setSelectedConversationId(null); // ExamViewer will auto-detect existing conversation
+
+    // Progress onboarding to toggle-chat step when navigating to exam-viewer
+    if (onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat') {
+      setOnboardingStep('toggle-chat');
+    }
+
     setView('exam-viewer');
   };
 
@@ -700,6 +783,13 @@ function App() {
     setSelectedGradeId(gradeId);
     setSelectedSubjectId(subjectId);
     setSelectedChapterId(chapterId || null);
+
+    // Progress onboarding to toggle-chat step when navigating to unified-viewer
+    // This handles the case where user quickly selects paper before state updates
+    if (onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat') {
+      setOnboardingStep('toggle-chat');
+    }
+
     setView('unified-viewer');
   };
 
@@ -915,10 +1005,14 @@ function App() {
           showWelcomeModal={showWelcomeModal}
           tokensRemaining={tokensRemaining}
           papersRemaining={papersRemaining}
-          onCloseWelcomeModal={() => setShowWelcomeModal(false)}
+          onCloseWelcomeModal={handleCloseWelcomeModalWithOnboarding}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
           showProfileModal={showChatHubProfile}
           onCloseProfileModal={() => setShowChatHubProfile(false)}
+          onboardingStep={onboardingStep}
+          onOnboardingComplete={handleOnboardingComplete}
+          onOnboardingSkip={handleOnboardingSkip}
+          onOnboardingStepChange={setOnboardingStep}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
@@ -940,6 +1034,8 @@ function App() {
           onBack={handleBackToChatHub}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
+          onboardingStep={onboardingStep}
+          onOnboardingStepChange={setOnboardingStep}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
@@ -987,6 +1083,8 @@ function App() {
           onBack={handleBackToChatHub}
           onLoginRequired={handleNavigateToLogin}
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
+          onboardingStep={onboardingStep}
+          onOnboardingStepChange={setOnboardingStep}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}

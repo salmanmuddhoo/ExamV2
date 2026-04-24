@@ -8,6 +8,7 @@ import { ChatMessage } from './ChatMessage';
 import { formatTokenCount } from '../lib/formatUtils';
 import { ContextualHint } from './ContextualHint';
 import { MobilePdfViewer } from './MobilePdfViewer';
+import { OnboardingTutorial, OnboardingStep } from './OnboardingTutorial';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -38,9 +39,19 @@ interface Props {
   onBack: () => void;
   onLoginRequired: () => void;
   onOpenSubscriptions?: () => void;
+  onboardingStep?: OnboardingStep;
+  onOnboardingStepChange?: (step: OnboardingStep) => void;
 }
 
-export function ExamViewer({ paperId, conversationId, onBack, onLoginRequired, onOpenSubscriptions }: Props) {
+export function ExamViewer({
+  paperId,
+  conversationId,
+  onBack,
+  onLoginRequired,
+  onOpenSubscriptions,
+  onboardingStep = 'completed',
+  onOnboardingStepChange
+}: Props) {
   const { user } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
@@ -1166,7 +1177,7 @@ You can still view and download this exam paper!`
         <div className="flex items-center">
           {/* Mobile View Toggle */}
           <div className="flex md:hidden relative">
-            <div className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
+            <div id="onboarding-toggle-chat" className="relative bg-gray-200 rounded-full p-1 flex items-center" data-hint="exam-chat-toggle">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-black rounded-full transition-transform duration-300 ease-in-out ${
                   mobileView === 'chat' ? 'translate-x-[calc(100%+8px)]' : 'translate-x-0'
@@ -1181,7 +1192,13 @@ You can still view and download this exam paper!`
                 <FileText className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setMobileView('chat')}
+                onClick={() => {
+                  setMobileView('chat');
+                  // Complete onboarding when user switches to chat
+                  if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
+                    onOnboardingStepChange('completed');
+                  }
+                }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
                   mobileView === 'chat' ? 'text-white' : 'text-gray-600'
                 }`}
@@ -1566,6 +1583,18 @@ You can still view and download this exam paper!`
             </div>
           </div>
         </div>
+      )}
+
+      {/* Onboarding Tutorial */}
+      {onboardingStep !== 'completed' && onOnboardingStepChange && (
+        <OnboardingTutorial
+          currentStep={onboardingStep}
+          onComplete={() => onOnboardingStepChange('completed')}
+          onSkip={() => onOnboardingStepChange('completed')}
+          targetElementId={
+            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' : undefined
+          }
+        />
       )}
     </div>
   );
