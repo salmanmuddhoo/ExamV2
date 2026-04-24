@@ -776,11 +776,6 @@ export function UnifiedPracticeViewer({
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
 
-    // Complete onboarding when first question is asked
-    if (onboardingStep === 'ask-question' && onOnboardingStepChange) {
-      onOnboardingStepChange('completed');
-    }
-
     try {
       if (mode === 'year') {
         // Year mode: Use existing exam paper logic (similar to ExamViewer)
@@ -1042,9 +1037,9 @@ export function UnifiedPracticeViewer({
               <button
                 onClick={() => {
                   setMobileView('chat');
-                  // Progress onboarding when user switches to chat
+                  // Complete onboarding when user switches to chat
                   if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
-                    onOnboardingStepChange('ask-question');
+                    onOnboardingStepChange('completed');
                   }
                 }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
@@ -1578,9 +1573,7 @@ export function UnifiedPracticeViewer({
           onComplete={() => onOnboardingStepChange('completed')}
           onSkip={() => onOnboardingStepChange('completed')}
           targetElementId={
-            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' :
-            onboardingStep === 'ask-question' ? 'onboarding-question-input' :
-            undefined
+            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' : undefined
           }
         />
       )}

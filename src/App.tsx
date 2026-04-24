@@ -780,9 +780,9 @@ function App() {
     setView('unified-viewer');
 
     // Progress onboarding when mode is selected (paper was selected in modal)
+    // Onboarding is mobile-only, so always progress to toggle-chat
     if (onboardingStep === 'select-paper') {
-      const isMobile = window.innerWidth < 768;
-      setOnboardingStep(isMobile ? 'toggle-chat' : 'ask-question');
+      setOnboardingStep('toggle-chat');
     }
   };
 

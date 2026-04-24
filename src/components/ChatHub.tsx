@@ -1158,7 +1158,9 @@ export function ChatHub({
           onComplete={onOnboardingComplete}
           onSkip={onOnboardingSkip}
           targetElementId={
-            onboardingStep === 'new-conversation' ? 'onboarding-new-conversation' : undefined
+            onboardingStep === 'new-conversation' ? 'onboarding-new-conversation' :
+            onboardingStep === 'select-paper' ? 'onboarding-select-paper-modal' :
+            undefined
           }
         />
       )}

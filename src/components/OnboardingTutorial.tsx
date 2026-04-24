@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { X, MessageSquare, Plus, Send } from 'lucide-react';
+import { X, MessageSquare, Plus, Send, FileText } from 'lucide-react';
 
 export type OnboardingStep =
   | 'new-conversation'
   | 'select-paper'
   | 'toggle-chat'
-  | 'ask-question'
   | 'completed';
 
 interface OnboardingTutorialProps {
@@ -61,8 +60,8 @@ export function OnboardingTutorial({
     return null;
   }
 
-  // Don't show during these steps to avoid greying out the modal
-  if (currentStep === 'completed' || currentStep === 'select-paper') {
+  // Don't show if completed
+  if (currentStep === 'completed') {
     return null;
   }
 
@@ -75,19 +74,19 @@ export function OnboardingTutorial({
           icon: Plus,
           position: 'bottom' as const
         };
+      case 'select-paper':
+        return {
+          title: 'Step 2: Select an Exam Paper',
+          description: 'Choose any exam paper you want to study',
+          icon: FileText,
+          position: 'top' as const
+        };
       case 'toggle-chat':
         return {
           title: 'Step 3: Switch to Chat',
           description: 'Tap the chat icon to switch from viewing the exam paper to the AI assistant',
           icon: MessageSquare,
           position: 'bottom' as const
-        };
-      case 'ask-question':
-        return {
-          title: 'Step 4: Ask a Question',
-          description: 'Type your question here and tap send. The AI will help you understand the exam content!',
-          icon: Send,
-          position: 'top' as const
         };
       default:
         return null;
@@ -175,8 +174,8 @@ export function OnboardingTutorial({
               <div className="flex items-center justify-between">
                 <div className="flex gap-1">
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'new-conversation' ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                  <div className={`w-2 h-2 rounded-full ${currentStep === 'select-paper' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'toggle-chat' ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                  <div className={`w-2 h-2 rounded-full ${currentStep === 'ask-question' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                 </div>
                 <button
                   onClick={onSkip}
