@@ -777,13 +777,14 @@ function App() {
     setSelectedGradeId(gradeId);
     setSelectedSubjectId(subjectId);
     setSelectedChapterId(chapterId || null);
-    setView('unified-viewer');
 
     // Progress onboarding when mode is selected (paper was selected in modal)
-    // Onboarding is mobile-only, so always progress to toggle-chat
+    // Set onboarding step BEFORE changing view to ensure it's ready
     if (onboardingStep === 'select-paper') {
       setOnboardingStep('toggle-chat');
     }
+
+    setView('unified-viewer');
   };
 
   const handleSelectGrade = (gradeId: string, gradeName: string) => {

@@ -84,7 +84,7 @@ export function OnboardingTutorial({
       case 'toggle-chat':
         return {
           title: 'Step 3: Switch to Chat',
-          description: 'Tap the chat icon to switch from viewing the exam paper to the AI assistant',
+          description: 'Click to switch between exam paper view and chat assistant',
           icon: MessageSquare,
           position: 'bottom' as const
         };
