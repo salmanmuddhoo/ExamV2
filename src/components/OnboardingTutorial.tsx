@@ -22,7 +22,7 @@ export function OnboardingTutorial({
   targetElementId
 }: OnboardingTutorialProps) {
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   // Check if mobile on mount and window resize
   useEffect(() => {

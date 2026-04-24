@@ -465,8 +465,15 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   };
 
   const handlePaperClick = (paper: ExamPaper) => {
-    onSelectPaper(paper.id);
-    handleClose();
+    // For year mode during onboarding or when onSelectMode is available,
+    // navigate to unified viewer instead of exam viewer
+    if (selectedMode === 'year' && onSelectMode && selectedGrade && selectedSubject) {
+      onSelectMode('year', selectedGrade.id, selectedSubject.id);
+      handleClose();
+    } else {
+      onSelectPaper(paper.id);
+      handleClose();
+    }
   };
 
   const handleBack = () => {
