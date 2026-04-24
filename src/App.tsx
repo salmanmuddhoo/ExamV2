@@ -778,9 +778,9 @@ function App() {
     setSelectedSubjectId(subjectId);
     setSelectedChapterId(chapterId || null);
 
-    // Progress onboarding when mode is selected (paper was selected in modal)
-    // Set onboarding step BEFORE changing view to ensure it's ready
-    if (onboardingStep === 'select-paper') {
+    // Progress onboarding to toggle-chat step when navigating to unified-viewer
+    // This handles the case where user quickly selects paper before state updates
+    if (onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat') {
       setOnboardingStep('toggle-chat');
     }
 
