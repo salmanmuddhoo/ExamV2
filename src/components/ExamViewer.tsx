@@ -358,10 +358,39 @@ This helps me give you the most accurate and focused help! 😊`;
         }
       }
     } catch (error) {
-      const { data: { publicUrl } } = supabase.storage
-        .from('exam-papers')
-        .getPublicUrl(examPaper.pdf_path);
-      setPdfBlobUrl(publicUrl || examPaper.pdf_url);
+      console.error('Error loading PDF with signed URL, trying fallback:', error);
+
+      try {
+        // Fallback: try public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('exam-papers')
+          .getPublicUrl(examPaper.pdf_path);
+
+        const fallbackUrl = publicUrl || examPaper.pdf_url;
+        setPdfBlobUrl(fallbackUrl);
+
+        // For mobile: still try to download and convert to images
+        if (isMobile && fallbackUrl) {
+          try {
+            const response = await fetch(fallbackUrl);
+            if (response.ok) {
+              const pdfBlob = await response.blob();
+              setPdfBlobData(pdfBlob);
+
+              // Convert to images for mobile fallback
+              const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
+              const examImages = await convertPdfToBase64Images(examFile);
+              setExamPaperImages(examImages.map(img => img.inlineData.data));
+              console.log(`Converted PDF to ${examImages.length} images for mobile display`);
+            }
+          } catch (conversionError) {
+            console.error('Failed to convert PDF to images:', conversionError);
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        setPdfBlobUrl(examPaper.pdf_url); // Last resort: use original URL
+      }
     } finally {
       setPdfLoading(false);
       setProcessingPdfs(false);
