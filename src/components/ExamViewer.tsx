@@ -1253,15 +1253,7 @@ You can still view and download this exam paper!`
                 <MessageSquare className="w-4 h-4" />
               </button>
             </div>
-            <ContextualHint
-              show={shouldShowHint('mobileToggle') && isMobile && !pdfLoading}
-              onDismiss={() => markHintAsSeen('mobileToggle')}
-              title="Switch Views"
-              message="Toggle between exam paper and chat assistant. View the paper on the left, chat on the right!"
-              position="bottom"
-              arrowAlign="right"
-              delay={1500}
-            />
+            {/* Don't show hint on mobile - onboarding tutorial handles toggle explanation */}
           </div>
 
           {/* Study Plan Calendar - Desktop Only */}

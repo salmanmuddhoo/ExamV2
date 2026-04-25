@@ -616,15 +616,7 @@ export function ChatHub({
                 >
                   <Plus className="w-5 h-5" />
                 </button>
-                <ContextualHint
-                  show={shouldShowHint('chatHubNewConversation') && !loading}
-                  onDismiss={() => markHintAsSeen('chatHubNewConversation')}
-                  title="Start Here!"
-                  message="Tap here to select an exam paper and start practicing with AI assistance."
-                  position="bottom"
-                  arrowAlign="right"
-                  delay={1000}
-                />
+                {/* Don't show hint on mobile - onboarding tutorial handles this */}
               </div>
             </div>
             <div className="relative hidden md:block">
