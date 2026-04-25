@@ -318,7 +318,6 @@ This helps me give you the most accurate and focused help! 😊`;
     if (!examPaper) return;
 
     try {
-      console.log('🔵 Starting PDF load for exam paper:', examPaper.title);
       setPdfLoading(true);
       setProcessingPdfs(true);
       setPdfLoadError(false); // Reset error state
@@ -368,26 +367,21 @@ This helps me give you the most accurate and focused help! 😊`;
           .getPublicUrl(examPaper.pdf_path);
 
         const fallbackUrl = publicUrl || examPaper.pdf_url;
-        console.log('Attempting fallback with URL:', fallbackUrl);
         setPdfBlobUrl(fallbackUrl);
 
         // ALWAYS try to convert to images for mobile compatibility
         // Don't rely on isMobile state which might not be set yet
         if (fallbackUrl) {
           try {
-            console.log('Fetching PDF for image conversion...');
             const response = await fetch(fallbackUrl);
             if (response.ok) {
               const pdfBlob = await response.blob();
-              console.log('PDF fetched, size:', pdfBlob.size, 'bytes');
               setPdfBlobData(pdfBlob);
 
               // Convert to images for mobile display
-              console.log('Converting PDF to images...');
               const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
               const examImages = await convertPdfToBase64Images(examFile);
               setExamPaperImages(examImages.map(img => img.inlineData.data));
-              console.log(`✅ Converted PDF to ${examImages.length} images for display`);
             } else {
               console.error('Failed to fetch PDF:', response.status, response.statusText);
             }
@@ -502,7 +496,6 @@ This helps me give you the most accurate and focused help! 😊`;
   };
 
   const fetchExamPaper = async () => {
-    console.log('🔵 ExamViewer v122e349 - fetchExamPaper called for paperId:', paperId);
     try {
       // Fetch exam paper first - all users can VIEW any paper
       const { data, error } = await supabase
@@ -1193,10 +1186,6 @@ You can still view and download this exam paper!`
 
   return (
     <div ref={containerRef} className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
-      {/* Debug: Code version indicator - shows this is the latest code */}
-      <div className="absolute top-2 right-2 z-50 bg-green-500 text-white text-xs px-2 py-1 rounded shadow">
-        v122e349 ✓
-      </div>
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <button
