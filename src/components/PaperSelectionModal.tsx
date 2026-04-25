@@ -465,15 +465,10 @@ export function PaperSelectionModal({ isOpen, onClose, onSelectPaper, onSelectMo
   };
 
   const handlePaperClick = (paper: ExamPaper) => {
-    // For year mode during onboarding or when onSelectMode is available,
-    // navigate to unified viewer instead of exam viewer
-    if (selectedMode === 'year' && onSelectMode && selectedGrade && selectedSubject) {
-      onSelectMode('year', selectedGrade.id, selectedSubject.id);
-      handleClose();
-    } else {
-      onSelectPaper(paper.id);
-      handleClose();
-    }
+    // Always route to ExamViewer when a specific paper is clicked
+    // This ensures AI chat works (ExamViewer has full chat, UnifiedPracticeViewer year mode doesn't)
+    onSelectPaper(paper.id);
+    handleClose();
   };
 
   const handleBack = () => {
