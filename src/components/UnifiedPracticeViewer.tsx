@@ -669,6 +669,11 @@ export function UnifiedPracticeViewer({
         const examImages = await convertPdfToBase64Images(examFile);
         setExamPaperImages(examImages.map(img => img.inlineData.data));
 
+        // Progress onboarding to step 3 after images are loaded on mobile
+        if (onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat' && onOnboardingStepChange) {
+          onOnboardingStepChange('toggle-chat');
+        }
+
         // Still set URL as fallback
         setPdfBlobUrl(signedData.signedUrl);
       } else {
@@ -694,6 +699,11 @@ export function UnifiedPracticeViewer({
             const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
             const examImages = await convertPdfToBase64Images(examFile);
             setExamPaperImages(examImages.map(img => img.inlineData.data));
+
+            // Progress onboarding to step 3 after images are loaded on mobile
+            if (onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat' && onOnboardingStepChange) {
+              onOnboardingStepChange('toggle-chat');
+            }
           }
         } catch (conversionError) {
           console.error('Fallback image conversion failed:', conversionError);

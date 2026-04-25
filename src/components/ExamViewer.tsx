@@ -342,6 +342,11 @@ This helps me give you the most accurate and focused help! 😊`;
       const examImages = await convertPdfToBase64Images(examFile);
       setExamPaperImages(examImages.map(img => img.inlineData.data));
 
+      // Progress onboarding to step 3 after images are loaded on mobile
+      if (isMobile && onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat' && onOnboardingStepChange) {
+        onOnboardingStepChange('toggle-chat');
+      }
+
       if (examPaper.marking_schemes?.pdf_path) {
         try {
           const { data: schemeData } = await supabase.storage
@@ -382,6 +387,11 @@ This helps me give you the most accurate and focused help! 😊`;
               const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
               const examImages = await convertPdfToBase64Images(examFile);
               setExamPaperImages(examImages.map(img => img.inlineData.data));
+
+              // Progress onboarding to step 3 after images are loaded on mobile
+              if (isMobile && onboardingStep !== 'completed' && onboardingStep !== 'toggle-chat' && onOnboardingStepChange) {
+                onOnboardingStepChange('toggle-chat');
+              }
             } else {
               console.error('Failed to fetch PDF:', response.status, response.statusText);
             }
