@@ -446,6 +446,7 @@ export function UnifiedPracticeViewer({
   };
 
   const fetchPapers = async () => {
+    console.log('🔵 UnifiedPracticeViewer v122e349 - fetchPapers called for grade:', gradeId, 'subject:', subjectId);
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -457,11 +458,15 @@ export function UnifiedPracticeViewer({
         .order('month', { ascending: false });
 
       if (error) throw error;
+      console.log('🔵 Fetched', data?.length || 0, 'exam papers');
       setPapers(data || []);
 
       // Auto-select first paper
       if (data && data.length > 0) {
+        console.log('🔵 Auto-selecting first paper:', data[0].title);
         handlePaperSelect(data[0]);
+      } else {
+        console.log('⚠️ No papers found to auto-select');
       }
     } catch (error) {
     } finally {
@@ -644,21 +649,27 @@ export function UnifiedPracticeViewer({
   };
 
   const handlePaperSelect = async (paper: ExamPaper) => {
+    console.log('🔵 UnifiedPracticeViewer v122e349 - handlePaperSelect called for paper:', paper.title);
     setSelectedPaper(paper);
     setPdfLoading(true);
     setPdfLoadProgress(0);
 
     try {
+      console.log('🔵 Getting signed URL for:', paper.pdf_path);
       // Get signed URL for PDF
       const { data: signedData, error: signedUrlError } = await supabase.storage
         .from('exam-papers')
         .createSignedUrl(paper.pdf_path, 3600);
 
       if (signedUrlError || !signedData?.signedUrl) {
+        console.error('🔴 Failed to get signed URL:', signedUrlError);
         throw new Error('Failed to get signed URL');
       }
 
+      console.log('🔵 Signed URL obtained, isMobile:', isMobile);
+
       if (isMobile) {
+        console.log('🔵 Mobile path: using signed URL directly');
         // For mobile, use signed URL directly (mobile browsers have issues with blob URLs in iframes)
         // Simulate progress for better UX
         for (let i = 0; i <= 100; i += 10) {
@@ -666,16 +677,21 @@ export function UnifiedPracticeViewer({
           await new Promise(resolve => setTimeout(resolve, 50));
         }
         setPdfBlobUrl(signedData.signedUrl);
+        console.log('🔵 PDF URL set for mobile:', signedData.signedUrl);
       } else {
+        console.log('🔵 Desktop path: downloading PDF as blob');
         // For desktop, download with progress tracking and use blob URL
         const pdfBlob = await downloadWithProgress(signedData.signedUrl);
         const url = URL.createObjectURL(pdfBlob);
         setPdfBlobUrl(url);
+        console.log('🔵 PDF blob URL created for desktop');
       }
     } catch (error) {
+      console.error('🔴 Error in handlePaperSelect, trying fallback:', error);
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')
         .getPublicUrl(paper.pdf_path);
+      console.log('🔵 Using fallback public URL:', publicUrl || paper.pdf_url);
       setPdfBlobUrl(publicUrl || paper.pdf_url);
     } finally {
       setPdfLoading(false);
@@ -976,6 +992,10 @@ export function UnifiedPracticeViewer({
 
   return (
     <div ref={containerRef} className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+      {/* Debug: Code version indicator - shows this is the latest code */}
+      <div className="absolute top-2 right-2 z-50 bg-green-500 text-white text-xs px-2 py-1 rounded shadow">
+        v122e349 ✓
+      </div>
       {/* Top Bar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
