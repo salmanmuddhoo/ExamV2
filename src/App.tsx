@@ -1240,7 +1240,7 @@ function App() {
       {/* Welcome Modal for first-time users */}
       <WelcomeModal
         isOpen={showWelcomeModal}
-        onClose={() => setShowWelcomeModal(false)}
+        onClose={handleCloseWelcomeModalWithOnboarding}
         tokensRemaining={tokensRemaining}
         papersRemaining={papersRemaining}
         onUpgrade={() => setShowSubscriptionModal(true)}
