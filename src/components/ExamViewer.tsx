@@ -41,6 +41,7 @@ interface Props {
   onOpenSubscriptions?: () => void;
   onboardingStep?: OnboardingStep;
   onOnboardingStepChange?: (step: OnboardingStep) => void;
+  onOnboardingComplete?: () => void;
 }
 
 export function ExamViewer({
@@ -50,7 +51,8 @@ export function ExamViewer({
   onLoginRequired,
   onOpenSubscriptions,
   onboardingStep = 'completed',
-  onOnboardingStepChange
+  onOnboardingStepChange,
+  onOnboardingComplete
 }: Props) {
   const { user } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
@@ -1236,8 +1238,12 @@ You can still view and download this exam paper!`
                 onClick={() => {
                   setMobileView('chat');
                   // Complete onboarding when user switches to chat
-                  if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
-                    onOnboardingStepChange('completed');
+                  if (onboardingStep === 'toggle-chat') {
+                    if (onOnboardingComplete) {
+                      onOnboardingComplete();
+                    } else if (onOnboardingStepChange) {
+                      onOnboardingStepChange('completed');
+                    }
                   }
                 }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
@@ -1630,8 +1636,8 @@ You can still view and download this exam paper!`
       {onboardingStep !== 'completed' && onOnboardingStepChange && (
         <OnboardingTutorial
           currentStep={onboardingStep}
-          onComplete={() => onOnboardingStepChange('completed')}
-          onSkip={() => onOnboardingStepChange('completed')}
+          onComplete={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
+          onSkip={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
           targetElementId={
             onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' : undefined
           }
