@@ -1087,15 +1087,7 @@ export function UnifiedPracticeViewer({
                 <MessageSquare className="w-4 h-4" />
               </button>
             </div>
-            <ContextualHint
-              show={shouldShowHint('mobileToggle') && isMobile && !pdfLoading && !loading}
-              onDismiss={() => markHintAsSeen('mobileToggle')}
-              title="Switch Views"
-              message="Toggle between practice questions and chat assistant. View questions on the left, chat on the right!"
-              position="bottom"
-              arrowAlign="right"
-              delay={1500}
-            />
+            {/* Don't show hint on mobile - onboarding tutorial handles toggle explanation */}
           </div>
 
           {/* Chapter Summary - Desktop (only for chapter mode) */}
