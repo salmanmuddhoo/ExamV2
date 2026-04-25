@@ -1058,6 +1058,14 @@ function App() {
           selectedGradeFromNavbar={selectedGradeFromNavbar}
         />
         <PWAInstallBanner variant="floating" />
+
+        {/* Subscription Modal */}
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
+        />
       </>
     );
   }
@@ -1118,6 +1126,14 @@ function App() {
           onBack={handleBackToHome}
         />
         <PWAInstallBanner variant="floating" />
+
+        {/* Subscription Modal */}
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
+        />
       </>
     );
   }
@@ -1143,6 +1159,14 @@ function App() {
           onBack={handleBackToBlogList}
         />
         <PWAInstallBanner variant="floating" />
+
+        {/* Subscription Modal */}
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
+        />
       </>
     );
   }
@@ -1202,6 +1226,14 @@ function App() {
         />
         <ReferralDashboard />
         <PWAInstallBanner variant="floating" />
+
+        {/* Subscription Modal */}
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={handleCloseSubscriptionModal}
+          onSuccess={handleSubscriptionSuccess}
+          onNavigateToPayment={handleNavigateToPayment}
+        />
       </>
     );
   }
