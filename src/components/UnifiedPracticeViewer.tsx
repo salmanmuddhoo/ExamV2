@@ -21,6 +21,7 @@ interface Props {
   onOpenSubscriptions?: () => void;
   onboardingStep?: OnboardingStep;
   onOnboardingStepChange?: (step: OnboardingStep) => void;
+  onOnboardingComplete?: () => void;
 }
 
 interface ExamPaper {
@@ -86,7 +87,8 @@ export function UnifiedPracticeViewer({
   onLoginRequired,
   onOpenSubscriptions,
   onboardingStep = 'completed',
-  onOnboardingStepChange
+  onOnboardingStepChange,
+  onOnboardingComplete
 }: Props) {
   const { user, profile } = useAuth();
   const { shouldShowHint, markHintAsSeen } = useFirstTimeHints();
@@ -1070,8 +1072,12 @@ export function UnifiedPracticeViewer({
                 onClick={() => {
                   setMobileView('chat');
                   // Complete onboarding when user switches to chat
-                  if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
-                    onOnboardingStepChange('completed');
+                  if (onboardingStep === 'toggle-chat') {
+                    if (onOnboardingComplete) {
+                      onOnboardingComplete();
+                    } else if (onOnboardingStepChange) {
+                      onOnboardingStepChange('completed');
+                    }
                   }
                 }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
@@ -1609,8 +1615,8 @@ export function UnifiedPracticeViewer({
       {onboardingStep !== 'completed' && onOnboardingStepChange && (
         <OnboardingTutorial
           currentStep={onboardingStep}
-          onComplete={() => onOnboardingStepChange('completed')}
-          onSkip={() => onOnboardingStepChange('completed')}
+          onComplete={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
+          onSkip={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
           targetElementId={
             onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' : undefined
           }

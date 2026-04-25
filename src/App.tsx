@@ -1025,6 +1025,7 @@ function App() {
           onOpenSubscriptions={handleOpenSubscriptionsFromExamViewer}
           onboardingStep={onboardingStep}
           onOnboardingStepChange={setOnboardingStep}
+          onOnboardingComplete={handleOnboardingComplete}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
@@ -1074,6 +1075,7 @@ function App() {
           onOpenSubscriptions={() => setShowSubscriptionModal(true)}
           onboardingStep={onboardingStep}
           onOnboardingStepChange={setOnboardingStep}
+          onOnboardingComplete={handleOnboardingComplete}
         />
         <SubscriptionModal
           isOpen={showSubscriptionModal}
