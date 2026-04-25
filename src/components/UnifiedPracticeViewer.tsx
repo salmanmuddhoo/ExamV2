@@ -3,10 +3,12 @@ import { supabase } from '../lib/supabase';
 import { ArrowLeft, BookOpen, FileText, Loader2, ChevronLeft, ChevronRight, Send, MessageSquare, Lock, Maximize, Minimize, Calendar, X, Clock, CheckCircle2, Circle, List } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirstTimeHints } from '../contexts/FirstTimeHintsContext';
+import { convertPdfToBase64Images } from '../lib/pdfUtils';
 import { ChatMessage } from './ChatMessage';
 import { ContextualHint } from './ContextualHint';
 import { formatTokenCount } from '../lib/formatUtils';
 import { ChapterQuestionSummary } from './ChapterQuestionSummary';
+import { MobilePdfViewer } from './MobilePdfViewer';
 import { OnboardingTutorial, OnboardingStep } from './OnboardingTutorial';
 
 interface Props {
@@ -98,6 +100,7 @@ export function UnifiedPracticeViewer({
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string>('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfLoadProgress, setPdfLoadProgress] = useState(0);
+  const [examPaperImages, setExamPaperImages] = useState<string[]>([]);
 
   // Chapter mode state
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -669,15 +672,19 @@ export function UnifiedPracticeViewer({
       console.log('🔵 Signed URL obtained, isMobile:', isMobile);
 
       if (isMobile) {
-        console.log('🔵 Mobile path: using signed URL directly');
-        // For mobile, use signed URL directly (mobile browsers have issues with blob URLs in iframes)
-        // Simulate progress for better UX
-        for (let i = 0; i <= 100; i += 10) {
-          setPdfLoadProgress(i);
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
+        console.log('🔵 Mobile path: converting PDF to images');
+        // For mobile, convert PDF to images (better compatibility)
+        const pdfBlob = await downloadWithProgress(signedData.signedUrl);
+        console.log('🔵 PDF downloaded, size:', pdfBlob.size, 'bytes');
+
+        const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
+        console.log('🔵 Converting PDF to images...');
+        const examImages = await convertPdfToBase64Images(examFile);
+        setExamPaperImages(examImages.map(img => img.inlineData.data));
+        console.log(`✅ Converted PDF to ${examImages.length} images for mobile display`);
+
+        // Still set URL as fallback
         setPdfBlobUrl(signedData.signedUrl);
-        console.log('🔵 PDF URL set for mobile:', signedData.signedUrl);
       } else {
         console.log('🔵 Desktop path: downloading PDF as blob');
         // For desktop, download with progress tracking and use blob URL
@@ -691,8 +698,27 @@ export function UnifiedPracticeViewer({
       const { data: { publicUrl } } = supabase.storage
         .from('exam-papers')
         .getPublicUrl(paper.pdf_path);
-      console.log('🔵 Using fallback public URL:', publicUrl || paper.pdf_url);
-      setPdfBlobUrl(publicUrl || paper.pdf_url);
+      const fallbackUrl = publicUrl || paper.pdf_url;
+      console.log('🔵 Using fallback public URL:', fallbackUrl);
+      setPdfBlobUrl(fallbackUrl);
+
+      // On mobile, still try to convert to images even with fallback URL
+      if (isMobile && fallbackUrl) {
+        try {
+          console.log('🔵 Fetching PDF from fallback URL for mobile conversion...');
+          const response = await fetch(fallbackUrl);
+          if (response.ok) {
+            const pdfBlob = await response.blob();
+            console.log('🔵 Fallback PDF fetched, converting to images...');
+            const examFile = new File([pdfBlob], 'exam.pdf', { type: 'application/pdf' });
+            const examImages = await convertPdfToBase64Images(examFile);
+            setExamPaperImages(examImages.map(img => img.inlineData.data));
+            console.log(`✅ Fallback: Converted PDF to ${examImages.length} images`);
+          }
+        } catch (conversionError) {
+          console.error('🔴 Fallback image conversion failed:', conversionError);
+        }
+      }
     } finally {
       setPdfLoading(false);
     }
@@ -1179,13 +1205,22 @@ export function UnifiedPracticeViewer({
                   </div>
                 </div>
               ) : pdfBlobUrl && selectedPaper ? (
-                <iframe
-                  key={`${pdfBlobUrl}-${mobileView}`}
-                  src={pdfBlobUrl}
-                  className="w-full h-full border-0"
-                  title={selectedPaper.title}
-                  allow="fullscreen"
-                />
+                // Use MobilePdfViewer for mobile if we have images, otherwise use iframe
+                isMobile && examPaperImages.length > 0 ? (
+                  <MobilePdfViewer
+                    examPaperImages={examPaperImages}
+                    onLoadSuccess={() => console.log('📱 Mobile PDF images loaded successfully')}
+                    onLoadError={() => console.error('📱 Mobile PDF images failed to load')}
+                  />
+                ) : (
+                  <iframe
+                    key={`${pdfBlobUrl}-${mobileView}`}
+                    src={pdfBlobUrl}
+                    className="w-full h-full border-0"
+                    title={selectedPaper.title}
+                    allow="fullscreen"
+                  />
+                )
               ) : (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center max-w-md p-6">
