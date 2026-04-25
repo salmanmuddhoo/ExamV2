@@ -318,6 +318,7 @@ This helps me give you the most accurate and focused help! 😊`;
     if (!examPaper) return;
 
     try {
+      console.log('🔵 Starting PDF load for exam paper:', examPaper.title);
       setPdfLoading(true);
       setProcessingPdfs(true);
       setPdfLoadError(false); // Reset error state
@@ -501,6 +502,7 @@ This helps me give you the most accurate and focused help! 😊`;
   };
 
   const fetchExamPaper = async () => {
+    console.log('🔵 ExamViewer v122e349 - fetchExamPaper called for paperId:', paperId);
     try {
       // Fetch exam paper first - all users can VIEW any paper
       const { data, error } = await supabase
@@ -1191,6 +1193,10 @@ You can still view and download this exam paper!`
 
   return (
     <div ref={containerRef} className="h-screen flex flex-col bg-gray-50 overflow-hidden fixed inset-0">
+      {/* Debug: Code version indicator - shows this is the latest code */}
+      <div className="absolute top-2 right-2 z-50 bg-green-500 text-white text-xs px-2 py-1 rounded shadow">
+        v122e349 ✓
+      </div>
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <button
