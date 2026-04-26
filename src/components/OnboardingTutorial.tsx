@@ -5,6 +5,7 @@ export type OnboardingStep =
   | 'new-conversation'
   | 'select-paper'
   | 'toggle-chat'
+  | 'ask-question'
   | 'completed';
 
 interface OnboardingTutorialProps {
@@ -87,6 +88,13 @@ export function OnboardingTutorial({
           description: 'Click to switch between exam paper view and chat assistant',
           icon: MessageSquare,
           position: 'bottom' as const
+        };
+      case 'ask-question':
+        return {
+          title: 'Step 4: Ask a Question',
+          description: 'Type your question here and press send to get AI assistance',
+          icon: Send,
+          position: 'top' as const
         };
       default:
         return null;

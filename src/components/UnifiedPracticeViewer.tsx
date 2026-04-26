@@ -805,6 +805,15 @@ export function UnifiedPracticeViewer({
     // For chapter mode, ensure a question is selected
     if (mode === 'chapter' && !selectedQuestion) return;
 
+    // Complete onboarding when user sends first message
+    if (onboardingStep === 'ask-question') {
+      if (onOnboardingComplete) {
+        onOnboardingComplete();
+      } else if (onOnboardingStepChange) {
+        onOnboardingStepChange('completed');
+      }
+    }
+
     const userMessage = input.trim();
     setSending(true);
     setInput('');
@@ -1071,13 +1080,9 @@ export function UnifiedPracticeViewer({
               <button
                 onClick={() => {
                   setMobileView('chat');
-                  // Complete onboarding when user switches to chat
-                  if (onboardingStep === 'toggle-chat') {
-                    if (onOnboardingComplete) {
-                      onOnboardingComplete();
-                    } else if (onOnboardingStepChange) {
-                      onOnboardingStepChange('completed');
-                    }
+                  // Progress to step 4 (ask question) when user switches to chat
+                  if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
+                    onOnboardingStepChange('ask-question');
                   }
                 }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
@@ -1434,9 +1439,8 @@ export function UnifiedPracticeViewer({
                   </div>
                 ) : (
                   <div className="relative">
-                    <form onSubmit={handleSendMessage} className="flex space-x-2">
+                    <form onSubmit={handleSendMessage} className="flex space-x-2" id="onboarding-ask-question">
                       <input
-                        id="onboarding-question-input"
                         data-hint="chat-input"
                         type="text"
                         value={input}
@@ -1610,7 +1614,8 @@ export function UnifiedPracticeViewer({
           onComplete={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
           onSkip={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
           targetElementId={
-            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' : undefined
+            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' :
+            onboardingStep === 'ask-question' ? 'onboarding-ask-question' : undefined
           }
         />
       )}
