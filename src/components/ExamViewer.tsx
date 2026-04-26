@@ -860,6 +860,15 @@ This helps me give you the most accurate and focused help! 😊`;
 
     if (!input.trim() || sending || !examPaper) return;
 
+    // Complete onboarding when user sends first message
+    if (onboardingStep === 'ask-question') {
+      if (onOnboardingComplete) {
+        onOnboardingComplete();
+      } else if (onOnboardingStepChange) {
+        onOnboardingStepChange('completed');
+      }
+    }
+
     // Check if user has chat access for this paper (token + paper limit + student package restrictions)
     if (user) {
       // First check if user can use chat with this paper (student package grade/subject restrictions)
@@ -1237,13 +1246,9 @@ You can still view and download this exam paper!`
               <button
                 onClick={() => {
                   setMobileView('chat');
-                  // Complete onboarding when user switches to chat
-                  if (onboardingStep === 'toggle-chat') {
-                    if (onOnboardingComplete) {
-                      onOnboardingComplete();
-                    } else if (onOnboardingStepChange) {
-                      onOnboardingStepChange('completed');
-                    }
+                  // Progress to step 4 (ask question) when user switches to chat
+                  if (onboardingStep === 'toggle-chat' && onOnboardingStepChange) {
+                    onOnboardingStepChange('ask-question');
                   }
                 }}
                 className={`relative z-10 px-4 py-1.5 text-sm font-medium transition-colors duration-300 ${
@@ -1487,7 +1492,7 @@ You can still view and download this exam paper!`
                 </div>
               ) : (
                 <div className="relative">
-                  <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <form onSubmit={handleSendMessage} className="flex space-x-2" id="onboarding-ask-question">
                     <input
                       type="text"
                       value={input}
@@ -1631,7 +1636,8 @@ You can still view and download this exam paper!`
           onComplete={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
           onSkip={onOnboardingComplete || (() => onOnboardingStepChange('completed'))}
           targetElementId={
-            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' : undefined
+            onboardingStep === 'toggle-chat' ? 'onboarding-toggle-chat' :
+            onboardingStep === 'ask-question' ? 'onboarding-ask-question' : undefined
           }
         />
       )}
