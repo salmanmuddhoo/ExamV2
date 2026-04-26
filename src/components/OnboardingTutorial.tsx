@@ -153,7 +153,7 @@ export function OnboardingTutorial({
             style={{
               top: stepConfig.position === 'bottom'
                 ? highlightRect.bottom + 20
-                : highlightRect.top - 140,
+                : highlightRect.top - 180, // Increased offset for ask-question step
               left: Math.max(16, Math.min(
                 window.innerWidth - 400,
                 highlightRect.left + highlightRect.width / 2 - 200
@@ -184,6 +184,7 @@ export function OnboardingTutorial({
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'new-conversation' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'select-paper' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                   <div className={`w-2 h-2 rounded-full ${currentStep === 'toggle-chat' ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                  <div className={`w-2 h-2 rounded-full ${currentStep === 'ask-question' ? 'bg-blue-500' : 'bg-gray-300'}`} />
                 </div>
                 <button
                   onClick={onSkip}
